@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- colorsbymax pre-paint: applies the saved theme before first paint (key: colorsbymax-demo). -->
+    <script>
+      (function(){try{var s=JSON.parse(localStorage.getItem("colorsbymax-demo")||'null');var t=s&&s.v===1&&s.resolved;if(!t||typeof t!=='object')return;var d=document.documentElement.style;for(var k in t){var v=t[k];if(/^[a-z0-9-]+$/.test(k)&&/^#[0-9a-f]{6}$/i.test(v))d.setProperty('--color-'+k,v)}}catch(e){}})()
+    </script>
+    <title>colorsbymax demo</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.jsx"></script>
+  </body>
+</html>

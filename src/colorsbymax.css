@@ -1,0 +1,48 @@
+/* The switcher UI deliberately uses fixed neutral colours instead of theme tokens, so it
+   stays readable while the user tries out an unreadable palette. */
+.theme-switcher {
+  font-family: Inter, sans-serif;
+  line-height: 1.5;
+  letter-spacing: normal;
+}
+
+.theme-switcher h2,
+.theme-switcher h3 {
+  font-family: Inter, sans-serif;
+  letter-spacing: normal;
+}
+
+/* Neutralise host pages that add their own space-y margins, so the panel lays out the same everywhere. */
+.theme-panel .space-y-2 > * + *,
+.theme-panel .space-y-3 > * + *,
+.theme-panel .space-y-4 > * + * {
+  margin-top: 0;
+}
+
+.theme-panel {
+  animation: theme-panel-in 160ms ease-out;
+  transform-origin: top right;
+}
+
+@keyframes theme-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-panel {
+    animation: none;
+  }
+}
+
+.theme-panel summary {
+  list-style: none;
+}
+.theme-panel summary::-webkit-details-marker {
+  display: none;
+}
+.theme-panel details[open] > summary .theme-chevron {
+  transform: rotate(90deg);
+}

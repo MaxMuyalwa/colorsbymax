@@ -1,0 +1,40 @@
+/* colorsbymax default tokens (the neutral Slate theme). Import into a Tailwind v4 project and
+   override any value with your site's own colours in your own @theme block.
+   Utilities like bg-primary and text-ink then follow whatever theme colorsbymax applies. */
+@theme static {
+  --color-primary: #334155;
+  --color-primary-dark: #0f172a;
+  --color-primary-alt: #64748b;
+  --color-on-primary: #ffffff;
+  --color-background: #f8fafc;
+  --color-surface: #ffffff;
+  --color-secondary: #e2e8f0;
+  --color-on-secondary: #1e293b;
+  --color-accent: #eef2f6;
+  --color-on-accent: #1e293b;
+  --color-border: #dbe2ea;
+  --color-shadow: #0f172a;
+  --color-ink: #0f172a;
+  --color-ink-secondary: #475569;
+  --color-ink-muted: #556274;
+  --color-success: #15803d;
+  --color-warning: #b45309;
+  --color-danger: #b91c1c;
+  --color-info: #1d4ed8;
+  --color-data-1: #1d4ed8;
+  --color-data-2: #047857;
+  --color-data-3: #be185d;
+  --color-data-4: #c2410c;
+  --color-data-5: #4b5563;
+  --color-data-6: #7c3aed;
+  --color-data-7: #0e7490;
+  --color-data-8: #4d7c0f;
+  --color-app-background: #e2e8f0;
+  --color-app-input: #d1dbe7;
+  --color-app-border: #c0cddf;
+  --color-app-primary: #334155;
+  --color-app-shadow-dark: #c7d3e2;
+  --color-app-shadow-light: #fcfcfd;
+  --color-app-ink: #0f172a;
+  --color-app-ink-muted: #475569;
+}

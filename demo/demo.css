@@ -1,0 +1,22 @@
+@import "tailwindcss";
+@import "../src/tokens.css";
+/* Compile the switcher's own utility classes. Host sites add the same line pointing at
+   node_modules/colorsbymax/src. */
+@source "../src";
+
+/* The demo's own colours, overriding the neutral defaults. */
+@theme static {
+  --color-primary: #2f6fdb;
+  --color-primary-dark: #1e3a8a;
+  --color-primary-alt: #7c5cff;
+  --color-secondary: #e3ecfb;
+  --color-on-secondary: #1e3a8a;
+  --color-background: #f8fafd;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, sans-serif;
+  background: var(--color-background);
+  color: var(--color-ink);
+}
