@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useState } from 'react'
 import { checkTheme, fixAll, suggestFix } from './contrast.js'
+import { loadLibrary } from './library.js'
+import { collectColors, detectSiteName, inferRoles, suggestThemes } from './scan.js'
 import { DEFAULT_STORAGE_KEY, loadState, sanitizeTokens, saveState } from './storage.js'
 import { BASE_TOKENS, PRESETS, TOKEN_KEYS, completeTokens } from './tokens.js'
 
@@ -27,7 +29,7 @@ const newId = () => `custom-${Date.now().toString(36)}-${Math.random().toString(
 
 /** Resolves a config into the site theme group. The shipped default always comes first. */
 function resolveSite(config) {
-  const siteName = config.siteName || 'This site'
+  const siteName = config.siteName || detectSiteName()
   const defaultTheme = {
     id: 'site-default',
     name: config.defaultTheme?.name || `${siteName} default`,
@@ -53,8 +55,10 @@ export function ThemeProvider({ config = {}, children }) {
   const storageKey = config.storageKey || DEFAULT_STORAGE_KEY
   // Config is read once; it describes the host site and shouldn't change at runtime.
   const [site] = useState(() => resolveSite(config))
-  const { siteName, defaultTheme, siteThemes } = site
+  const { siteName, defaultTheme } = site
   const [state, setState] = useState(() => loadState(storageKey, defaultTheme))
+  // Scan suggestions join the site's own themes in its group.
+  const siteThemes = useMemo(() => [...site.siteThemes, ...(state.scanned?.themes ?? [])], [site.siteThemes, state.scanned])
 
   const allThemes = useMemo(() => [...siteThemes, ...PRESETS, ...state.customs], [siteThemes, state.customs])
   const base =
@@ -134,6 +138,25 @@ export function ThemeProvider({ config = {}, children }) {
     clearOverrides: () => setState((s) => ({ ...s, overrides: {} })),
 
     resetToDefault: () => setState((s) => ({ ...s, activeId: defaultTheme.id, overrides: {} })),
+
+    scanned: state.scanned,
+    /**
+     * Reads the colours painted on the page (ignoring the applied theme) and adds themes built
+     * around them to the site group. Returns a short summary for the UI.
+     */
+    runScan: async () => {
+      const found = inferRoles(collectColors())
+      let library = []
+      try {
+        library = (await loadLibrary()).themes
+      } catch {
+        // Library unavailable (offline): suggest without library matches.
+      }
+      const themes = suggestThemes(found, siteName, library)
+      setState((s) => ({ ...s, scanned: { at: Date.now(), palette: found.palette, themes } }))
+      return { colours: found.palette.length, themes: themes.length }
+    },
+    clearScan: () => setState((s) => ({ ...s, scanned: null })),
 
     fixIssue: (issue) => {
       const fix = suggestFix(issue.pairing, tokens)

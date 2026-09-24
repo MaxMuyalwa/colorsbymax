@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Check, ChevronRight, Copy, Download, ArrowLeft, RotateCcw, Shuffle, Trash2, Upload, Wand2, X } from 'lucide-react'
+import { AlertTriangle, Check, ChevronRight, Copy, Download, ArrowLeft, Loader2, RotateCcw, ScanLine, Shuffle, Trash2, Upload, Wand2, X } from 'lucide-react'
 import { normalizeHex } from './color.js'
 import { checkTheme } from './contrast.js'
 import { loadLibrary } from './library.js'
@@ -232,6 +232,13 @@ function PresetGrid() {
 
   return (
     <div className="space-y-3">
+      <ScanCard
+        onScanned={() => {
+          setCategory('site')
+          setQuery('')
+          setLimit(PAGE_SIZE)
+        }}
+      />
       <p className="text-xs text-zinc-600">
         Current theme: <strong className="font-semibold text-zinc-900">{active.name}</strong>
       </p>
@@ -317,6 +324,67 @@ function PresetGrid() {
   )
 }
 
+/** User-triggered site scan: reads the page's colours and adds themes built around them. */
+function ScanCard({ onScanned }) {
+  const { siteName, scanned, runScan, clearScan } = useTheme()
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState(null)
+
+  const scan = async () => {
+    setBusy(true)
+    setMessage(null)
+    try {
+      const { colours, themes } = await runScan()
+      setMessage(`Found ${colours} colours and added ${themes} themes to ${siteName}.`)
+      onScanned()
+    } catch {
+      setMessage('Couldn’t scan this page. Try again after it has finished loading.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-zinc-900">
+            {scanned ? `Personalised for ${siteName}` : `Personalise for ${siteName}`}
+          </p>
+          <p className="mt-0.5 text-[11px] text-zinc-600">
+            {scanned
+              ? 'Themes built from this site’s colours are in its group below.'
+              : 'Scan this page’s colours to get themes built around them.'}
+          </p>
+        </div>
+        <button type="button" className={`${scanned ? btn : btnPrimary} shrink-0`} onClick={scan} disabled={busy} aria-busy={busy}>
+          {busy ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+          ) : (
+            <ScanLine className="w-3.5 h-3.5" aria-hidden="true" />
+          )}
+          {busy ? 'Scanning…' : scanned ? 'Rescan' : 'Scan site'}
+        </button>
+      </div>
+      {scanned?.palette.length > 0 && (
+        <div className="mt-2.5 flex items-center gap-2">
+          <span className="text-[11px] text-zinc-600">Detected</span>
+          <div className="flex overflow-hidden rounded-md border border-zinc-200" aria-hidden="true">
+            {scanned.palette.map((hex) => (
+              <span key={hex} className="h-4 w-5" style={{ background: hex }} title={hex} />
+            ))}
+          </div>
+          <button type="button" className="ml-auto text-[11px] font-medium text-zinc-600 underline underline-offset-2 hover:text-zinc-900 cursor-pointer" onClick={clearScan}>
+            Remove scan
+          </button>
+        </div>
+      )}
+      <p className="sr-only" role="status" aria-live="polite">{message}</p>
+      {message && <p className="mt-2 text-[11px] text-zinc-700">{message}</p>}
+    </div>
+  )
+}
+
 function ThemeCard({ theme: t, isActive, onSelect }) {
   const { issues } = useTheme()
   const showContrast = useContext(ContrastNav)
@@ -337,7 +405,7 @@ function ThemeCard({ theme: t, isActive, onSelect }) {
       >
         <span className="truncate text-sm font-medium">{t.name}</span>
         <Swatches tokens={t.tokens} />
-        {(isActive || t.custom) && (
+        {(isActive || t.custom || t.scanned) && (
           <span className="flex items-center gap-1.5 text-[11px]">
             {isActive && (
               <span className="flex items-center gap-0.5 font-semibold text-zinc-900">
@@ -345,6 +413,9 @@ function ThemeCard({ theme: t, isActive, onSelect }) {
               </span>
             )}
             {t.custom && <span className="rounded bg-zinc-100 px-1 font-medium text-zinc-700">Custom</span>}
+            {t.scanned && (
+              <span className="rounded bg-sky-50 px-1 font-medium text-sky-900">{t.match ? 'Library match' : 'From scan'}</span>
+            )}
           </span>
         )}
       </button>

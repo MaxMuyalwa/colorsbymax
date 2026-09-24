@@ -14,10 +14,12 @@ const VERSION = 1
  * @property {import('./tokens.js').Theme[]} customs
  * @property {import('./tokens.js').Theme | null} snapshot  Copy of the active library theme, so it
  *   resolves on load without downloading the whole library
+ * @property {{ at: number, palette: string[], themes: import('./tokens.js').Theme[] } | null} scanned
+ *   Result of the last site scan
  */
 
 /** @returns {ThemeState} */
-export const initialState = (defaultId) => ({ activeId: defaultId, overrides: {}, customs: [], snapshot: null })
+export const initialState = (defaultId) => ({ activeId: defaultId, overrides: {}, customs: [], snapshot: null, scanned: null })
 
 /** Keeps only known token keys with valid hex values. */
 export function sanitizeTokens(input) {
@@ -51,11 +53,23 @@ export function loadState(storageKey, defaultTheme) {
     const snap = data.snapshot
     const snapshot =
       snap && typeof snap.id === 'string' && typeof snap.name === 'string' ? { id: snap.id, name: snap.name, tokens: complete(snap.tokens) } : null
+    const sc = data.scanned
+    const scanned =
+      sc && Array.isArray(sc.themes)
+        ? {
+            at: Number(sc.at) || 0,
+            palette: Array.isArray(sc.palette) ? sc.palette.map(normalizeHex).filter(Boolean) : [],
+            themes: sc.themes
+              .filter((t) => t && typeof t.id === 'string' && typeof t.name === 'string')
+              .map((t) => ({ id: t.id, name: t.name, site: true, scanned: true, match: Boolean(t.match), tokens: complete(t.tokens) })),
+          }
+        : null
     return {
       activeId: typeof data.activeId === 'string' ? data.activeId : defaultTheme.id,
       overrides: sanitizeTokens(data.overrides),
       customs,
       snapshot,
+      scanned,
     }
   } catch {
     return fresh

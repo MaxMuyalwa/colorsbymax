@@ -16,3 +16,4 @@ export {
   MIN_RAMP_STEP_DELTA_E,
 } from './contrast.js'
 export { contrastRatio, normalizeHex } from './color.js'
+export { collectColors, inferRoles, suggestThemes, themeFromRoles, detectSiteName } from './scan.js'

@@ -7,6 +7,7 @@ A floating theme switcher for websites. Visitors (or the site's owner) can re-co
 ## Features
 
 - **Site themes first.** The panel opens on a group named after the site, holding its own colours. If those fail contrast, an accessible version is generated automatically.
+- **Scan the site.** Press "Scan site" and colorsbymax reads the colours actually painted on the page (ignoring any theme it has applied, and including gradients). It works out the page background, surfaces, text and brand colours, then adds themes named after the site: Scanned (as found), Accessible, Soft, Bold, Complementary, and the closest library matches. Scans run only when asked, and the results are remembered.
 - **Picks and library.** 5 hand-tuned picks, plus 715 library themes (Bright, Fun, Pastel, Earth tones, Summer, Autumn, Winter, Spring, Ocean, Warm, Nature, Moody, Monochrome, Eclectic) with search and "Surprise me". The library loads only when the panel opens.
 - **Custom palettes, single-colour overrides, JSON import/export.**
 - **Contrast checks.** Problems show as a badge on the theme; the breakdown offers per-item fixes or "Fix all automatically", which changes lightness only.
@@ -52,6 +53,8 @@ This serves `demo/`, a fictional studio site that uses every token group.
    ```
 
 3. **Add the pre-paint script** to `<head>`, as a classic inline `<script>`, using the same storage key. `prePaintScript(storageKey)` returns its source, and `demo/index.html` shows it in place.
+
+Without a `siteName`, the site group is named from the page's `og:site_name`, its title or its host name.
 
 ### Config
 
