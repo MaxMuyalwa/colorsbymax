@@ -11,11 +11,13 @@
   },
   "files": [
     "src",
+    "LICENSE",
     "THIRD_PARTY_NOTICES.md"
   ],
   "scripts": {
     "dev": "vite",
     "build:demo": "vite build",
+    "css": "node scripts/build-css.mjs",
     "presets": "node scripts/generate-presets.mjs"
   },
   "peerDependencies": {
@@ -26,10 +28,12 @@
     "lucide-react": "^1.48.0"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-react": "^6.1.1",
     "nice-color-palettes": "^4.0.0",
     "tailwindcss": "^4.3.3",
     "vite": "^8.3.1"
-  }
+  },
+  "license": "MIT"
 }

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Palette } from 'lucide-react'
 import ThemePanel from './ThemePanel.jsx'
 import { useTheme } from './ThemeProvider.jsx'
-import './colorsbymax.css'
+import panelCss from './panel-css.generated.js'
 
 // Placement: the sticky nav (max-w-5xl, 24px side gutter, top 16px, ~58px tall) spans the
 // top-right corner below ~1200px. There the button sits just under the nav's right end;
@@ -14,7 +15,32 @@ const PANEL_POSITION =
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])'
 
+/** Tag of the element that hosts the switcher's shadow root. The site scan skips it. */
+export const HOST_TAG = 'colorsbymax-root'
+
+/**
+ * Renders the switcher into a shadow root on <body> that carries its own stylesheet, so it
+ * needs nothing from the host site's CSS and the host's CSS can't restyle it.
+ */
 export default function ThemeSwitcher() {
+  const [mount, setMount] = useState(null)
+
+  useEffect(() => {
+    const host = document.createElement(HOST_TAG)
+    const shadow = host.attachShadow({ mode: 'open' })
+    const style = document.createElement('style')
+    style.textContent = panelCss
+    const container = document.createElement('div')
+    shadow.append(style, container)
+    document.body.append(host)
+    setMount(container)
+    return () => host.remove()
+  }, [])
+
+  return mount && createPortal(<Switcher />, mount)
+}
+
+function Switcher() {
   const { issues } = useTheme()
   const [open, setOpen] = useState(false)
   const buttonRef = useRef(null)
@@ -28,6 +54,10 @@ export default function ThemeSwitcher() {
   useEffect(() => {
     if (!open) return
     const panel = panelRef.current
+    const root = panel.getRootNode()
+    // Inside the shadow root, the document only sees the host element as focused or clicked.
+    const focused = () => root.activeElement ?? document.activeElement
+    const inside = (e, el) => e.composedPath().includes(el)
     panel.querySelector(FOCUSABLE)?.focus()
 
     const onKeyDown = (e) => {
@@ -42,16 +72,16 @@ export default function ThemeSwitcher() {
       if (!items.length) return
       const first = items[0]
       const last = items[items.length - 1]
-      if (e.shiftKey && (document.activeElement === first || !panel.contains(document.activeElement))) {
+      if (e.shiftKey && (focused() === first || !panel.contains(focused()))) {
         e.preventDefault()
         last.focus()
-      } else if (!e.shiftKey && (document.activeElement === last || !panel.contains(document.activeElement))) {
+      } else if (!e.shiftKey && (focused() === last || !panel.contains(focused()))) {
         e.preventDefault()
         first.focus()
       }
     }
     const onPointerDown = (e) => {
-      if (panel.contains(e.target) || buttonRef.current.contains(e.target)) return
+      if (inside(e, panel) || inside(e, buttonRef.current)) return
       setOpen(false)
       // Return focus to the button, unless the click landed on another control that took it.
       setTimeout(() => {

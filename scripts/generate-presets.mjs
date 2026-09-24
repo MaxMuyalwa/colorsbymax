@@ -10,9 +10,9 @@
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { deltaE, hexToRgb, hslToRgb, rgbToHex, rgbToHsl } from '../src/theme/color.js'
-import { checkTheme, fixAll } from '../src/theme/contrast.js'
-import { TOKEN_KEYS, deriveAppTokens } from '../src/theme/tokens.js'
+import { deltaE, hexToRgb, hslToRgb, rgbToHex, rgbToHsl } from '../src/color.js'
+import { checkTheme, fixAll } from '../src/contrast.js'
+import { TOKEN_KEYS, deriveAppTokens } from '../src/tokens.js'
 
 const require = createRequire(import.meta.url)
 const SOURCE = require('nice-color-palettes/1000.json')

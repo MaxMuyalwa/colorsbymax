@@ -1,8 +1,5 @@
 @import "tailwindcss";
 @import "../src/tokens.css";
-/* Compile the switcher's own utility classes. Host sites add the same line pointing at
-   node_modules/colorsbymax/src. */
-@source "../src";
 
 /* The demo's own colours, overriding the neutral defaults. */
 @theme static {

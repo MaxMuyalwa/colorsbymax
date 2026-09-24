@@ -1,22 +1,24 @@
-/* The switcher UI deliberately uses fixed neutral colours instead of theme tokens, so it
-   stays readable while the user tries out an unreadable palette. */
+/* Source for the switcher's own stylesheet. scripts/build-css.mjs compiles it with Tailwind into
+   src/panel-css.generated.js, which ThemeSwitcher loads into its shadow root. Host sites don't
+   need Tailwind, and their styles can't reach the panel.
+
+   The UI deliberately uses fixed neutral colours instead of theme tokens, so it stays readable
+   while the user tries out an unreadable palette. */
+@import "tailwindcss" source(none);
+@source "./ThemeSwitcher.jsx";
+@source "./ThemePanel.jsx";
+
+/* Start from a clean slate: nothing the host page sets inherits into the panel. */
+:host {
+  all: initial;
+}
+
 .theme-switcher {
-  font-family: Inter, sans-serif;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 16px;
   line-height: 1.5;
   letter-spacing: normal;
-}
-
-.theme-switcher h2,
-.theme-switcher h3 {
-  font-family: Inter, sans-serif;
-  letter-spacing: normal;
-}
-
-/* Neutralise host pages that add their own space-y margins, so the panel lays out the same everywhere. */
-.theme-panel .space-y-2 > * + *,
-.theme-panel .space-y-3 > * + *,
-.theme-panel .space-y-4 > * + * {
-  margin-top: 0;
+  color: var(--color-zinc-900);
 }
 
 .theme-panel {

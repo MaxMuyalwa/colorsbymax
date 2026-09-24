@@ -77,7 +77,7 @@ function withoutAppliedTheme(fn) {
  * as text (by length × font size²) and as a border.
  * @param {{ exclude?: string }} [options]  selector for UI to skip, e.g. the switcher itself
  */
-export function collectColors({ exclude = '.theme-switcher' } = {}) {
+export function collectColors({ exclude = 'colorsbymax-root, .theme-switcher' } = {}) {
   return withoutAppliedTheme(() => {
     const parse = createColorParser()
     /** @type {Map<string, { hex: string, bg: number, text: number, border: number }>} */

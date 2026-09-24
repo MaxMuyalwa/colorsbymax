@@ -23,6 +23,7 @@ export default function ThemePanel({ onClose }) {
   const overrideCount = Object.keys(theme.state.overrides).length
   const [view, setView] = useState('main')
   const returnFocus = useRef(null)
+  const rootRef = useRef(null)
 
   const showContrast = (from) => {
     returnFocus.current = from
@@ -33,13 +34,13 @@ export default function ThemePanel({ onClose }) {
     // After "Fix all" the badge that opened the breakdown is gone; fall back to the active card.
     const target = returnFocus.current.isConnected
       ? returnFocus.current
-      : document.querySelector('#theme-panel [data-theme-grid] button[aria-pressed="true"]')
+      : rootRef.current?.querySelector('[data-theme-grid] button[aria-pressed="true"]')
     target?.focus()
     returnFocus.current = null
   }, [view])
 
   return (
-    <div className="flex flex-col">
+    <div ref={rootRef} className="flex flex-col">
       <header className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-zinc-200 bg-white px-4 py-3">
         <div>
           <h2 id="theme-panel-title" className="text-base font-semibold tracking-tight">
