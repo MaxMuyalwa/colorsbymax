@@ -2,6 +2,10 @@
 
 What changed in each colorsbymax release. Update with `npm install colorsbymax@latest`.
 
+## Unreleased
+
+- **The panel's header shows the mrmaxdesigns mark** (three slanted bars) before "colorsbymax", in the current theme's colours, deepened or lightened so each bar stands out on the light or dark panel.
+
 ## 0.3.2 (2026-09-25)
 
 - **`defaultMode` config option:** the mode first-time visitors start in, `'light'` (the default), `'dark'` or `'system'` to follow their device. Any site can start dark, since every theme has a dark twin, and visitors can still switch. The colorsbymax site now opens in dark mode.

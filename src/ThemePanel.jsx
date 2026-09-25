@@ -5,6 +5,10 @@ import { checkTheme } from './contrast.js'
 import { coloursFromFile, themeFromPalette } from './extract.js'
 import { BRING_BACK_PROMPT, cssSnippet, keepPrompt, keepSnippet, NODE_PROD, removePrompt, VITE_PROD } from './finish.js'
 import { TOGGLE_CSS, TOGGLE_HTML, TOGGLE_PROMPT, TOGGLE_REACT, isPreviewing, previewToggle, removePreview } from './modeToggle.js'
+import { LogoMark } from './logoMark.jsx'
+
+// The dark panel's background (--color-white in panel.css's dark palette), for the logo mark.
+const PANEL_DARK = '#18181b'
 import { loadLibrary } from './library.js'
 import { inMode } from './modes.js'
 import { PANEL_PRESETS, useSettings } from './settings.js'
@@ -90,11 +94,15 @@ export default function ThemePanel() {
     {/* The panel scrolls inside the dialog, so toasts can sit fixed at its bottom edge. */}
     <div ref={rootRef} className="theme-scroll @container flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain rounded-[inherit]">
       <header className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-zinc-200 bg-white px-4 py-3">
-        <div>
-          <h2 id="theme-panel-title" className="text-base font-semibold tracking-tight">
-            colorsbymax<span className="align-super text-[10px] font-medium">™</span>
-          </h2>
-          <p className="text-[11px] text-zinc-500">by mrmaxdesigns</p>
+        <div className="flex min-w-0 items-center gap-2">
+          {/* The mrmaxdesigns mark, in this theme's colours, on the panel's own background. */}
+          <LogoMark tokens={theme.tokens} background={mode === 'dark' ? PANEL_DARK : '#ffffff'} className="h-7 w-auto shrink-0" />
+          <div className="min-w-0">
+            <h2 id="theme-panel-title" className="text-base font-semibold tracking-tight">
+              colorsbymax<span className="align-super text-[10px] font-medium">™</span>
+            </h2>
+            <p className="text-[11px] text-zinc-500">by mrmaxdesigns</p>
+          </div>
         </div>
         <div className="flex items-center gap-1">
         {/* Light, dark or the device's mode, one click away (it's also in settings). */}
