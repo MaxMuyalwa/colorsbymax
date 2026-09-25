@@ -1,7 +1,8 @@
 @import "tailwindcss";
 @import "../src/tokens.css";
 
-/* colorsbymax's own colours, overriding the neutral defaults. */
+/* colorsbymax's own colours, overriding the neutral defaults. Every colour on the page is a
+   token, so whichever theme a visitor picks re-colours all of it. */
 @theme static {
   --color-primary: #5b3df5;
   --color-primary-dark: #1e1b4b;
@@ -11,9 +12,193 @@
   --color-background: #fbfaff;
 }
 
+@theme {
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+html {
+  scroll-padding-top: 6rem;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 body {
   margin: 0;
-  font-family: Inter, system-ui, sans-serif;
+  font-family: var(--font-sans);
   background: var(--color-background);
   color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-primary) 22%, transparent);
+}
+
+/* ------------------------------------------------------------------ backgrounds */
+
+/* A faint dot grid in the text colour, fading out towards the edges. */
+.dot-grid {
+  background-image: radial-gradient(color-mix(in srgb, var(--color-ink) 9%, transparent) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%);
+}
+
+/* Soft blurred colour blobs that drift slowly behind a section. */
+.blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(64px);
+  opacity: 0.45;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .blob {
+    animation: blob-drift 18s ease-in-out infinite alternate;
+  }
+  .blob-slow {
+    animation-duration: 26s;
+    animation-direction: alternate-reverse;
+  }
+}
+@keyframes blob-drift {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(6%, -8%) scale(1.12);
+  }
+  100% {
+    transform: translate(-6%, 6%) scale(0.94);
+  }
+}
+
+/* Headline text filled with the brand gradient, which slowly pans. */
+.text-gradient {
+  background-image: linear-gradient(100deg, var(--color-primary), var(--color-primary-alt), var(--color-data-3), var(--color-primary));
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .text-gradient {
+    animation: gradient-pan 9s ease-in-out infinite alternate;
+  }
+}
+@keyframes gradient-pan {
+  to {
+    background-position: 100% 0;
+  }
+}
+
+/* A ring of the brand colours, used around cards on hover and behind the specimen. */
+.brand-ring {
+  background: conic-gradient(from 180deg, var(--color-primary), var(--color-primary-alt), var(--color-data-3), var(--color-data-2), var(--color-primary));
+}
+
+/* ------------------------------------------------------------------ motion */
+
+/* Sections rise in as they scroll into view (the Reveal component adds .is-visible). */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 700ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 700ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Tab panels and the mobile menu fade up as they open. */
+@keyframes tab-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* Gentle bobbing for the hero's floating role tags. */
+@media (prefers-reduced-motion: no-preference) {
+  .float {
+    animation: float 6s ease-in-out infinite;
+    animation-delay: var(--float-delay, 0s);
+  }
+}
+@keyframes float {
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* A sheen that sweeps across a button on hover. */
+.shine {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(110deg, transparent 30%, color-mix(in srgb, #fff 35%, transparent) 50%, transparent 70%);
+  transform: translateX(-120%);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .shine:hover::after {
+    transition: transform 800ms ease;
+    transform: translateX(120%);
+  }
+}
+
+/* The footer's waves drift sideways, each layer at its own pace. */
+@media (prefers-reduced-motion: no-preference) {
+  .wave {
+    animation: wave-drift 14s ease-in-out infinite alternate;
+  }
+  .wave-2 {
+    animation-duration: 19s;
+    animation-direction: alternate-reverse;
+  }
+  .wave-3 {
+    animation-duration: 24s;
+  }
+}
+@keyframes wave-drift {
+  to {
+    transform: translateX(-4%);
+  }
+}
+
+/* Marks the elements a hovered colour role paints, in the role explorer. */
+.role-highlight {
+  outline: 2px dashed var(--color-ink);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .role-highlight {
+    animation: role-pulse 1.4s ease-in-out infinite;
+  }
+}
+@keyframes role-pulse {
+  50% {
+    outline-offset: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
 }

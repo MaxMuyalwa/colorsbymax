@@ -1,6 +1,6 @@
 # colorsbymax MCP server
 
-An [MCP](https://modelcontextprotocol.io) server that teaches AI agents (Claude Code, Cursor, VS Code Copilot, Claude Desktop and others) to use [colorsbymax](https://github.com/MaxMuyalwa/colorsbymax), the live theme switcher for websites.
+An [MCP](https://modelcontextprotocol.io) server that teaches AI agents (Claude Code, Cursor, GitHub Copilot, Codex, Google Antigravity, Gemini CLI, Grok Build, Claude Desktop, Windsurf, Kiro, Zed and others) to use [colorsbymax](https://github.com/MaxMuyalwa/colorsbymax), the live theme switcher for websites.
 
 With it, you can ask your agent things like:
 
@@ -51,6 +51,44 @@ Add `--scope user` to have it in every project. If your terminal says `claude` i
 ```
 
 **Claude Desktop**: add the same `mcpServers` entry as Cursor to `claude_desktop_config.json` (Settings → Developer → Edit Config), then restart it.
+
+**GitHub Copilot CLI** (saved to `~/.copilot/mcp-config.json`)
+
+```bash
+copilot mcp add colorsbymax -- npx -y colorsbymax-mcp
+```
+
+**Codex** (OpenAI; the CLI and IDE extension share `~/.codex/config.toml`)
+
+```bash
+codex mcp add colorsbymax -- npx -y colorsbymax-mcp
+```
+
+**Google Antigravity**: in the agent panel, open **… → MCP Servers → Manage MCP Servers → View raw config**, add the same `mcpServers` entry as Cursor to `~/.gemini/config/mcp_config.json` (or `.agents/mcp_config.json` for one project), and save. It reloads by itself.
+
+**Gemini CLI**: the same `mcpServers` entry in `~/.gemini/settings.json` (or `.gemini/settings.json` in your project), then restart Gemini CLI.
+
+**Grok Build** (xAI; saved to `~/.grok/config.toml`, or `.grok/config.toml` with `--scope project`)
+
+```bash
+grok mcp add colorsbymax -- npx -y colorsbymax-mcp
+```
+
+**Windsurf, Kiro, JetBrains, Cline and Roo** take the same `mcpServers` entry as Cursor: Windsurf in `~/.codeium/windsurf/mcp_config.json`, Kiro in `.kiro/settings/mcp.json` (use the full path to `npx` there if it can't start), JetBrains under Settings → Tools → AI Assistant → Model Context Protocol (or Junie → MCP Settings), and Cline and Roo in their MCP Servers view.
+
+**Zed**, in `settings.json`:
+
+```json
+{ "context_servers": { "colorsbymax": { "command": "npx", "args": ["-y", "colorsbymax-mcp"] } } }
+```
+
+**opencode**, in `opencode.json`:
+
+```json
+{ "mcp": { "colorsbymax": { "type": "local", "command": ["npx", "-y", "colorsbymax-mcp"] } } }
+```
+
+**Any other MCP client**: the command is `npx`, with `-y colorsbymax-mcp` as its arguments. Most take the same `mcpServers` entry as Cursor.
 
 On Windows, if your editor can't start `npx`, use `"command": "cmd"` with `"args": ["/c", "npx", "-y", "colorsbymax-mcp"]`.
 

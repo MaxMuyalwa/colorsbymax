@@ -81,7 +81,7 @@ This serves `demo/`: colorsbymax's own landing page, built with Tailwind, where 
 
 ## Coding agents (MCP)
 
-Your coding agent can set colorsbymax up and use it for you. [colorsbymax-mcp](mcp/) is an [MCP](https://modelcontextprotocol.io) server that gives Claude Code, Cursor, VS Code Copilot, Claude Desktop, Windsurf, Codex and other agents colorsbymax's own tools:
+Your coding agent can set colorsbymax up and use it for you. [colorsbymax-mcp](mcp/) is an [MCP](https://modelcontextprotocol.io) server that gives Claude Code, Cursor, GitHub Copilot, Codex, Google Antigravity, Gemini CLI, Grok Build, Claude Desktop, Windsurf, Kiro, Zed, JetBrains, Cline, opencode and other agents colorsbymax's own tools:
 
 | The agent can… | Tool |
 | --- | --- |
@@ -141,15 +141,78 @@ Add this to `.vscode/mcp.json`, then use it from Copilot Chat in **Agent** mode:
 
 Open **Settings → Developer → Edit Config**, add the same `mcpServers` entry as Cursor to `claude_desktop_config.json`, and restart Claude Desktop.
 
-### Windsurf, Cline, Codex and others
+### GitHub Copilot CLI
 
-Most agents take the same `mcpServers` entry as Cursor: Windsurf in `~/.codeium/windsurf/mcp_config.json`, and Cline under **MCP Servers → Configure**. For the Codex CLI, add this to `~/.codex/config.toml`:
+```bash
+copilot mcp add colorsbymax -- npx -y colorsbymax-mcp
+```
+
+Or type `/mcp add` inside `copilot`. It's saved to `~/.copilot/mcp-config.json`.
+
+### Codex (OpenAI)
+
+```bash
+codex mcp add colorsbymax -- npx -y colorsbymax-mcp
+```
+
+It's saved to `~/.codex/config.toml`, which the Codex IDE extension shares. To write it by hand:
 
 ```toml
 [mcp_servers.colorsbymax]
 command = "npx"
 args = ["-y", "colorsbymax-mcp"]
 ```
+
+### Google Antigravity
+
+In the agent panel, open **… → MCP Servers → Manage MCP Servers → View raw config**, add the same `mcpServers` entry as Cursor to `~/.gemini/config/mcp_config.json`, and save. Antigravity reloads it by itself. For one project, use `.agents/mcp_config.json`. In the Antigravity CLI, `/mcp` opens the same manager.
+
+### Gemini CLI
+
+Add the same `mcpServers` entry as Cursor to `~/.gemini/settings.json` (or `.gemini/settings.json` in your project), restart Gemini CLI, and check it with `/mcp`.
+
+### Grok Build (xAI)
+
+```bash
+grok mcp add colorsbymax -- npx -y colorsbymax-mcp
+```
+
+It's saved to `~/.grok/config.toml`; add `--scope project` for `.grok/config.toml`. The first start downloads the server, so if it times out, raise `startup_timeout_sec` for it in that file.
+
+### Windsurf, Kiro, JetBrains, Cline and Roo
+
+They take the same `mcpServers` entry as Cursor:
+
+- **Windsurf:** `~/.codeium/windsurf/mcp_config.json`
+- **Kiro:** `.kiro/settings/mcp.json` in your project, or `~/.kiro/settings/mcp.json`. Kiro doesn't read your shell's PATH, so use the full path to `npx` if it can't start.
+- **JetBrains:** AI Assistant under **Settings → Tools → AI Assistant → Model Context Protocol (MCP)**; Junie under **Settings → Tools → Junie → MCP Settings**.
+- **Cline and Roo Code:** in the extension's **MCP Servers** view, choose **Configure** (or **Edit MCP Settings**).
+
+### Zed and opencode
+
+Zed calls them context servers. In `settings.json`, or through **Settings → AI → MCP Servers → Add Server**:
+
+```json
+{
+  "context_servers": {
+    "colorsbymax": { "command": "npx", "args": ["-y", "colorsbymax-mcp"] }
+  }
+}
+```
+
+opencode, in `opencode.json`:
+
+```json
+{
+  "mcp": {
+    "colorsbymax": { "type": "local", "command": ["npx", "-y", "colorsbymax-mcp"] }
+  }
+}
+```
+
+### Any other MCP client
+
+Most take the same `mcpServers` entry as Cursor: the command is `npx`, with `-y colorsbymax-mcp` as its arguments.
 
 On Windows, if an editor can't start `npx`, use `"command": "cmd"` with `"args": ["/c", "npx", "-y", "colorsbymax-mcp"]`.
 
@@ -263,6 +326,8 @@ Without a `siteName`, the site group is named from the page's `og:site_name`, it
   position: 'bottom-right',         // where the button starts: bottom-right (default), bottom-left,
                                     // top-left, or top-right (just under a floating nav bar)
   hidden: import.meta.env.PROD,     // hide the button (the theme still applies), e.g. in production
+  intro: true,                      // the button pops in with a burst of the theme's colours a moment
+                                    // after the page loads (default); reduced motion fades it in
 }
 ```
 

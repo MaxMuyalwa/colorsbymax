@@ -4,6 +4,10 @@ What changed in each colorsbymax release. Update with `npm install colorsbymax@l
 
 ## Unreleased
 
+- **The colour button makes an entrance.** A moment after the page loads, it pops in with a ring and a burst of squiggles, dots and dashes in the theme's colours, so visitors notice it arrive. With reduced motion it simply fades in. Turn it off with `intro: false`.
+- **A new colorsbymax site** at [mrmaxdesigns.com/colorsbymax](https://mrmaxdesigns.com/colorsbymax): what colorsbymax does and why, every colour role explained with a live preview, the rules of good colour (with a little history), setup guides, coding-agent setup, and a way back to mrmaxdesigns.com. Every colour on it follows the theme you pick.
+- **Set-up steps for many more coding agents,** in the README, the MCP README and the site: GitHub Copilot CLI, Codex, Google Antigravity, Gemini CLI, Grok Build, Windsurf, Kiro, Zed, JetBrains, Cline and Roo, and opencode, alongside Claude Code, Cursor, VS Code and Claude Desktop. The MCP server's docs tool has a new `agents` topic with all of them (colorsbymax-mcp 0.1.3).
+- Fixed: when the colour button was hidden on a device, the next page load could stop the switcher with an error.
 - The demo is live at [mrmaxdesigns.com/colorsbymax](https://mrmaxdesigns.com/colorsbymax), now the package's homepage.
 
 ## 0.2.3 (2026-09-25)

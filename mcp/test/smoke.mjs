@@ -103,6 +103,7 @@ try {
   await call('docs', { topic: 'tokens' }, ['`on-primary`', '## Status'])
   await call('docs', { topic: 'api' }, ['ColorsByMaxConfig'])
   await call('docs', { topic: 'finish' }, ['hide it in production'])
+  await call('docs', { topic: 'agents' }, ['grok mcp add', 'Google Antigravity', 'context_servers', 'copilot mcp add'])
   await call('docs', { topic: 'overview' }, ['At a glance', 'A floating theme switcher', /^(?![\s\S]*<img)/])
 
   const prompt = await client.getPrompt({ name: 'add-colorsbymax', arguments: {} })

@@ -277,7 +277,8 @@ const TOPICS = {
   overview: () => section('intro', 'at a glance', 'features', 'how it works'),
   'quick-start': () => section('quick start'),
   'full-setup': () => section('add it to a site'),
-  finish: () => section('finished? keep your colours and hide the switcher'),
+  agents: () => section('coding agents (mcp)'),
+  finish:() => section('finished? keep your colours and hide the switcher'),
   updating: () => section('updating'),
   tokens: () =>
     `# The 35 colour tokens\n\nEach is a CSS variable, --color-<key>. A site that paints with them is themed directly.\n\n${TOKEN_GROUPS.map((g) => `## ${g.group}\n\n${g.tokens.map((t) => `- \`${t.key}\` (${t.label}): ${t.usage}`).join('\n')}`).join('\n\n')}`,
@@ -289,7 +290,7 @@ server.registerTool(
   'docs',
   {
     title: 'colorsbymax documentation',
-    description: 'colorsbymax’s documentation by topic: overview, quick-start, full-setup (tokens, config, ThemeProvider, PDF uploads), finish, updating, tokens (all 35 with what each colours), api (the TypeScript declarations), or readme (everything).',
+    description: 'colorsbymax’s documentation by topic: overview, quick-start, full-setup (tokens, config, ThemeProvider, PDF uploads), agents (adding this MCP server to Claude Code, Cursor, Copilot, Codex, Antigravity, Gemini CLI, Grok Build, Windsurf, Kiro, Zed, JetBrains, Cline, opencode and others), finish, updating, tokens (all 35 with what each colours), api (the TypeScript declarations), or readme (everything).',
     inputSchema: { topic: z.enum(Object.keys(TOPICS)) },
     annotations: READ_ONLY,
   },
