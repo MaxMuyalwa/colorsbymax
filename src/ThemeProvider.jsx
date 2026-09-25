@@ -1,9 +1,10 @@
-import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { checkTheme, fixAll, suggestFix } from './contrast.js'
 import { loadLibrary } from './library.js'
-import { DARK_SUFFIX, toDark } from './modes.js'
+import { DARK_SUFFIX, isDarkTheme, toDark } from './modes.js'
 import { LOGO_SELECTOR, createRecolourer, usesColourTokens } from './recolour.js'
 import { collectColors, detectSiteName, inferRoles, suggestThemes } from './scan.js'
+import { loadSettings, saveSettings, usePrefersDark } from './settings.js'
 import { DEFAULT_STORAGE_KEY, loadState, sanitizeTokens, saveState } from './storage.js'
 import { BASE_TOKENS, PRESETS, TOKEN_KEYS, completeTokens } from './tokens.js'
 
@@ -170,8 +171,92 @@ export function ThemeProvider({ config = {}, children }) {
     [],
   )
 
+  /** Selects a theme by id; pass the theme itself for library themes and dark twins. */
+  const selectTheme = useCallback(
+    (id, theme) =>
+      setState((s) => ({
+        ...s,
+        activeId: id,
+        // Kept so the theme resolves on reload without the library (a twin's saved copy
+        // loses its library flag, so twins are always kept).
+        snapshot: theme?.library || theme?.derived ? { id: theme.id, name: theme.name, tokens: theme.tokens } : s.snapshot,
+      })),
+    [],
+  )
+
+  // ------------------------------------------------------------ light and dark mode
+  // The visitor's mode: 'light', 'dark', or 'system' to follow the device. It lives here rather
+  // than in the switcher, so it works on every page load and even when the switcher is hidden.
+  // Every built-in theme has a dark twin, so any site can go dark, with or without a dark mode of
+  // its own.
+  const [modeSetting, setModeSetting] = useState(() => loadSettings(storageKey).mode)
+  const prefersDark = usePrefersDark()
+  const mode = modeSetting === 'system' ? (prefersDark ? 'dark' : 'light') : modeSetting
+  const modeRef = useRef(mode)
+  modeRef.current = mode
+  const setMode = useCallback(
+    (next) => {
+      if (!['light', 'dark', 'system'].includes(next)) return
+      setModeSetting(next)
+      saveSettings(storageKey, { ...loadSettings(storageKey), mode: next })
+    },
+    [storageKey],
+  )
+
+  // Show the version of the current theme that matches the mode: on load, and whenever either
+  // changes. Custom palettes stay exactly as they were made.
+  useLayoutEffect(() => {
+    if (base.custom) return
+    if (mode === 'dark' && !isDarkTheme(base.tokens)) {
+      const twin = toDark(base)
+      selectTheme(twin.id, twin)
+    } else if (mode === 'light' && base.id.endsWith(DARK_SUFFIX)) {
+      const lightId = base.id.slice(0, -DARK_SUFFIX.length)
+      const local = allThemes.find((t) => t.id === lightId)
+      if (local) selectTheme(local.id, local)
+      else
+        loadLibrary().then(
+          (lib) => {
+            const t = lib.themes.find((x) => x.id === lightId)
+            if (t) selectTheme(t.id, t)
+          },
+          () => {},
+        )
+    }
+  }, [mode, base, allThemes, selectTheme])
+
+  // The page says which mode it's in (data-colorsbymax-scheme on <html>, for the site's own CSS),
+  // and native controls and scrollbars follow it.
+  useLayoutEffect(() => {
+    const html = document.documentElement
+    html.dataset.colorsbymaxScheme = mode
+    html.style.colorScheme = mode
+    for (const el of document.querySelectorAll('[data-colorsbymax-mode]')) {
+      const want = el.getAttribute('data-colorsbymax-mode')
+      el.setAttribute('aria-pressed', String(want === 'toggle' ? mode === 'dark' : want === modeSetting))
+    }
+  }, [mode, modeSetting])
+
+  // Light and dark switches on the site itself: any element with data-colorsbymax-mode, set to
+  // "toggle" (light and dark in turn), "light", "dark" or "system". The site decides where it
+  // goes and how it looks.
+  useEffect(() => {
+    const onClick = (e) => {
+      const el = e.target.closest?.('[data-colorsbymax-mode]')
+      if (!el) return
+      const want = el.getAttribute('data-colorsbymax-mode')
+      setMode(want === 'toggle' ? (modeRef.current === 'dark' ? 'light' : 'dark') : want)
+    }
+    document.addEventListener('click', onClick)
+    return () => document.removeEventListener('click', onClick)
+  }, [setMode])
+
   const api = {
     state,
+    /** The mode in effect ('light' or 'dark'), the visitor's setting ('system' follows the device), and a setter. */
+    mode,
+    modeSetting,
+    setMode,
     storageKey,
     siteName,
     usage: initialConfig.usage ?? {},
@@ -194,15 +279,7 @@ export function ThemeProvider({ config = {}, children }) {
     tokens,
     issues,
 
-    /** Selects a theme by id; pass the theme itself for library themes and dark twins. */
-    selectTheme: (id, theme) =>
-      setState((s) => ({
-        ...s,
-        activeId: id,
-        // Kept so the theme resolves on reload without the library (a twin's saved copy
-        // loses its library flag, so twins are always kept).
-        snapshot: theme?.library || theme?.derived ? { id: theme.id, name: theme.name, tokens: theme.tokens } : s.snapshot,
-      })),
+    selectTheme,
 
     createCustom: (name) => {
       const id = newId()

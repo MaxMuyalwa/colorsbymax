@@ -128,6 +128,12 @@ export interface ThemeApi {
   hidden: boolean
   /** Whether the colour button makes an entrance when it first appears. */
   intro: boolean
+  /** The mode in effect: every theme shows its light or dark version. */
+  mode: 'light' | 'dark'
+  /** The visitor's choice; 'system' follows the device. */
+  modeSetting: 'light' | 'dark' | 'system'
+  /** Sets the mode, for the whole site, and remembers it. */
+  setMode(mode: 'light' | 'dark' | 'system'): void
   /** True when colorsbymax is swapping the page's own colours (the site isn't using the variables). */
   recolouring: boolean
   /** Turns re-colouring of the site's logo on or off. */

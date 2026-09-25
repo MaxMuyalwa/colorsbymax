@@ -247,7 +247,7 @@ When you're done choosing colours, the panel's **I'm done** button gives you rea
 - **No flash on reload.** An inline pre-paint script applies the saved theme before the page draws.
 - **Works on any site.** The panel carries its own stylesheet inside a shadow root, so it needs no Tailwind or other CSS from the site, and the site's CSS can't restyle it.
 - **Movable colour button.** The floating button starts in the corner; visitors can drag it anywhere (mouse or touch; a tooltip says so on hover, and an open panel moves with it) and it stays there, remembered across reloads. The panel then opens beside it, on whichever side has room. Its dot cycles through the current theme's colours.
-- **Light and dark mode.** Every built-in theme is designed light; dark mode lists a generated dark twin of each (dark surfaces, light text, brand colours lifted to read on dark, then contrast-fixed) and switches the current theme to its twin. The panel turns dark with it. Custom palettes stay as they were made.
+- **Light and dark mode, for any site.** Every built-in theme is designed light and has a generated dark twin (dark surfaces, light text, brand colours lifted until they read on dark, then contrast-checked). Switching to Dark, one click in the panel's header, turns the whole site dark, even one that never had a dark mode. Auto follows the visitor's device, and a light and dark switch can go anywhere on the site (see [Dark mode](#dark-mode)). Custom palettes stay as they were made.
 - **Visitor settings.** The gear in the panel header opens settings: theme mode (Light, Dark, Auto), panel size (Compact, Standard, Large), which groups and sections to show, whether the button can be dragged or its dot animates, and moving the button back to its corner. Saved per site.
 - **Resizable panel.** Drag the panel's free edges or corner (the ones away from the colour button) to any size, or pick a size in settings; double-click an edge to reset it. The layout follows the panel's width, so a large panel shows three theme cards a row.
 - **Audit the page.** The **Audit** button in the panel header looks at the page in the chosen colours and pins notes to what won't look right: a logo that disappears against its background (with a one-click "Colour the logo", or tips when it's a picture colorsbymax can't re-colour, plus "Preview inverted"), pictures whose solid background shows as a box, and text or icons too faint to read. The notes stay on the page as you scroll; **Re-check** after a fix (it also re-checks when the colours change) and close it from its bar.
@@ -330,6 +330,26 @@ Without a `siteName`, the site group is named from the page's `og:site_name`, it
                                     // after the page loads (default); reduced motion fades it in
 }
 ```
+
+### Dark mode
+
+Dark mode works on any site: every theme has a dark twin, so choosing Dark (or Auto, on a device set to dark) re-colours the whole page, and text, buttons and icons are checked for contrast on the dark background. It applies on every page load, and keeps working when the switcher is hidden in production.
+
+Give visitors a light and dark switch anywhere, styled your way, by marking an element with `data-colorsbymax-mode`:
+
+```html
+<button data-colorsbymax-mode="toggle">Light / dark</button>
+```
+
+`toggle` switches between light and dark; `light`, `dark` and `system` set one mode. colorsbymax wires the click, remembers the choice and sets `aria-pressed`. The page is marked with the current mode, for anything your CSS wants to adjust, like photos:
+
+```css
+html[data-colorsbymax-scheme="dark"] .hero-photo {
+  filter: brightness(0.9);
+}
+```
+
+With `ThemeProvider`, `useTheme()` gives `mode` ('light' or 'dark'), `modeSetting` (including 'system') and `setMode(mode)`, for building your own switch.
 
 ### PDF uploads
 

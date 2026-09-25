@@ -1645,6 +1645,113 @@ function createRecolourer() {
 	};
 }
 //#endregion
+//#region src/settings.js
+/**
+* @typedef {Object} PanelSettings
+* @property {'light' | 'dark' | 'system'} mode  Which version of each theme to list; the panel matches it
+* @property {boolean} showPicks
+* @property {boolean} showLibrary
+* @property {boolean} showCustom      "Custom palettes" section
+* @property {boolean} showOverrides   "Override a single colour" section
+* @property {boolean} showImportExport
+* @property {boolean} draggable       Whether the colour button can be dragged
+* @property {boolean} animateDot      Whether the colour button's dot cycles through the theme's colours
+* @property {number | null} panelWidth           Pixels; null is the standard width
+* @property {number | 'full' | null} panelHeight  Pixels, 'full' for all the room there is, or null to fit the content
+* @property {boolean} libraryCollapsed  Whether the library's category chips are folded away
+* @property {boolean} colourLogo  Whether themes re-colour the site's logo too (off keeps its own colours)
+* @property {boolean} hideButton  Hidden on this device from the finish screen (Alt+Shift+C brings it back)
+*/
+/** @type {PanelSettings} */
+var DEFAULT_SETTINGS = {
+	mode: "light",
+	showPicks: true,
+	showLibrary: true,
+	showCustom: true,
+	showOverrides: true,
+	showImportExport: true,
+	draggable: true,
+	animateDot: true,
+	panelWidth: null,
+	panelHeight: null,
+	libraryCollapsed: false,
+	colourLogo: false,
+	hideButton: false
+};
+/** Size presets offered in settings; dragging an edge gives a custom size instead. */
+var PANEL_PRESETS = [
+	{
+		id: "compact",
+		label: "Compact",
+		width: 340,
+		height: null
+	},
+	{
+		id: "standard",
+		label: "Standard",
+		width: null,
+		height: null
+	},
+	{
+		id: "large",
+		label: "Large",
+		width: 560,
+		height: "full"
+	}
+];
+/** @returns {PanelSettings} */
+function loadSettings(storageKey) {
+	try {
+		const saved = JSON.parse(window.localStorage.getItem(`${storageKey}:settings`) || "null");
+		if (!saved || typeof saved !== "object") return DEFAULT_SETTINGS;
+		const out = { ...DEFAULT_SETTINGS };
+		for (const [key, fallback] of Object.entries(DEFAULT_SETTINGS)) if (typeof saved[key] === typeof fallback) out[key] = saved[key];
+		if (![
+			"light",
+			"dark",
+			"system"
+		].includes(out.mode)) out.mode = DEFAULT_SETTINGS.mode;
+		const size = (v) => typeof v === "number" && v > 0 && v < 1e4;
+		out.panelWidth = size(saved.panelWidth) ? saved.panelWidth : null;
+		out.panelHeight = size(saved.panelHeight) || saved.panelHeight === "full" ? saved.panelHeight : null;
+		return out;
+	} catch {
+		return DEFAULT_SETTINGS;
+	}
+}
+function saveSettings(storageKey, settings) {
+	try {
+		window.localStorage.setItem(`${storageKey}:settings`, JSON.stringify(settings));
+	} catch {}
+}
+/** True while the device prefers dark colours. */
+function usePrefersDark() {
+	const query = "(prefers-color-scheme: dark)";
+	const [dark, setDark] = useState(() => window.matchMedia(query).matches);
+	useEffect(() => {
+		const mq = window.matchMedia(query);
+		const update = () => setDark(mq.matches);
+		mq.addEventListener("change", update);
+		return () => mq.removeEventListener("change", update);
+	}, []);
+	return dark;
+}
+/**
+* @typedef {Object} SettingsApi
+* @property {PanelSettings} settings
+* @property {(patch: Partial<PanelSettings>) => void} update
+* @property {() => void} reset
+* @property {'light' | 'dark'} mode        `settings.mode` with "system" resolved
+* @property {(() => void) | null} resetButton  Moves the colour button back to its corner; null when it's there
+*/
+/** @type {import('react').Context<SettingsApi | null>} */
+var SettingsContext = createContext(null);
+function useSettings() {
+	const ctx = useContext(SettingsContext);
+	if (!ctx) throw new Error("useSettings must be used inside the colorsbymax switcher");
+	return ctx;
+}
+//#endregion
 //#region src/storage.js
 var DEFAULT_STORAGE_KEY = "colorsbymax";
 var VERSION = 1;
@@ -1950,8 +2057,78 @@ function ThemeProvider({ config = {}, children }) {
 			}
 		}))(s);
 	}), []);
+	/** Selects a theme by id; pass the theme itself for library themes and dark twins. */
+	const selectTheme = useCallback((id, theme) => setState((s) => ({
+		...s,
+		activeId: id,
+		snapshot: theme?.library || theme?.derived ? {
+			id: theme.id,
+			name: theme.name,
+			tokens: theme.tokens
+		} : s.snapshot
+	})), []);
+	const [modeSetting, setModeSetting] = useState(() => loadSettings(storageKey).mode);
+	const prefersDark = usePrefersDark();
+	const mode = modeSetting === "system" ? prefersDark ? "dark" : "light" : modeSetting;
+	const modeRef = useRef(mode);
+	modeRef.current = mode;
+	const setMode = useCallback((next) => {
+		if (![
+			"light",
+			"dark",
+			"system"
+		].includes(next)) return;
+		setModeSetting(next);
+		saveSettings(storageKey, {
+			...loadSettings(storageKey),
+			mode: next
+		});
+	}, [storageKey]);
+	useLayoutEffect(() => {
+		if (base.custom) return;
+		if (mode === "dark" && !isDarkTheme(base.tokens)) {
+			const twin = toDark(base);
+			selectTheme(twin.id, twin);
+		} else if (mode === "light" && base.id.endsWith("~dark")) {
+			const lightId = base.id.slice(0, -DARK_SUFFIX.length);
+			const local = allThemes.find((t) => t.id === lightId);
+			if (local) selectTheme(local.id, local);
+			else loadLibrary().then((lib) => {
+				const t = lib.themes.find((x) => x.id === lightId);
+				if (t) selectTheme(t.id, t);
+			}, () => {});
+		}
+	}, [
+		mode,
+		base,
+		allThemes,
+		selectTheme
+	]);
+	useLayoutEffect(() => {
+		const html = document.documentElement;
+		html.dataset.colorsbymaxScheme = mode;
+		html.style.colorScheme = mode;
+		for (const el of document.querySelectorAll("[data-colorsbymax-mode]")) {
+			const want = el.getAttribute("data-colorsbymax-mode");
+			el.setAttribute("aria-pressed", String(want === "toggle" ? mode === "dark" : want === modeSetting));
+		}
+	}, [mode, modeSetting]);
+	useEffect(() => {
+		const onClick = (e) => {
+			const el = e.target.closest?.("[data-colorsbymax-mode]");
+			if (!el) return;
+			const want = el.getAttribute("data-colorsbymax-mode");
+			setMode(want === "toggle" ? modeRef.current === "dark" ? "light" : "dark" : want);
+		};
+		document.addEventListener("click", onClick);
+		return () => document.removeEventListener("click", onClick);
+	}, [setMode]);
 	const api = {
 		state,
+		/** The mode in effect ('light' or 'dark'), the visitor's setting ('system' follows the device), and a setter. */
+		mode,
+		modeSetting,
+		setMode,
 		storageKey,
 		siteName,
 		usage: initialConfig.usage ?? {},
@@ -1973,16 +2150,7 @@ function ThemeProvider({ config = {}, children }) {
 		active: base,
 		tokens,
 		issues,
-		/** Selects a theme by id; pass the theme itself for library themes and dark twins. */
-		selectTheme: (id, theme) => setState((s) => ({
-			...s,
-			activeId: id,
-			snapshot: theme?.library || theme?.derived ? {
-				id: theme.id,
-				name: theme.name,
-				tokens: theme.tokens
-			} : s.snapshot
-		})),
+		selectTheme,
 		createCustom: (name) => {
 			const id = newId();
 			setState((s) => ({
@@ -2557,113 +2725,6 @@ var keepPrompt = (name, tokens) => `Update my colorsbymax setup so the colours I
 /** @param {boolean} recolouring  true when colorsbymax was swapping the site's hard-coded colours */
 var removePrompt = (tokens, recolouring) => recolouring ? `Remove colorsbymax from this project but keep the colours it currently shows. The site's CSS uses hard-coded colours that colorsbymax was swapping at runtime, so update the site's own CSS to use this palette instead (primary is the main brand colour, background the page, ink the text): ${JSON.stringify(tokens)}. Then uninstall the colorsbymax package and delete its import (import 'colorsbymax/auto', autoMount, ThemeProvider or ThemeSwitcher) and any colorsbymax pre-paint script in index.html.` : `Remove colorsbymax from this project but keep my colours: add these CSS variables to my global stylesheet, replacing any existing --color-* values: ${cssSnippet(tokens)} Then uninstall the colorsbymax package and delete its usage (ThemeProvider, ThemeSwitcher, autoMount or import 'colorsbymax/auto') and any colorsbymax pre-paint script in index.html. Keep colorsbymax/tokens.css only if nothing else needs it.`;
 //#endregion
-//#region src/settings.js
-/**
-* @typedef {Object} PanelSettings
-* @property {'light' | 'dark' | 'system'} mode  Which version of each theme to list; the panel matches it
-* @property {boolean} showPicks
-* @property {boolean} showLibrary
-* @property {boolean} showCustom      "Custom palettes" section
-* @property {boolean} showOverrides   "Override a single colour" section
-* @property {boolean} showImportExport
-* @property {boolean} draggable       Whether the colour button can be dragged
-* @property {boolean} animateDot      Whether the colour button's dot cycles through the theme's colours
-* @property {number | null} panelWidth           Pixels; null is the standard width
-* @property {number | 'full' | null} panelHeight  Pixels, 'full' for all the room there is, or null to fit the content
-* @property {boolean} libraryCollapsed  Whether the library's category chips are folded away
-* @property {boolean} colourLogo  Whether themes re-colour the site's logo too (off keeps its own colours)
-* @property {boolean} hideButton  Hidden on this device from the finish screen (Alt+Shift+C brings it back)
-*/
-/** @type {PanelSettings} */
-var DEFAULT_SETTINGS = {
-	mode: "light",
-	showPicks: true,
-	showLibrary: true,
-	showCustom: true,
-	showOverrides: true,
-	showImportExport: true,
-	draggable: true,
-	animateDot: true,
-	panelWidth: null,
-	panelHeight: null,
-	libraryCollapsed: false,
-	colourLogo: false,
-	hideButton: false
-};
-/** Size presets offered in settings; dragging an edge gives a custom size instead. */
-var PANEL_PRESETS = [
-	{
-		id: "compact",
-		label: "Compact",
-		width: 340,
-		height: null
-	},
-	{
-		id: "standard",
-		label: "Standard",
-		width: null,
-		height: null
-	},
-	{
-		id: "large",
-		label: "Large",
-		width: 560,
-		height: "full"
-	}
-];
-/** @returns {PanelSettings} */
-function loadSettings(storageKey) {
-	try {
-		const saved = JSON.parse(window.localStorage.getItem(`${storageKey}:settings`) || "null");
-		if (!saved || typeof saved !== "object") return DEFAULT_SETTINGS;
-		const out = { ...DEFAULT_SETTINGS };
-		for (const [key, fallback] of Object.entries(DEFAULT_SETTINGS)) if (typeof saved[key] === typeof fallback) out[key] = saved[key];
-		if (![
-			"light",
-			"dark",
-			"system"
-		].includes(out.mode)) out.mode = DEFAULT_SETTINGS.mode;
-		const size = (v) => typeof v === "number" && v > 0 && v < 1e4;
-		out.panelWidth = size(saved.panelWidth) ? saved.panelWidth : null;
-		out.panelHeight = size(saved.panelHeight) || saved.panelHeight === "full" ? saved.panelHeight : null;
-		return out;
-	} catch {
-		return DEFAULT_SETTINGS;
-	}
-}
-function saveSettings(storageKey, settings) {
-	try {
-		window.localStorage.setItem(`${storageKey}:settings`, JSON.stringify(settings));
-	} catch {}
-}
-/** True while the device prefers dark colours. */
-function usePrefersDark() {
-	const query = "(prefers-color-scheme: dark)";
-	const [dark, setDark] = useState(() => window.matchMedia(query).matches);
-	useEffect(() => {
-		const mq = window.matchMedia(query);
-		const update = () => setDark(mq.matches);
-		mq.addEventListener("change", update);
-		return () => mq.removeEventListener("change", update);
-	}, []);
-	return dark;
-}
-/**
-* @typedef {Object} SettingsApi
-* @property {PanelSettings} settings
-* @property {(patch: Partial<PanelSettings>) => void} update
-* @property {() => void} reset
-* @property {'light' | 'dark'} mode        `settings.mode` with "system" resolved
-* @property {(() => void) | null} resetButton  Moves the colour button back to its corner; null when it's there
-*/
-/** @type {import('react').Context<SettingsApi | null>} */
-var SettingsContext = createContext(null);
-function useSettings() {
-	const ctx = useContext(SettingsContext);
-	if (!ctx) throw new Error("useSettings must be used inside the colorsbymax switcher");
-	return ctx;
-}
-//#endregion
 //#region src/ThemePanel.jsx
 var SWATCH_KEYS = [
 	"primary",
@@ -2712,7 +2773,7 @@ function useSavedToYours() {
 }
 function ThemePanel() {
 	const theme = useTheme();
-	const { settings, mode, audit } = useSettings();
+	const { settings, mode, audit, update } = useSettings();
 	const overrideCount = Object.keys(theme.state.overrides).length;
 	const [view, setView] = useState("main");
 	const returnFocus = useRef(null);
@@ -2777,28 +2838,52 @@ function ThemePanel() {
 						children: "by mrmaxdesigns"
 					})] }), /* @__PURE__ */ jsxs("div", {
 						className: "flex items-center gap-1",
-						children: [/* @__PURE__ */ jsxs("button", {
-							type: "button",
-							onClick: audit.toggle,
-							className: `${btn} px-2 ${audit.on ? "border-zinc-900 bg-zinc-100" : "border-transparent"}`,
-							"aria-pressed": audit.on,
-							"data-tip": "Audit the page: point out what won’t look right with these colours",
-							children: [/* @__PURE__ */ jsx(ScanSearch, {
-								className: "w-4 h-4",
-								"aria-hidden": "true"
-							}), "Audit"]
-						}), /* @__PURE__ */ jsx("button", {
-							type: "button",
-							onClick: (e) => view === "settings" ? setView("main") : showView("settings", e.currentTarget),
-							className: `${btn} px-1.5 ${view === "settings" ? "border-zinc-900 bg-zinc-100" : "border-transparent"}`,
-							"aria-label": "Panel settings",
-							"aria-pressed": view === "settings",
-							"data-tip": "Panel settings",
-							children: /* @__PURE__ */ jsx(Settings, {
-								className: "w-4 h-4",
-								"aria-hidden": "true"
+						children: [
+							/* @__PURE__ */ jsx("div", {
+								role: "radiogroup",
+								"aria-label": "Theme mode",
+								className: "flex items-center rounded-lg border border-zinc-200 p-0.5",
+								children: MODES.map(({ id, label, Icon }) => {
+									const on = settings.mode === id;
+									return /* @__PURE__ */ jsx("button", {
+										type: "button",
+										role: "radio",
+										"aria-checked": on,
+										"aria-label": label,
+										"data-tip": id === "system" ? "Auto: follow this device" : label,
+										onClick: () => update({ mode: id }),
+										className: `grid h-7 w-7 place-items-center rounded-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 ${on ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"}`,
+										children: /* @__PURE__ */ jsx(Icon, {
+											className: "w-3.5 h-3.5",
+											"aria-hidden": "true"
+										})
+									}, id);
+								})
+							}),
+							/* @__PURE__ */ jsxs("button", {
+								type: "button",
+								onClick: audit.toggle,
+								className: `${btn} px-2 ${audit.on ? "border-zinc-900 bg-zinc-100" : "border-transparent"}`,
+								"aria-pressed": audit.on,
+								"data-tip": "Audit the page: point out what won’t look right with these colours",
+								children: [/* @__PURE__ */ jsx(ScanSearch, {
+									className: "w-4 h-4",
+									"aria-hidden": "true"
+								}), "Audit"]
+							}),
+							/* @__PURE__ */ jsx("button", {
+								type: "button",
+								onClick: (e) => view === "settings" ? setView("main") : showView("settings", e.currentTarget),
+								className: `${btn} px-1.5 ${view === "settings" ? "border-zinc-900 bg-zinc-100" : "border-transparent"}`,
+								"aria-label": "Panel settings",
+								"aria-pressed": view === "settings",
+								"data-tip": "Panel settings",
+								children: /* @__PURE__ */ jsx(Settings, {
+									className: "w-4 h-4",
+									"aria-hidden": "true"
+								})
 							})
-						})]
+						]
 					})]
 				}),
 				view === "contrast" && /* @__PURE__ */ jsx(ContrastView, { onBack: () => setView("main") }),
@@ -5345,7 +5430,7 @@ function ThemeSwitcher() {
 	return mount && createPortal(/* @__PURE__ */ jsx(Switcher, {}), mount);
 }
 function Switcher() {
-	const { issues, storageKey, tokens, active, themes, selectTheme, position: requested, setLogoColouring, intro } = useTheme();
+	const { issues, storageKey, tokens, position: requested, setLogoColouring, intro, mode, modeSetting, setMode } = useTheme();
 	const position = CORNERS[requested] ? requested : "bottom-right";
 	const [open, setOpen] = useState(false);
 	const [arrived, setArrived] = useState(!intro);
@@ -5408,8 +5493,6 @@ function Switcher() {
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
 	}, []);
-	const prefersDark = usePrefersDark();
-	const mode = settings.mode === "system" ? prefersDark ? "dark" : "light" : settings.mode;
 	const buttonRef = useRef(null);
 	const panelRef = useRef(null);
 	const layerRef = useRef(null);
@@ -5547,11 +5630,17 @@ function Switcher() {
 		saveButtonPosition(storageKey, null);
 	};
 	const storeSettings = (next) => {
-		saveSettings(storageKey, next);
+		saveSettings(storageKey, {
+			...next,
+			mode: loadSettings(storageKey).mode
+		});
 		return next;
 	};
 	const settingsApi = {
-		settings,
+		settings: {
+			...settings,
+			mode: modeSetting
+		},
 		mode,
 		audit: {
 			on: auditOn,
@@ -5565,36 +5654,20 @@ function Switcher() {
 				}
 			}
 		},
-		update: (patch) => setSettings((s) => storeSettings({
-			...s,
-			...patch
-		})),
-		reset: () => setSettings(storeSettings(DEFAULT_SETTINGS)),
+		update: ({ mode: nextMode, ...patch }) => {
+			if (nextMode) setMode(nextMode);
+			if (Object.keys(patch).length) setSettings((s) => storeSettings({
+				...s,
+				...patch,
+				mode: nextMode ?? modeSetting
+			}));
+		},
+		reset: () => {
+			setMode(DEFAULT_SETTINGS.mode);
+			setSettings(storeSettings(DEFAULT_SETTINGS));
+		},
 		resetButton: saved ? resetPosition : null
 	};
-	const lastMode = useRef(mode);
-	useEffect(() => {
-		if (lastMode.current === mode) return;
-		lastMode.current = mode;
-		if (active.custom) return;
-		if (mode === "dark" && !isDarkTheme(active.tokens)) {
-			const twin = toDark(active);
-			selectTheme(twin.id, twin);
-		} else if (mode === "light" && active.id.endsWith("~dark")) {
-			const lightId = active.id.slice(0, -DARK_SUFFIX.length);
-			const local = themes.find((t) => t.id === lightId);
-			if (local) selectTheme(local.id, local);
-			else loadLibrary().then((lib) => {
-				const t = lib.themes.find((x) => x.id === lightId);
-				if (t) selectTheme(t.id, t);
-			}, () => {});
-		}
-	}, [
-		mode,
-		active,
-		themes,
-		selectTheme
-	]);
 	useEffect(() => {
 		if (!open) return;
 		const panel = panelRef.current;
@@ -6047,4 +6120,4 @@ function ResizeHandles({ free, onStart, onMove, onEnd, onReset, active }) {
 	}, Object.keys(edges).join("-")));
 }
 //#endregion
-export { PAIRINGS as A, TOKEN_KEYS as C, MIN_CONTRAST_NON_TEXT as D, MIN_CONTRAST_LARGE_TEXT as E, contrastRatio as F, normalizeHex as I, checkTheme as M, fixAll as N, MIN_CONTRAST_TEXT as O, suggestFix as P, TOKEN_GROUPS as S, deriveAppTokens as T, darkTokens as _, rolesFromPalette as a, BASE_TOKENS as b, applyTokens as c, prePaintScript as d, collectColors as f, themeFromRoles as g, suggestThemes as h, dominantColours as i, checkRamp as j, MIN_RAMP_STEP_DELTA_E as k, useTheme as l, inferRoles as m, DEFAULT_SETTINGS as n, themeFromPalette as o, detectSiteName as p, coloursFromFile as r, ThemeProvider as s, ThemeSwitcher as t, DEFAULT_STORAGE_KEY as u, isDarkTheme as v, completeTokens as w, PRESETS as x, toDark as y };
+export { PAIRINGS as A, TOKEN_KEYS as C, MIN_CONTRAST_NON_TEXT as D, MIN_CONTRAST_LARGE_TEXT as E, contrastRatio as F, normalizeHex as I, checkTheme as M, fixAll as N, MIN_CONTRAST_TEXT as O, suggestFix as P, TOKEN_GROUPS as S, deriveAppTokens as T, darkTokens as _, themeFromPalette as a, BASE_TOKENS as b, useTheme as c, DEFAULT_SETTINGS as d, collectColors as f, themeFromRoles as g, suggestThemes as h, rolesFromPalette as i, checkRamp as j, MIN_RAMP_STEP_DELTA_E as k, DEFAULT_STORAGE_KEY as l, inferRoles as m, coloursFromFile as n, ThemeProvider as o, detectSiteName as p, dominantColours as r, applyTokens as s, ThemeSwitcher as t, prePaintScript as u, isDarkTheme as v, completeTokens as w, PRESETS as x, toDark as y };

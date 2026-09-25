@@ -5,9 +5,7 @@ import ThemePanel from './ThemePanel.jsx'
 import AuditLayer from './AuditLayer.jsx'
 import { runAudit } from './audit.js'
 import { useTheme } from './ThemeProvider.jsx'
-import { loadLibrary } from './library.js'
-import { DARK_SUFFIX, isDarkTheme, toDark } from './modes.js'
-import { DEFAULT_SETTINGS, SettingsContext, loadSettings, saveSettings, usePrefersDark } from './settings.js'
+import { DEFAULT_SETTINGS, SettingsContext, loadSettings, saveSettings } from './settings.js'
 import { loadButtonPosition, saveButtonPosition } from './storage.js'
 import panelCss from './panel-css.generated.js'
 
@@ -72,7 +70,7 @@ export default function ThemeSwitcher() {
 }
 
 function Switcher() {
-  const { issues, storageKey, tokens, active, themes, selectTheme, position: requested, setLogoColouring, intro } = useTheme()
+  const { issues, storageKey, tokens, position: requested, setLogoColouring, intro, mode, modeSetting, setMode } = useTheme()
   const position = CORNERS[requested] ? requested : 'bottom-right'
   const [open, setOpen] = useState(false)
 
@@ -135,8 +133,6 @@ function Switcher() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, []) // storeSettings only writes to storage
-  const prefersDark = usePrefersDark()
-  const mode = settings.mode === 'system' ? (prefersDark ? 'dark' : 'light') : settings.mode
   const buttonRef = useRef(null)
   const panelRef = useRef(null)
   const layerRef = useRef(null)
@@ -271,12 +267,13 @@ function Switcher() {
     saveButtonPosition(storageKey, null)
   }
 
+  // The mode is saved by the theme provider; other settings saves keep whatever it saved.
   const storeSettings = (next) => {
-    saveSettings(storageKey, next)
+    saveSettings(storageKey, { ...next, mode: loadSettings(storageKey).mode })
     return next
   }
   const settingsApi = {
-    settings,
+    settings: { ...settings, mode: modeSetting },
     mode,
     audit: {
       on: auditOn,
@@ -290,35 +287,19 @@ function Switcher() {
         }
       },
     },
-    update: (patch) => setSettings((s) => storeSettings({ ...s, ...patch })),
-    reset: () => setSettings(storeSettings(DEFAULT_SETTINGS)),
+    update: ({ mode: nextMode, ...patch }) => {
+      if (nextMode) setMode(nextMode)
+      if (Object.keys(patch).length) setSettings((s) => storeSettings({ ...s, ...patch, mode: nextMode ?? modeSetting }))
+    },
+    reset: () => {
+      setMode(DEFAULT_SETTINGS.mode)
+      setSettings(storeSettings(DEFAULT_SETTINGS))
+    },
     resetButton: saved ? resetPosition : null,
   }
 
-  // When the mode changes (in settings, or the device's if it's followed), swap the current
-  // theme for its twin in the new mode. Custom palettes stay as they are.
-  const lastMode = useRef(mode)
-  useEffect(() => {
-    if (lastMode.current === mode) return
-    lastMode.current = mode
-    if (active.custom) return
-    if (mode === 'dark' && !isDarkTheme(active.tokens)) {
-      const twin = toDark(active)
-      selectTheme(twin.id, twin)
-    } else if (mode === 'light' && active.id.endsWith(DARK_SUFFIX)) {
-      const lightId = active.id.slice(0, -DARK_SUFFIX.length)
-      const local = themes.find((t) => t.id === lightId)
-      if (local) selectTheme(local.id, local)
-      else
-        loadLibrary().then(
-          (lib) => {
-            const t = lib.themes.find((x) => x.id === lightId)
-            if (t) selectTheme(t.id, t)
-          },
-          () => {},
-        )
-    }
-  }, [mode, active, themes, selectTheme])
+  // Light and dark mode are the theme provider's (so they apply even when the switcher is hidden);
+  // the switcher shows and sets them.
 
   useEffect(() => {
     if (!open) return

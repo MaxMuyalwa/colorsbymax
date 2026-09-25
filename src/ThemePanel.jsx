@@ -45,7 +45,7 @@ function useSavedToYours() {
 
 export default function ThemePanel() {
   const theme = useTheme()
-  const { settings, mode, audit } = useSettings()
+  const { settings, mode, audit, update } = useSettings()
   const overrideCount = Object.keys(theme.state.overrides).length
   const [view, setView] = useState('main')
   const returnFocus = useRef(null)
@@ -96,6 +96,28 @@ export default function ThemePanel() {
           <p className="text-[11px] text-zinc-500">by mrmaxdesigns</p>
         </div>
         <div className="flex items-center gap-1">
+        {/* Light, dark or the device's mode, one click away (it's also in settings). */}
+        <div role="radiogroup" aria-label="Theme mode" className="flex items-center rounded-lg border border-zinc-200 p-0.5">
+          {MODES.map(({ id, label, Icon }) => {
+            const on = settings.mode === id
+            return (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                aria-label={label}
+                data-tip={id === 'system' ? 'Auto: follow this device' : label}
+                onClick={() => update({ mode: id })}
+                className={`grid h-7 w-7 place-items-center rounded-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 ${
+                  on ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+              </button>
+            )
+          })}
+        </div>
         <button
           type="button"
           onClick={audit.toggle}
