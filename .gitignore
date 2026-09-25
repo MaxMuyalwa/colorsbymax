@@ -1,5 +1,4 @@
 node_modules
-dist
-demo/dist
+/demo/dist
 .DS_Store
 *.log

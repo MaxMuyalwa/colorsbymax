@@ -2,27 +2,57 @@
   "name": "colorsbymax",
   "version": "0.1.0",
   "description": "colorsbymax™ by mrmaxdesigns: a runtime theme switcher with presets, a 715-theme library, custom palettes and WCAG contrast checks.",
-  "private": true,
-  "type": "module",
-  "main": "src/index.js",
-  "exports": {
-    ".": "./src/index.js",
-    "./tokens.css": "./src/tokens.css"
+  "keywords": [
+    "theme",
+    "theme-switcher",
+    "colors",
+    "colours",
+    "palette",
+    "dark-mode",
+    "accessibility",
+    "wcag",
+    "contrast",
+    "react",
+    "tailwind"
+  ],
+  "author": "Max Muyalwa (mrmaxdesigns)",
+  "homepage": "https://github.com/MaxMuyalwa/colorsbymax#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MaxMuyalwa/colorsbymax.git"
   },
+  "bugs": {
+    "url": "https://github.com/MaxMuyalwa/colorsbymax/issues"
+  },
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./tokens.css": "./src/tokens.css",
+    "./package.json": "./package.json"
+  },
+  "sideEffects": false,
   "files": [
-    "src",
+    "dist",
+    "src/tokens.css",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md"
   ],
   "scripts": {
     "dev": "vite",
+    "build": "node scripts/build-css.mjs && vite build --config vite.lib.config.js",
+    "prepare": "vite build --config vite.lib.config.js",
     "build:demo": "vite build",
     "css": "node scripts/build-css.mjs",
     "presets": "node scripts/generate-presets.mjs"
   },
   "peerDependencies": {
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react": "^18.2.0 || ^19.0.0",
+    "react-dom": "^18.2.0 || ^19.0.0"
   },
   "dependencies": {
     "lucide-react": "^1.48.0",
@@ -33,6 +63,8 @@
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-react": "^6.1.1",
     "nice-color-palettes": "^4.0.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "tailwindcss": "^4.3.3",
     "vite": "^8.3.1"
   },

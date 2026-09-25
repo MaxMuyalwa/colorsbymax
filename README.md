@@ -35,9 +35,17 @@ npm install
 npm run dev
 ```
 
-This serves `demo/`: a fictional studio site built with Tailwind that uses every token group, and `/plain.html`, a plain-CSS bakery site with deliberately careless global styles to show they don't reach the panel.
+This serves `demo/`: colorsbymax's own landing page, built with Tailwind, where every colour is a token (it uses every token group, and a strip shows the live values), and `/plain.html`, a plain-CSS bakery site with deliberately careless global styles to show they don't reach the panel.
 
 ## Add it to a site
+
+colorsbymax needs React 18 or 19:
+
+```bash
+npm install colorsbymax
+```
+
+It ships as plain JavaScript (`dist/`), so Vite, Next.js, webpack and other bundlers use it without extra setup. Installing changes nothing on its own; these steps add the colour button:
 
 1. **Paint the site with the token variables.** Use `var(--color-<token>)` wherever the site sets a colour, with your own colours as the starting values.
 
@@ -94,6 +102,14 @@ Without a `siteName`, the site group is named from the page's `og:site_name`, it
 ```
 
 `examples/tsungi.config.js` is a complete example for tsungi.online, the first site to use colorsbymax.
+
+## Building the package
+
+`src/` is the source; `dist/` is what sites install: plain JavaScript with the JSX compiled away. `dist/` is committed so installs straight from GitHub work even when npm skips install scripts, so rebuild it before committing changes to `src/`. `npm publish` also rebuilds it first:
+
+```bash
+npm run build
+```
 
 ## Panel styles
 
