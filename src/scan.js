@@ -56,6 +56,13 @@ function createColorParser() {
  * colours. Everything happens synchronously, so nothing repaints in between.
  */
 function withoutAppliedTheme(fn) {
+  // Sites that animate colour changes (transition-colors, transition-all) would otherwise
+  // report mid-transition colours from the applied theme. Transitions are switched off only for
+  // this synchronous read; animations are left alone so entrance effects don't replay.
+  const freeze = document.createElement('style')
+  freeze.textContent = '*,*::before,*::after{transition:none!important}'
+  document.head.appendChild(freeze)
+
   const style = document.documentElement.style
   const saved = []
   for (let i = style.length - 1; i >= 0; i--) {
@@ -69,6 +76,10 @@ function withoutAppliedTheme(fn) {
     return fn()
   } finally {
     for (const [prop, value] of saved) style.setProperty(prop, value)
+    // Apply the restored colours while transitions are still off, so nothing animates back.
+    void getComputedStyle(document.documentElement).color
+    void document.body.offsetHeight
+    freeze.remove()
   }
 }
 
