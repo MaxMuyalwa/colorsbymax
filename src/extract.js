@@ -1,6 +1,7 @@
 // Palettes from files: reads the colours in an uploaded image or PDF and turns them into a
-// theme. Images are sampled pixel by pixel. PDFs are rendered with PDF.js (downloaded only when
-// a PDF is picked); hex codes written in a PDF, as in brand guidelines, win over its pixels.
+// theme. Images are sampled pixel by pixel. PDFs are rendered with PDF.js, which is opt-in: a
+// site passes `loadPdf` from 'colorsbymax/pdf', so sites that don't want PDFs never install or
+// bundle it. Hex codes written in a PDF, as in brand guidelines, win over its pixels.
 
 import { contrastRatio, deltaE, hexToRgb, mix, rgbToHex, rgbToHsl } from './color.js'
 import { fixAll } from './contrast.js'
@@ -27,13 +28,17 @@ const hslOf = (hex) => rgbToHsl(hexToRgb(hex))
 /**
  * The main colours in an image or PDF, most important first.
  * @param {File} file
+ * @param {{ loadPdf?: (() => Promise<any>) | null }} [options]  PDF support, from 'colorsbymax/pdf'
  * @returns {Promise<{ colours: string[], from: 'image' | 'pdf-text' | 'pdf' }>}
  */
-export async function coloursFromFile(file) {
+export async function coloursFromFile(file, { loadPdf = null } = {}) {
   if (file.size > MAX_FILE_BYTES) throw new Error('That file is over 25 MB. Try a smaller one.')
   const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
-  if (isPdf) return coloursFromPdf(file)
-  if (!file.type.startsWith('image/')) throw new Error('Choose an image (PNG, JPG, WebP, SVG…) or a PDF.')
+  if (isPdf) {
+    if (!loadPdf) throw new Error('PDFs aren’t supported on this site. Try an image of the palette instead.')
+    return coloursFromPdf(file, loadPdf)
+  }
+  if (!file.type.startsWith('image/')) throw new Error(`Choose an image (PNG, JPG, WebP, SVG…)${loadPdf ? ' or a PDF' : ''}.`)
   const bitmap = await loadImage(file)
   return { colours: dominantColours([pixelsOf(bitmap, bitmap.width, bitmap.height)]), from: 'image' }
 }
@@ -118,12 +123,10 @@ function isEdgeBlend(m, kept) {
   return false
 }
 
-async function coloursFromPdf(file) {
+async function coloursFromPdf(file, loadPdf) {
   let pdfjs
   try {
-    pdfjs = await import('pdfjs-dist')
-    // Runs PDF.js on the page instead of in a separate worker file, so no bundler setup is needed.
-    await import('pdfjs-dist/build/pdf.worker.min.mjs')
+    pdfjs = await loadPdf()
   } catch {
     throw new Error('Couldn’t load the PDF reader. Check your connection and try again.')
   }

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Check, CheckCircle2, ChevronRight, Copy, Download, ArrowLeft, Globe, ImageUp, Loader2, Monitor, Moon, RotateCcw, ScanLine, Settings, Shuffle, Paintbrush, Sun, Trash2, Upload, UserRound, Wand2, X } from 'lucide-react'
+import { AlertTriangle, Check, CheckCircle2, ChevronRight, Copy, Download, ArrowLeft, Globe, ImageUp, Loader2, Monitor, Moon, RotateCcw, ScanLine, Settings, Shuffle, Paintbrush, Sun, Trash2, Upload, UserRound, Wand2, X } from './icons.jsx'
 import { normalizeHex } from './color.js'
 import { checkTheme } from './contrast.js'
 import { coloursFromFile, themeFromPalette } from './extract.js'
@@ -658,7 +658,7 @@ function PresetGrid() {
         </p>
       ) : visible.length === 0 && !q && category === 'yours' ? (
         <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-5 text-center text-xs text-zinc-600">
-          Nothing here yet. Palettes you create in Custom palettes, import, or build from an image or PDF in Import / export are saved here.
+          Nothing here yet. Palettes you create in Custom palettes, import, or build from a file in Import / export are saved here.
         </p>
       ) : visible.length === 0 ? (
         <p className="py-6 text-center text-xs text-zinc-600" role="status">No themes match “{query}”.</p>
@@ -1023,9 +1023,10 @@ const FROM_NOTE = {
   'pdf-text': 'Found colour codes written in the PDF.',
 }
 
-/** Builds a custom palette from the colours in an uploaded image or PDF. */
+/** Builds a custom palette from the colours in an uploaded image, or a PDF where the site allows it. */
 function PaletteFromFile() {
-  const { addPalette } = useTheme()
+  const { addPalette, loadPdf } = useTheme()
+  const kinds = loadPdf ? 'image or PDF' : 'image'
   const savedToYours = useSavedToYours()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -1044,7 +1045,7 @@ function PaletteFromFile() {
     setBusy(true)
     setError(null)
     try {
-      const { colours, from } = await coloursFromFile(file)
+      const { colours, from } = await coloursFromFile(file, { loadPdf })
       if (!colours.length) throw new Error('Couldn’t find any colours in that file.')
       setFound({ fileName: file.name, colours, from })
       setOff(new Set())
@@ -1065,7 +1066,7 @@ function PaletteFromFile() {
 
   return (
     <div className="space-y-1.5">
-      <p className="text-xs font-medium text-zinc-700">Palette from an image or PDF</p>
+      <p className="text-xs font-medium text-zinc-700">Palette from an {kinds}</p>
       <div
         onDragOver={(e) => {
           e.preventDefault()
@@ -1085,13 +1086,13 @@ function PaletteFromFile() {
           ) : (
             <ImageUp className="w-3.5 h-3.5" aria-hidden="true" />
           )}
-          {busy ? 'Reading colours…' : 'Choose image or PDF…'}
+          {busy ? 'Reading colours…' : `Choose ${kinds}…`}
         </button>
-        <p className="mt-1.5 text-[11px] text-zinc-600">or drop one here. A mood board, screenshot, photo or brand guide works.</p>
+        <p className="mt-1.5 text-[11px] text-zinc-600">or drop one here. A mood board, screenshot or photo{loadPdf ? ', or a brand guide PDF,' : ''} works.</p>
         <input
           ref={fileRef}
           type="file"
-          accept="image/*,application/pdf,.pdf"
+          accept={loadPdf ? 'image/*,application/pdf,.pdf' : 'image/*'}
           className="sr-only"
           tabIndex={-1}
           aria-hidden="true"

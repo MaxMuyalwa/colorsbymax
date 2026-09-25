@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Palette } from 'lucide-react'
+import { Palette } from './icons.jsx'
 import ThemePanel from './ThemePanel.jsx'
 import { useTheme } from './ThemeProvider.jsx'
 import { loadLibrary } from './library.js'

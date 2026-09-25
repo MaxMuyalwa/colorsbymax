@@ -30,6 +30,7 @@ const newId = () => `custom-${Date.now().toString(36)}-${Math.random().toString(
  * @property {Partial<Record<import('./tokens.js').TokenKey, string>>} [usage]
  *   Where each token is used on this site, shown in the editors
  * @property {boolean} [scrollbars]  Colour the page's scrollbars from the theme (default true)
+ * @property {() => Promise<any>} [pdf]  Enables PDF uploads: pass `loadPdf` from 'colorsbymax/pdf'
  */
 
 /** Resolves a config into the site theme group. The shipped default always comes first. */
@@ -115,6 +116,7 @@ export function ThemeProvider({ config = {}, children }) {
     storageKey,
     siteName,
     usage: config.usage ?? {},
+    loadPdf: config.pdf ?? null,
     siteThemes,
     defaultTheme,
     presets: PRESETS,

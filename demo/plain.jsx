@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client'
 import { ThemeProvider, ThemeSwitcher } from '../src/index.js'
+import { loadPdf } from '../src/pdf.js'
 
 // A plain-CSS site that isn't a React app: colorsbymax mounts on its own, next to the page.
 createRoot(document.getElementById('colorsbymax')).render(
@@ -7,6 +8,7 @@ createRoot(document.getElementById('colorsbymax')).render(
     config={{
       siteName: 'Northfield',
       storageKey: 'colorsbymax-plain-demo',
+      pdf: loadPdf,
       defaultTheme: {
         name: 'Northfield Crust',
         tokens: {

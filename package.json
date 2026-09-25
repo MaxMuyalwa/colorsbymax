@@ -25,19 +25,38 @@
     "url": "https://github.com/MaxMuyalwa/colorsbymax/issues"
   },
   "type": "module",
-  "main": "dist/index.js",
-  "module": "dist/index.js",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./types/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "pdf": [
+        "./types/pdf.d.ts"
+      ]
+    }
+  },
   "exports": {
     ".": {
+      "types": "./types/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./pdf": {
+      "types": "./types/pdf.d.ts",
+      "import": "./dist/pdf.js",
+      "default": "./dist/pdf.js"
     },
     "./tokens.css": "./src/tokens.css",
     "./package.json": "./package.json"
   },
   "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
   "files": [
     "dist",
+    "types/index.d.ts",
+    "types/pdf.d.ts",
     "src/tokens.css",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md"
@@ -45,27 +64,36 @@
   "scripts": {
     "dev": "vite",
     "build": "node scripts/build-css.mjs && vite build --config vite.lib.config.js",
-    "prepare": "vite build --config vite.lib.config.js",
+    "typecheck": "tsc -p types && node scripts/check-types.mjs",
+    "prepublishOnly": "npm run build && npm run typecheck",
     "build:demo": "vite build",
     "css": "node scripts/build-css.mjs",
+    "icons": "node scripts/build-icons.mjs",
     "presets": "node scripts/generate-presets.mjs"
   },
   "peerDependencies": {
     "react": "^18.2.0 || ^19.0.0",
-    "react-dom": "^18.2.0 || ^19.0.0"
+    "react-dom": "^18.2.0 || ^19.0.0",
+    "pdfjs-dist": ">=4"
   },
-  "dependencies": {
-    "lucide-react": "^1.48.0",
-    "pdfjs-dist": "^6.3.289"
+  "peerDependenciesMeta": {
+    "pdfjs-dist": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.3.3",
     "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
+    "lucide-react": "^1.48.0",
     "nice-color-palettes": "^4.0.0",
+    "pdfjs-dist": "^6.3.289",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3",
     "vite": "^8.3.1"
   },
   "license": "MIT"

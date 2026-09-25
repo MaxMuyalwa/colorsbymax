@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["es2022", "dom"],
+    "skipLibCheck": false,
+    "types": [],
+    "paths": {
+      "colorsbymax": ["./index.d.ts"],
+      "colorsbymax/pdf": ["./pdf.d.ts"]
+    }
+  },
+  "files": ["check.tsx"]
+}

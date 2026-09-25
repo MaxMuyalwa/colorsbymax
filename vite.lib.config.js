@@ -3,8 +3,8 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // Builds the package itself into dist/: plain JavaScript (JSX compiled away), so any bundler
-// can use it without extra setup. React, the icons and PDF.js stay external: the site's own
-// copies are used, and PDF.js still loads only when someone uploads a PDF.
+// can use it without extra setup. Two entries: the main one, and 'colorsbymax/pdf' for sites that
+// opt in to PDF uploads. React and PDF.js stay external, so the site's own copies are used.
 //
 // dist/ is committed, so installs straight from GitHub work even when npm skips install
 // scripts. Rebuild it before committing changes to src/.
@@ -17,12 +17,15 @@ export default defineConfig({
     emptyOutDir: true,
     minify: false,
     lib: {
-      entry: fileURLToPath(new URL('./src/index.js', import.meta.url)),
+      entry: {
+        index: fileURLToPath(new URL('./src/index.js', import.meta.url)),
+        pdf: fileURLToPath(new URL('./src/pdf.js', import.meta.url)),
+      },
       formats: ['es'],
-      fileName: 'index',
+      fileName: (_format, name) => `${name}.js`,
     },
     rollupOptions: {
-      external: [/^react($|\/)/, /^react-dom($|\/)/, 'lucide-react', /^pdfjs-dist($|\/)/],
+      external: [/^react($|\/)/, /^react-dom($|\/)/, /^pdfjs-dist($|\/)/],
     },
   },
 })

@@ -2,6 +2,7 @@ import { StrictMode, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Check, Copy, ImageUp, Library, Moon, Palette, ScanLine, ShieldCheck } from 'lucide-react'
 import { ThemeProvider, ThemeSwitcher } from '../src/index.js'
+import { loadPdf } from '../src/pdf.js'
 import './demo.css'
 
 // colorsbymax's own site, and the demo: every colour on the page is a colorsbymax token, so the
@@ -9,6 +10,7 @@ import './demo.css'
 const config = {
   siteName: 'colorsbymax',
   storageKey: 'colorsbymax-demo',
+  pdf: loadPdf,
   defaultTheme: {
     name: 'colorsbymax Violet',
     tokens: {

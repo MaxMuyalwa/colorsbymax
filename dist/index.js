@@ -1,7 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createContext, createElement, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 import { createPortal } from "react-dom";
-import { AlertTriangle, ArrowLeft, Check, CheckCircle2, ChevronRight, Copy, Download, Globe, ImageUp, Loader2, Monitor, Moon, Paintbrush, Palette, RotateCcw, ScanLine, Settings, Shuffle, Sun, Trash2, Upload, UserRound, Wand2, X } from "lucide-react";
 //#region src/color.js
 var HEX_RE = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
 /** Normalises "#abc", "abc", "#AABBCC" to "#aabbcc"; returns null for anything else. */
@@ -1429,6 +1428,7 @@ var newId = () => `custom-${Date.now().toString(36)}-${Math.random().toString(36
 * @property {Partial<Record<import('./tokens.js').TokenKey, string>>} [usage]
 *   Where each token is used on this site, shown in the editors
 * @property {boolean} [scrollbars]  Colour the page's scrollbars from the theme (default true)
+* @property {() => Promise<any>} [pdf]  Enables PDF uploads: pass `loadPdf` from 'colorsbymax/pdf'
 */
 /** Resolves a config into the site theme group. The shipped default always comes first. */
 function resolveSite(config) {
@@ -1535,6 +1535,7 @@ function ThemeProvider({ config = {}, children }) {
 		storageKey,
 		siteName,
 		usage: config.usage ?? {},
+		loadPdf: config.pdf ?? null,
 		siteThemes,
 		defaultTheme,
 		presets: PRESETS,
@@ -1689,6 +1690,193 @@ function useTheme() {
 	if (!ctx) throw new Error("useTheme must be used inside <ThemeProvider>");
 	return ctx;
 }
+//#endregion
+//#region src/icons.jsx
+/** A Lucide-style icon: 24×24, drawn with currentColor strokes, sized by className. */
+function icon(slug, shapes) {
+	const Icon = ({ className = "", ...props }) => /* @__PURE__ */ jsx("svg", {
+		xmlns: "http://www.w3.org/2000/svg",
+		width: "24",
+		height: "24",
+		viewBox: "0 0 24 24",
+		fill: "none",
+		stroke: "currentColor",
+		strokeWidth: "2",
+		strokeLinecap: "round",
+		strokeLinejoin: "round",
+		className: `lucide lucide-${slug} ${className}`.trim(),
+		...props,
+		children: shapes.map(([tag, attrs], i) => createElement(tag, {
+			key: i,
+			...attrs
+		}))
+	});
+	Icon.displayName = slug;
+	return Icon;
+}
+var AlertTriangle = icon("triangle-alert", [
+	["path", { "d": "m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" }],
+	["path", { "d": "M12 9v4" }],
+	["path", { "d": "M12 17h.01" }]
+]);
+var ArrowLeft = icon("arrow-left", [["path", { "d": "m12 19-7-7 7-7" }], ["path", { "d": "M19 12H5" }]]);
+var Check = icon("check", [["path", { "d": "M20 6 9 17l-5-5" }]]);
+var CheckCircle2 = icon("circle-check", [["circle", {
+	"cx": "12",
+	"cy": "12",
+	"r": "10"
+}], ["path", { "d": "m16 9-5.5 5.5L8 12" }]]);
+var ChevronRight = icon("chevron-right", [["path", { "d": "m9 18 6-6-6-6" }]]);
+var Copy = icon("copy", [["rect", {
+	"width": "14",
+	"height": "14",
+	"x": "8",
+	"y": "8",
+	"rx": "2",
+	"ry": "2"
+}], ["path", { "d": "M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" }]]);
+var Download = icon("download", [
+	["path", { "d": "M12 15V3" }],
+	["path", { "d": "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }],
+	["path", { "d": "m7 10 5 5 5-5" }]
+]);
+var Globe = icon("globe", [
+	["circle", {
+		"cx": "12",
+		"cy": "12",
+		"r": "10"
+	}],
+	["path", { "d": "M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" }],
+	["path", { "d": "M2 12h20" }]
+]);
+var ImageUp = icon("image-up", [
+	["path", { "d": "M10.3 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10l-3.1-3.1a2 2 0 0 0-2.814.014L6 21" }],
+	["path", { "d": "m14 19.5 3-3 3 3" }],
+	["path", { "d": "M17 22v-5.5" }],
+	["circle", {
+		"cx": "9",
+		"cy": "9",
+		"r": "2"
+	}]
+]);
+var Loader2 = icon("loader-circle", [["path", { "d": "M21 12a9 9 0 1 1-6.219-8.56" }]]);
+var Monitor = icon("monitor", [
+	["rect", {
+		"width": "20",
+		"height": "14",
+		"x": "2",
+		"y": "3",
+		"rx": "2"
+	}],
+	["line", {
+		"x1": "8",
+		"x2": "16",
+		"y1": "21",
+		"y2": "21"
+	}],
+	["line", {
+		"x1": "12",
+		"x2": "12",
+		"y1": "17",
+		"y2": "21"
+	}]
+]);
+var Moon = icon("moon", [["path", { "d": "M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" }]]);
+var Paintbrush = icon("paintbrush", [
+	["path", { "d": "m14.622 17.897-10.68-2.913" }],
+	["path", { "d": "M18.376 2.622a1 1 0 1 1 3.002 3.002L17.36 9.643a.5.5 0 0 0 0 .707l.944.944a2.41 2.41 0 0 1 0 3.408l-.944.944a.5.5 0 0 1-.707 0L8.354 7.348a.5.5 0 0 1 0-.707l.944-.944a2.41 2.41 0 0 1 3.408 0l.944.944a.5.5 0 0 0 .707 0z" }],
+	["path", { "d": "M9 8c-1.804 2.71-3.97 3.46-6.583 3.948a.507.507 0 0 0-.302.819l7.32 8.883a1 1 0 0 0 1.185.204C12.735 20.405 16 16.792 16 15" }]
+]);
+var Palette = icon("palette", [
+	["path", { "d": "M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z" }],
+	["circle", {
+		"cx": "13.5",
+		"cy": "6.5",
+		"r": ".5",
+		"fill": "currentColor"
+	}],
+	["circle", {
+		"cx": "17.5",
+		"cy": "10.5",
+		"r": ".5",
+		"fill": "currentColor"
+	}],
+	["circle", {
+		"cx": "6.5",
+		"cy": "12.5",
+		"r": ".5",
+		"fill": "currentColor"
+	}],
+	["circle", {
+		"cx": "8.5",
+		"cy": "7.5",
+		"r": ".5",
+		"fill": "currentColor"
+	}]
+]);
+var RotateCcw = icon("rotate-ccw", [["path", { "d": "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" }], ["path", { "d": "M3 3v5h5" }]]);
+var ScanLine = icon("scan-line", [
+	["path", { "d": "M3 7V5a2 2 0 0 1 2-2h2" }],
+	["path", { "d": "M17 3h2a2 2 0 0 1 2 2v2" }],
+	["path", { "d": "M21 17v2a2 2 0 0 1-2 2h-2" }],
+	["path", { "d": "M7 21H5a2 2 0 0 1-2-2v-2" }],
+	["path", { "d": "M7 12h10" }]
+]);
+var Settings = icon("settings", [["path", { "d": "M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" }], ["circle", {
+	"cx": "12",
+	"cy": "12",
+	"r": "3"
+}]]);
+var Shuffle = icon("shuffle", [
+	["path", { "d": "m18 14 4 4-4 4" }],
+	["path", { "d": "m18 2 4 4-4 4" }],
+	["path", { "d": "M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22" }],
+	["path", { "d": "M2 6h1.972a4 4 0 0 1 3.6 2.2" }],
+	["path", { "d": "M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45" }]
+]);
+var Sun = icon("sun", [
+	["circle", {
+		"cx": "12",
+		"cy": "12",
+		"r": "4"
+	}],
+	["path", { "d": "M12 2v2" }],
+	["path", { "d": "M12 20v2" }],
+	["path", { "d": "m4.93 4.93 1.41 1.41" }],
+	["path", { "d": "m17.66 17.66 1.41 1.41" }],
+	["path", { "d": "M2 12h2" }],
+	["path", { "d": "M20 12h2" }],
+	["path", { "d": "m6.34 17.66-1.41 1.41" }],
+	["path", { "d": "m19.07 4.93-1.41 1.41" }]
+]);
+var Trash2 = icon("trash", [
+	["path", { "d": "M10 11v6" }],
+	["path", { "d": "M14 11v6" }],
+	["path", { "d": "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" }],
+	["path", { "d": "M3 6h18" }],
+	["path", { "d": "M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" }]
+]);
+var Upload = icon("upload", [
+	["path", { "d": "M12 3v12" }],
+	["path", { "d": "m17 8-5-5-5 5" }],
+	["path", { "d": "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }]
+]);
+var UserRound = icon("user-round", [["circle", {
+	"cx": "12",
+	"cy": "8",
+	"r": "5"
+}], ["path", { "d": "M20 21a8 8 0 0 0-16 0" }]]);
+var Wand2 = icon("wand-sparkles", [
+	["path", { "d": "m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72" }],
+	["path", { "d": "m14 7 3 3" }],
+	["path", { "d": "M5 6v4" }],
+	["path", { "d": "M19 14v4" }],
+	["path", { "d": "M10 2v2" }],
+	["path", { "d": "M7 8H3" }],
+	["path", { "d": "M21 16h-4" }],
+	["path", { "d": "M11 3H9" }]
+]);
+var X = icon("x", [["path", { "d": "M18 6 6 18" }], ["path", { "d": "m6 6 12 12" }]]);
 /** Images are scaled down to at most this many pixels on their longest side before sampling. */
 var SAMPLE_SIZE = 200;
 /** PDF pages read, from the first. */
@@ -1704,12 +1892,16 @@ var hslOf = (hex) => rgbToHsl(hexToRgb(hex));
 /**
 * The main colours in an image or PDF, most important first.
 * @param {File} file
+* @param {{ loadPdf?: (() => Promise<any>) | null }} [options]  PDF support, from 'colorsbymax/pdf'
 * @returns {Promise<{ colours: string[], from: 'image' | 'pdf-text' | 'pdf' }>}
 */
-async function coloursFromFile(file) {
+async function coloursFromFile(file, { loadPdf = null } = {}) {
 	if (file.size > 26214400) throw new Error("That file is over 25 MB. Try a smaller one.");
-	if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) return coloursFromPdf(file);
-	if (!file.type.startsWith("image/")) throw new Error("Choose an image (PNG, JPG, WebP, SVG…) or a PDF.");
+	if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
+		if (!loadPdf) throw new Error("PDFs aren’t supported on this site. Try an image of the palette instead.");
+		return coloursFromPdf(file, loadPdf);
+	}
+	if (!file.type.startsWith("image/")) throw new Error(`Choose an image (PNG, JPG, WebP, SVG…)${loadPdf ? " or a PDF" : ""}.`);
 	const bitmap = await loadImage(file);
 	return {
 		colours: dominantColours([pixelsOf(bitmap, bitmap.width, bitmap.height)]),
@@ -1795,11 +1987,10 @@ function isEdgeBlend(m, kept) {
 	}
 	return false;
 }
-async function coloursFromPdf(file) {
+async function coloursFromPdf(file, loadPdf) {
 	let pdfjs;
 	try {
-		pdfjs = await import("pdfjs-dist");
-		await import("pdfjs-dist/build/pdf.worker.min.mjs");
+		pdfjs = await loadPdf();
 	} catch {
 		throw new Error("Couldn’t load the PDF reader. Check your connection and try again.");
 	}
@@ -2853,7 +3044,7 @@ function PresetGrid() {
 				children: loadError ? "Couldn’t load the theme library. Check your connection and reopen the panel." : "Loading themes…"
 			}) : visible.length === 0 && !q && category === "yours" ? /* @__PURE__ */ jsx("p", {
 				className: "rounded-xl border border-dashed border-zinc-300 px-4 py-5 text-center text-xs text-zinc-600",
-				children: "Nothing here yet. Palettes you create in Custom palettes, import, or build from an image or PDF in Import / export are saved here."
+				children: "Nothing here yet. Palettes you create in Custom palettes, import, or build from a file in Import / export are saved here."
 			}) : visible.length === 0 ? /* @__PURE__ */ jsxs("p", {
 				className: "py-6 text-center text-xs text-zinc-600",
 				role: "status",
@@ -3302,9 +3493,10 @@ var FROM_NOTE = {
 	pdf: "Picked from the colours on the first pages.",
 	"pdf-text": "Found colour codes written in the PDF."
 };
-/** Builds a custom palette from the colours in an uploaded image or PDF. */
+/** Builds a custom palette from the colours in an uploaded image, or a PDF where the site allows it. */
 function PaletteFromFile() {
-	const { addPalette } = useTheme();
+	const { addPalette, loadPdf } = useTheme();
+	const kinds = loadPdf ? "image or PDF" : "image";
 	const savedToYours = useSavedToYours();
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState(null);
@@ -3321,7 +3513,7 @@ function PaletteFromFile() {
 		setBusy(true);
 		setError(null);
 		try {
-			const { colours, from } = await coloursFromFile(file);
+			const { colours, from } = await coloursFromFile(file, { loadPdf });
 			if (!colours.length) throw new Error("Couldn’t find any colours in that file.");
 			setFound({
 				fileName: file.name,
@@ -3345,9 +3537,9 @@ function PaletteFromFile() {
 	return /* @__PURE__ */ jsxs("div", {
 		className: "space-y-1.5",
 		children: [
-			/* @__PURE__ */ jsx("p", {
+			/* @__PURE__ */ jsxs("p", {
 				className: "text-xs font-medium text-zinc-700",
-				children: "Palette from an image or PDF"
+				children: ["Palette from an ", kinds]
 			}),
 			/* @__PURE__ */ jsxs("div", {
 				onDragOver: (e) => {
@@ -3374,16 +3566,20 @@ function PaletteFromFile() {
 						}) : /* @__PURE__ */ jsx(ImageUp, {
 							className: "w-3.5 h-3.5",
 							"aria-hidden": "true"
-						}), busy ? "Reading colours…" : "Choose image or PDF…"]
+						}), busy ? "Reading colours…" : `Choose ${kinds}…`]
 					}),
-					/* @__PURE__ */ jsx("p", {
+					/* @__PURE__ */ jsxs("p", {
 						className: "mt-1.5 text-[11px] text-zinc-600",
-						children: "or drop one here. A mood board, screenshot, photo or brand guide works."
+						children: [
+							"or drop one here. A mood board, screenshot or photo",
+							loadPdf ? ", or a brand guide PDF," : "",
+							" works."
+						]
 					}),
 					/* @__PURE__ */ jsx("input", {
 						ref: fileRef,
 						type: "file",
-						accept: "image/*,application/pdf,.pdf",
+						accept: loadPdf ? "image/*,application/pdf,.pdf" : "image/*",
 						className: "sr-only",
 						tabIndex: -1,
 						"aria-hidden": "true",

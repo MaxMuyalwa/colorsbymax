@@ -4,13 +4,22 @@
 
 A floating theme switcher for websites. Visitors (or the site's owner) can re-colour the whole site instantly: pick one of the site's own themes, a hand-tuned pick, or one of 715 library themes in 14 categories; build and share custom palettes; or override single colours. Every theme is checked against the Web Content Accessibility Guidelines (WCAG) contrast rules, with one-click fixes.
 
+**At a glance**
+
+- **React 18 or 19.** `npm install colorsbymax`, then wrap your app (see [Add it to a site](#add-it-to-a-site)).
+- **Tailwind optional.** The panel carries its own styles, so it works with Tailwind v4, older Tailwind or plain CSS. Your site only needs to paint its colours with `var(--color-…)` variables. The optional `colorsbymax/tokens.css` helper is for Tailwind v4 (`@theme` syntax); without Tailwind v4, define the variables yourself.
+- **TypeScript types included.**
+- **No runtime dependencies** besides React. PDF uploads are opt-in and need `pdfjs-dist` (see [PDF uploads](#pdf-uploads)).
+- **ESM only.** Import it from a bundler or `import()`; `require('colorsbymax')` from CommonJS isn't supported.
+- **The colour tools work on their own too.** `contrastRatio`, `checkTheme`, `suggestFix`, `fixAll`, `themeFromPalette`, `darkTokens` and the rest are plain functions with no UI.
+
 ## Features
 
 - **Site themes first.** The panel opens on a group named after the site, holding its own colours. If those fail contrast, an accessible version is generated automatically.
 - **Scan the site.** Press "Scan site" and colorsbymax reads the colours actually painted on the page (ignoring any theme it has applied, and including gradients). It works out the page background, surfaces, text and brand colours, then adds themes named after the site: Scanned (as found), Accessible, Soft, Bold, Complementary, and the closest library matches. Scans run only when asked, and the results are remembered.
 - **Max’s picks and library.** 5 hand-tuned picks, plus 715 library themes (Bright, Fun, Pastel, Earth tones, Summer, Autumn, Winter, Spring, Ocean, Warm, Nature, Moody, Monochrome, Eclectic) with search and "Surprise me". The library loads only when the panel opens.
 - **Custom palettes, single-colour overrides, JSON import/export.**
-- **Palettes from images and PDFs.** In Import / export, upload or drop a mood board, screenshot, photo or brand guide. colorsbymax picks out its main colours (hex codes written in a PDF take priority), lets you leave any out, previews the palette it builds around them and saves it as a custom palette. Nothing leaves the browser; PDFs are read with [PDF.js](https://mozilla.github.io/pdf.js/), downloaded only when a PDF is picked.
+- **Palettes from images and PDFs.** In Import / export, upload or drop a mood board, screenshot or photo. colorsbymax picks out its main colours, lets you leave any out, previews the palette it builds around them and saves it as a custom palette. Nothing leaves the browser. PDFs, such as brand guides, work where the site [turns them on](#pdf-uploads); hex codes written in a PDF take priority.
 - **Contrast checks.** Problems show as a badge on the theme; the breakdown offers per-item fixes or "Fix all automatically", which changes lightness only.
 - **No flash on reload.** An inline pre-paint script applies the saved theme before the page draws.
 - **Works on any site.** The panel carries its own stylesheet inside a shadow root, so it needs no Tailwind or other CSS from the site, and the site's CSS can't restyle it.
@@ -45,11 +54,11 @@ colorsbymax needs React 18 or 19:
 npm install colorsbymax
 ```
 
-It ships as plain JavaScript (`dist/`), so Vite, Next.js, webpack and other bundlers use it without extra setup. Installing changes nothing on its own; these steps add the colour button:
+It ships as plain JavaScript with TypeScript types, so Vite, Next.js, webpack and other bundlers use it without extra setup. Installing changes nothing on its own; these steps add the colour button:
 
 1. **Paint the site with the token variables.** Use `var(--color-<token>)` wherever the site sets a colour, with your own colours as the starting values.
 
-   With Tailwind CSS v4, import the defaults, override them, and use the token utilities (`bg-primary`, `text-ink`, …) instead of hard-coded colours:
+   With Tailwind CSS v4, import the defaults (`colorsbymax/tokens.css` is Tailwind v4 syntax), override them, and use the token utilities (`bg-primary`, `text-ink`, …) instead of hard-coded colours:
 
    ```css
    @import "tailwindcss";
@@ -60,7 +69,7 @@ It ships as plain JavaScript (`dist/`), so Vite, Next.js, webpack and other bund
    }
    ```
 
-   With plain CSS, define the variables yourself (`demo/plain.html` shows this):
+   With plain CSS, or Tailwind before v4, define the variables yourself (`demo/plain.html` shows this):
 
    ```css
    :root {
@@ -98,14 +107,31 @@ Without a `siteName`, the site group is named from the page's `og:site_name`, it
   themes: [{ id, name, tokens }],   // optional extra themes made for the site
   usage: { primary: 'Buttons…' },   // optional notes shown in the colour editors
   scrollbars: true,                 // colour the page's scrollbars from the theme (default)
+  pdf: loadPdf,                     // optional: allow PDF uploads (see below)
 }
 ```
+
+### PDF uploads
+
+Building a palette from an image works out of the box. PDFs, such as brand guides, need [PDF.js](https://mozilla.github.io/pdf.js/), which is large, so it's opt-in: install it and pass the loader from `colorsbymax/pdf`.
+
+```bash
+npm install pdfjs-dist
+```
+
+```jsx
+import { loadPdf } from 'colorsbymax/pdf'
+
+<ThemeProvider config={{ ...config, pdf: loadPdf }}>
+```
+
+PDF.js still downloads only when a visitor picks a PDF. Sites that don't opt in never install or bundle it, and the upload offers images only.
 
 `examples/tsungi.config.js` is a complete example for tsungi.online, the first site to use colorsbymax.
 
 ## Building the package
 
-`src/` is the source; `dist/` is what sites install: plain JavaScript with the JSX compiled away. `dist/` is committed so installs straight from GitHub work even when npm skips install scripts, so rebuild it before committing changes to `src/`. `npm publish` also rebuilds it first:
+`src/` is the source; `dist/` is what sites install: plain JavaScript with the JSX compiled away. `types/` holds the hand-written TypeScript declarations; `npm run typecheck` compiles `types/check.tsx` against them and checks they match the built exports. The panel's icons are copied from Lucide into `src/icons.jsx` by `npm run icons`. `dist/` is committed so installs straight from GitHub work even when npm skips install scripts, so rebuild it before committing changes to `src/`. `npm publish` also rebuilds it first:
 
 ```bash
 npm run build
