@@ -12,7 +12,7 @@ const TAGS = [
 
 export function Hero() {
   return (
-    <header id="top" className="relative isolate overflow-hidden px-6 pt-16 pb-24 md:pt-24">
+    <header id="top" className="relative isolate overflow-hidden px-6 pt-32 pb-24 md:pt-40">
       {/* Backdrop: drifting colour blobs over a faint dot grid. */}
       <div className="absolute inset-0 -z-10" aria-hidden="true">
         <div className="dot-grid absolute inset-0" />

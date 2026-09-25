@@ -19,7 +19,11 @@ export function Wordmark({ className = '' }) {
   )
 }
 
-/** The floating nav bar, with a way back to mrmaxdesigns.com. */
+/**
+ * The top bar, with a way back to mrmaxdesigns.com. It floats over the page, so the hero shows
+ * behind it: a straight full-width bar at the very top, a floating glass pill once scrolled. From
+ * 1200px wide the colour button sits at the top right, beside the bar, so both leave room for it.
+ */
 export function Nav() {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -37,11 +41,13 @@ export function Nav() {
   }, [open])
 
   return (
-    <div className="sticky top-4 z-50 px-4 sm:px-6">
+    <div className={`fixed inset-x-0 top-0 z-50 transition-[padding] duration-500 ease-out motion-reduce:transition-none ${scrolled ? 'px-4 pt-4 sm:px-6 min-[1200px]:px-20' : ''}`}>
       <nav
         aria-label="Main"
-        className={`mx-auto flex max-w-6xl items-center justify-between gap-4 rounded-full border px-4 py-2.5 backdrop-blur-md transition-all duration-300 sm:px-6 ${
-          scrolled ? 'border-border bg-surface/85 shadow-xl shadow-shadow/10' : 'border-transparent bg-surface/50'
+        className={`mx-auto flex items-center justify-between gap-4 border backdrop-blur-md transition-all duration-500 ease-out motion-reduce:transition-none ${
+          scrolled
+            ? 'max-w-6xl rounded-[2rem] border-border bg-surface/70 px-4 py-2.5 shadow-xl shadow-shadow/10 sm:px-6'
+            : 'max-w-full rounded-none border-x-transparent border-t-transparent border-b-border/60 bg-surface/25 px-4 py-4 sm:px-8 min-[1200px]:py-6 min-[1200px]:pr-20'
         }`}
       >
         <a href="#top" className="text-lg text-primary-dark" data-colorsbymax-logo>
@@ -82,7 +88,7 @@ export function Nav() {
         </div>
       </nav>
       {open && (
-        <div id="mobile-menu" className="mx-auto mt-2 max-w-6xl animate-[tab-in_250ms_ease-out] rounded-3xl border border-border bg-surface p-3 shadow-xl shadow-shadow/10 xl:hidden">
+        <div id="mobile-menu" className="mx-4 mt-2 max-w-6xl sm:mx-auto animate-[tab-in_250ms_ease-out] rounded-3xl border border-border bg-surface p-3 shadow-xl shadow-shadow/10 xl:hidden">
           {LINKS.map(([label, href]) => (
             <a key={href} href={href} onClick={() => setOpen(false)} className="block rounded-2xl px-4 py-3 font-medium text-ink hover:bg-accent hover:text-on-accent">
               {label}
