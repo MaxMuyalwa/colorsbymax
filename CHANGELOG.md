@@ -2,9 +2,10 @@
 
 What changed in each colorsbymax release. Update with `npm install colorsbymax@latest`.
 
-## Unreleased
+## 0.3.3 (2026-09-25)
 
 - **The panel's header shows the mrmaxdesigns mark** (three slanted bars) before "colorsbymax", in the current theme's colours, deepened or lightened so each bar stands out on the light or dark panel.
+- The colorsbymax site: feedback reports are now emailed straight to Max (through Resend), screenshots attached; the floating tags around the hero are gone.
 
 ## 0.3.2 (2026-09-25)
 
