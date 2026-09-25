@@ -25,11 +25,12 @@ const OPEN_EVENT = 'colorsbymax:feedback'
 /** Opens the feedback form from anywhere on the page. */
 export const openFeedback = () => window.dispatchEvent(new Event(OPEN_EVENT))
 
+// `send` is the submit button's text: short and friendly, since every report helps.
 const KINDS = [
-  { id: 'bug', label: 'Bug report', hint: 'Something broke or looks wrong', Icon: Bug },
-  { id: 'idea', label: 'Suggestion', hint: 'An idea or a missing feature', Icon: Lightbulb },
-  { id: 'praise', label: 'Praise', hint: 'Something you love', Icon: Heart },
-  { id: 'question', label: 'Question', hint: 'Not sure how something works', Icon: MessageCircleQuestion },
+  { id: 'bug', label: 'Bug report', hint: 'Something broke or looks wrong', Icon: Bug, send: 'Squash this bug' },
+  { id: 'idea', label: 'Suggestion', hint: 'An idea or a missing feature', Icon: Lightbulb, send: 'Share the spark' },
+  { id: 'praise', label: 'Praise', hint: 'Something you love', Icon: Heart, send: 'Send the love' },
+  { id: 'question', label: 'Question', hint: 'Not sure how something works', Icon: MessageCircleQuestion, send: 'Ask away' },
 ]
 
 const AREAS = [
@@ -390,6 +391,13 @@ export function Feedback() {
   const openerRef = useRef(null)
   const ids = useId()
   const environment = useEnvironment()
+  // After a failed send, focus moves to the first field that needs attention, once it has rendered.
+  const focusError = useRef(false)
+  useEffect(() => {
+    if (!focusError.current) return
+    focusError.current = false
+    dialogRef.current?.querySelector('[aria-invalid="true"]')?.focus()
+  }, [errors])
   // Patches build on the latest form, so quick successive clicks are never lost.
   const set = (patch) => setForm((f) => ({ ...f, ...(typeof patch === 'function' ? patch(f) : patch) }))
   const pickOne = (key) => (id) => set((f) => ({ [key]: f[key] === id ? '' : id }))
@@ -463,12 +471,13 @@ export function Feedback() {
   const validate = () => {
     const e = {}
     if (!form.summary.trim()) e.summary = 'Give it a short title, so it’s easy to find.'
+    if (!form.name.trim()) e.name = 'Add your name, so Max knows who to thank.'
     if (form.kind === 'bug' && !form.details.trim() && !form.steps.trim()) e.details = 'Say what happened, or list the steps to reproduce it.'
     if (form.kind !== 'bug' && !form.details.trim() && !form.suggestion.trim() && !form.rating) e.details = 'Add a few words, a suggestion or a rating.'
     if (form.email && !/^\S+@\S+\.\S+$/.test(form.email)) e.email = 'That doesn’t look like an email address.'
     setErrors(e)
     if (Object.keys(e).length) {
-      requestAnimationFrame(() => dialogRef.current?.querySelector('[aria-invalid="true"]')?.focus())
+      focusError.current = true
       return false
     }
     return true
@@ -541,7 +550,7 @@ export function Feedback() {
         onPaste={onPaste}
         className="relative flex max-h-[94vh] w-full max-w-2xl animate-[tab-in_300ms_ease-out] flex-col overflow-hidden rounded-t-[2rem] border border-border bg-surface shadow-2xl shadow-shadow/30 sm:rounded-[2rem]"
       >
-        <header className="relative flex items-start justify-between gap-4 overflow-hidden border-b border-border px-6 pt-6 pb-5">
+        <header className="relative flex shrink-0 items-start justify-between gap-4 overflow-hidden border-b border-border px-6 pt-6 pb-5">
           <div className="blob -top-24 -right-10 h-48 w-48 bg-primary-alt opacity-25" aria-hidden="true" />
           <div className="relative">
             <p className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold text-on-secondary">
@@ -683,18 +692,27 @@ export function Feedback() {
               </Field>
 
               <fieldset className="rounded-2xl border border-border p-4">
-                <Legend optional>About you</Legend>
+                <Legend>About you</Legend>
                 <div className="grid gap-4 sm:grid-cols-3">
-                  <Field label="Name" id={`${ids}-name`}>
-                    <input id={`${ids}-name`} className={input} value={form.name} autoComplete="name" onChange={(e) => set({ name: e.target.value })} />
+                  <Field label="Name" id={`${ids}-name`} error={errors.name}>
+                    <input
+                      id={`${ids}-name`}
+                      className={input}
+                      value={form.name}
+                      autoComplete="name"
+                      required
+                      aria-invalid={Boolean(errors.name)}
+                      aria-describedby={errors.name ? `${ids}-name-error` : undefined}
+                      onChange={(e) => set({ name: e.target.value })}
+                    />
                   </Field>
-                  <Field label="GitHub username" id={`${ids}-github`}>
+                  <Field label="GitHub username" id={`${ids}-github`} optional>
                     <div className="relative">
                       <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-ink-muted">@</span>
                       <input id={`${ids}-github`} className={`${input} pl-7`} value={form.github.replace(/^@/, '')} autoComplete="username" spellCheck={false} onChange={(e) => set({ github: e.target.value })} />
                     </div>
                   </Field>
-                  <Field label="Email" id={`${ids}-email`} error={errors.email}>
+                  <Field label="Email" id={`${ids}-email`} error={errors.email} optional>
                     <input
                       id={`${ids}-email`}
                       type="email"
@@ -746,7 +764,7 @@ export function Feedback() {
               {status === 'failed' && <p className="rounded-xl bg-danger/10 p-3 text-sm font-semibold text-danger">Couldn’t send it just now. Your report is saved here; try again in a moment.</p>}
             </div>
 
-            <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-surface px-6 py-4">
+            <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border bg-surface px-6 py-4">
               <p className="text-xs text-ink-muted">Your draft is saved in this browser.</p>
               <div className="flex gap-2">
                 <button type="button" onClick={close} className="cursor-pointer rounded-full px-4 py-2.5 text-sm font-semibold text-ink-secondary hover:bg-accent hover:text-on-accent">
@@ -758,7 +776,7 @@ export function Feedback() {
                   className="shine group inline-flex cursor-pointer items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary shadow-lg shadow-primary/25 transition hover:-translate-y-0.5 disabled:opacity-60"
                 >
                   {status === 'sending' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Send className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true" />}
-                  {status === 'sending' ? 'Sending…' : `Send ${kind.label.toLowerCase()}`}
+                  {status === 'sending' ? 'Sending…' : kind.send}
                 </button>
               </div>
             </footer>
