@@ -2,6 +2,11 @@
 
 What changed in each colorsbymax release. Update with `npm install colorsbymax@latest`.
 
+## Unreleased
+
+- **MCP server for AI agents.** [colorsbymax-mcp](mcp/) lets Claude Code, Cursor, VS Code Copilot and other agents set colorsbymax up in a project (with the right edits for Vite, Next.js, Remix, Astro, Nuxt, SvelteKit, plain HTML and more), find themes, build one from brand colours, check contrast and finish. Add it with `claude mcp add colorsbymax -- npx -y colorsbymax-mcp`.
+- Fixed: on sites whose body text is a warm or tinted dark (such as dark brown), re-colouring could take the text colour for the brand colour, so brand areas came out far too light or garish. The text colour is no longer a brand candidate.
+
 ## 0.2.1 (2026-09-25)
 
 - **Smarter colours when re-colouring a site.** After swapping, text and icons are only adjusted to undo harm the swap did: a pair that reads as well as the site's original design did is left alone (so deliberately soft icons stay soft), and a fix keeps the design's intent, so white icons on a coloured pill stay white, using the nearest theme colour that works. Icon-only buttons are judged as icons (3:1), not text (4.5:1). Across 59 themes on a test site, nothing reads worse than the original design.

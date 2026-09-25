@@ -75,6 +75,16 @@ That's all. The colour button appears in the bottom-right corner once the page h
 
 Already installed it? Get the newest version with `npm install colorsbymax@latest` (see [Updating](#updating)).
 
+## Set it up with an AI agent (MCP)
+
+[colorsbymax-mcp](mcp/) is an MCP server that lets Claude Code, Cursor, VS Code Copilot and other agents use colorsbymax for you. The agent can inspect your project and add colorsbymax the right way for its framework, find themes or build one around your brand colours, check contrast, and, once you have picked your colours, keep them and hide the switcher in production.
+
+```bash
+claude mcp add colorsbymax -- npx -y colorsbymax-mcp
+```
+
+Then ask: *"Add colorsbymax to this project."* The [MCP README](mcp/README.md) has the setup for other editors and the full list of tools.
+
 ## Add it to a site
 
 This is the full setup, for sites that want exact control over which colour goes where. colorsbymax needs React 18 or 19, and ships as plain JavaScript with TypeScript types, so Vite, Next.js, webpack and other bundlers use it without extra setup:

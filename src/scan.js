@@ -179,8 +179,10 @@ export function inferRoles(colors) {
   const ink = (byText.find((c) => readable(c, 4.5)) ?? byText[0])?.hex ?? '#1f2937'
   const inkSecondary = byText.find((c) => c.hex !== ink && deltaE(c.hex, ink) > 8 && readable(c, 3))?.hex
 
-  // Brand candidates: saturated colours, scored by how much of the page they occupy.
+  // Brand candidates: saturated colours, scored by how much of the page they occupy. The text
+  // colour isn't one, even when it's a warm or tinted dark (it would outscore the real brand).
   const accents = colors
+    .filter((c) => c.hex !== ink && c.hex !== inkSecondary)
     .map((c) => {
       const [h, s, l] = toHsl(c.hex)
       const share = c.bg / BG + c.text / TEXT + (c.border / BORDER) * 0.5
