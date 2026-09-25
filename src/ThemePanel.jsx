@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Check, CheckCircle2, ChevronRight, Copy, Download, ArrowLeft, Globe, ImageUp, Loader2, Monitor, Moon, RotateCcw, ScanLine, Settings, Shuffle, Paintbrush, Sun, Trash2, Upload, UserRound, Wand2, X } from './icons.jsx'
+import { AlertTriangle, Check, CheckCircle2, ChevronRight, Copy, Download, ArrowLeft, Globe, ImageUp, Loader2, Monitor, Moon, RotateCcw, ScanLine, ScanSearch, Settings, Shuffle, Paintbrush, Sun, Trash2, Upload, UserRound, Wand2, X } from './icons.jsx'
 import { normalizeHex } from './color.js'
 import { checkTheme } from './contrast.js'
 import { coloursFromFile, themeFromPalette } from './extract.js'
@@ -44,7 +44,7 @@ function useSavedToYours() {
 
 export default function ThemePanel() {
   const theme = useTheme()
-  const { settings, mode } = useSettings()
+  const { settings, mode, audit } = useSettings()
   const overrideCount = Object.keys(theme.state.overrides).length
   const [view, setView] = useState('main')
   const returnFocus = useRef(null)
@@ -94,6 +94,17 @@ export default function ThemePanel() {
           </h2>
           <p className="text-[11px] text-zinc-500">by mrmaxdesigns</p>
         </div>
+        <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={audit.toggle}
+          className={`${btn} px-2 ${audit.on ? 'border-zinc-900 bg-zinc-100' : 'border-transparent'}`}
+          aria-pressed={audit.on}
+          data-tip="Audit the page: point out what won’t look right with these colours"
+        >
+          <ScanSearch className="w-4 h-4" aria-hidden="true" />
+          Audit
+        </button>
         <button
           type="button"
           onClick={(e) => (view === 'settings' ? setView('main') : showView('settings', e.currentTarget))}
@@ -104,6 +115,7 @@ export default function ThemePanel() {
         >
           <Settings className="w-4 h-4" aria-hidden="true" />
         </button>
+        </div>
       </header>
 
       {view === 'contrast' && <ContrastView onBack={() => setView('main')} />}

@@ -9,7 +9,7 @@ import { buildPanelCss } from './scripts/build-css.mjs'
 const demo = fileURLToPath(new URL('./demo', import.meta.url))
 
 // Keeps src/panel-css.generated.js in step with the panel while developing.
-const PANEL_SOURCES = /[\\/]src[\\/](ThemePanel\.jsx|ThemeSwitcher\.jsx|panel\.css)$/
+const PANEL_SOURCES = /[\\/]src[\\/](ThemePanel\.jsx|ThemeSwitcher\.jsx|AuditLayer\.jsx|panel\.css)$/
 function panelCss() {
   return {
     name: 'colorsbymax-panel-css',

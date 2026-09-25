@@ -2,6 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from 'react-dom'
 import { Palette } from './icons.jsx'
 import ThemePanel from './ThemePanel.jsx'
+import AuditLayer from './AuditLayer.jsx'
+import { runAudit } from './audit.js'
 import { useTheme } from './ThemeProvider.jsx'
 import { loadLibrary } from './library.js'
 import { DARK_SUFFIX, isDarkTheme, toDark } from './modes.js'
@@ -73,6 +75,22 @@ function Switcher() {
   const [open, setOpen] = useState(false)
   const [settings, setSettings] = useState(() => loadSettings(storageKey))
   useEffect(() => setLogoColouring(settings.colourLogo), [settings.colourLogo, setLogoColouring])
+
+  // The page audit (the panel's Audit button): findings pinned to the page until it's closed.
+  // It re-runs by itself when the colours or settings change, and on Re-check.
+  const [auditOn, setAuditOn] = useState(false)
+  const [findings, setFindings] = useState([])
+  const recheck = useCallback(() => {
+    // After the new colours have been applied and laid out.
+    requestAnimationFrame(() => setFindings(runAudit({ logoColouring: settingsRef.current.colourLogo })))
+  }, [])
+  const settingsRef = useRef(settings)
+  settingsRef.current = settings
+  useEffect(() => {
+    if (!auditOn) return
+    const timer = setTimeout(recheck, 150)
+    return () => clearTimeout(timer)
+  }, [auditOn, tokens, settings.colourLogo, recheck])
 
   // "Hide it on this device" (from the finish screen). It comes back with Alt+Shift+C, which also
   // hides it, or by opening the page with ?colorsbymax in the address.
@@ -230,6 +248,18 @@ function Switcher() {
   const settingsApi = {
     settings,
     mode,
+    audit: {
+      on: auditOn,
+      toggle() {
+        if (auditOn) {
+          setAuditOn(false)
+          setFindings([])
+        } else {
+          setOpen(false) // so the page, and the audit's notes on it, can be seen
+          setAuditOn(true)
+        }
+      },
+    },
     update: (patch) => setSettings((s) => storeSettings({ ...s, ...patch })),
     reset: () => setSettings(storeSettings(DEFAULT_SETTINGS)),
     resetButton: saved ? resetPosition : null,
@@ -371,6 +401,21 @@ function Switcher() {
               active={Boolean(liveSize)}
             />
           </div>
+        )}
+        {auditOn && (
+          <AuditLayer
+            findings={findings}
+            anchor={buttonRef}
+            themeIssues={issues.length}
+            onRecheck={recheck}
+            onClose={() => {
+              setAuditOn(false)
+              setFindings([])
+            }}
+            onAction={(action) => {
+              if (action === 'colour-logo') settingsApi.update({ colourLogo: true })
+            }}
+          />
         )}
         <TooltipLayer rootRef={layerRef} />
       </div>
