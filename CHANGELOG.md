@@ -2,7 +2,7 @@
 
 What changed in each colorsbymax release. Update with `npm install colorsbymax@latest`.
 
-## 0.2.1 (unreleased)
+## 0.2.1 (2026-09-25)
 
 - **Smarter colours when re-colouring a site.** After swapping, text and icons are only adjusted to undo harm the swap did: a pair that reads as well as the site's original design did is left alone (so deliberately soft icons stay soft), and a fix keeps the design's intent, so white icons on a coloured pill stay white, using the nearest theme colour that works. Icon-only buttons are judged as icons (3:1), not text (4.5:1). Across 59 themes on a test site, nothing reads worse than the original design.
 - **Audit.** A new Audit button in the panel header checks the page in the chosen colours and pins numbered notes to what won't look right: a logo that's hard to see (offering "Colour the logo", or, for picture logos colorsbymax can't re-colour, advice and a "Preview inverted" look), pictures whose solid background shows as a box against the theme, and text or icons below readable contrast. A bar by the colour button shows the count and the theme's own contrast issues, with Re-check and Close; it re-checks by itself when the colours or settings change.
