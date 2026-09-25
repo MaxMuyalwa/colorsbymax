@@ -3,7 +3,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, Copy, Heart, X } from 'lucide-react'
+import { Check, Copy, Heart, Link2, X } from 'lucide-react'
 
 const NUMBER = '+260 779 05 30 92'
 const NUMBER_PLAIN = '+260779053092'
@@ -18,6 +18,20 @@ export function ZambiaFlag({ className = '' }) {
       <rect x="48" y="16" width="6" height="24" fill="#000000" />
       <rect x="54" y="16" width="6" height="24" fill="#ef7d00" />
       <path d="M43 9.5c3-2.2 5.6-1.6 7.5.6 1.9-2.2 4.5-2.8 7.5-.6-2.3.1-4.1 1.1-5.3 3l-2.2 3.3-2.2-3.3c-1.2-1.9-3-2.9-5.3-3Z" fill="#ef7d00" />
+    </svg>
+  )
+}
+
+/** A simple outline of Africa (with Madagascar), with a dot where Zambia is. */
+export function AfricaMap({ className = '' }) {
+  return (
+    <svg viewBox="0 0 100 108" className={className} aria-hidden="true">
+      <path
+        d="M21 6c7-2 13-3 19-2l9 3 13-1c3 1 5 5 7 9l4 11 5 7c6 1 11-1 18-1 2 1 1 4-1 7l-8 9-6 8-3 11-2 9-6 10-7 9-9 8c-4 2-8 2-11-1l-3-8-3-11-2-11-3-9-6-6-8-2-9-3-7-7-4-9 1-10 5-9Z"
+        fill="currentColor"
+      />
+      <path d="M87 74c2 0 3 2 2 6l-2 8c-1 3-3 4-4 2-1-3 0-8 1-11 1-3 2-5 3-5Z" fill="currentColor" />
+      <circle cx="61" cy="74" r="4.5" fill="#ef7d00" stroke="var(--color-surface)" strokeWidth="1.5" />
     </svg>
   )
 }
@@ -83,7 +97,12 @@ export function AirtelMoney({ className = '' }) {
               <div className="relative flex flex-col overflow-hidden bg-secondary p-6 text-on-secondary md:p-7">
                 <div className="blob -top-16 -left-12 h-48 w-48 bg-primary-alt opacity-25" aria-hidden="true" />
                 <div className="relative flex flex-1 flex-col">
-                  <ZambiaFlag className="h-9 w-14 rounded shadow-md ring-1 ring-border" />
+                  {/* Zambia, linked to the rest of Africa: who this is for. */}
+                  <div className="flex items-center gap-2.5">
+                    <ZambiaFlag className="h-9 w-14 rounded shadow-md ring-1 ring-border" />
+                    <Link2 className="h-5 w-5 opacity-70" aria-hidden="true" />
+                    <AfricaMap className="h-11 w-11 text-primary drop-shadow-sm" />
+                  </div>
                   <h2 id={`${id}-title`} className="mt-4 pr-8 font-display text-2xl leading-tight font-bold md:pr-0">
                     Support from Zambia or Africa
                   </h2>
