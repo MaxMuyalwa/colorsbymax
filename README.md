@@ -134,6 +134,7 @@ Without a `siteName`, the site group is named from the page's `og:site_name`, it
                                     // no --color-* variables, the default), true or false
   position: 'bottom-right',         // where the button starts: bottom-right (default), bottom-left,
                                     // top-left, or top-right (just under a floating nav bar)
+  hidden: import.meta.env.PROD,     // hide the button (the theme still applies), e.g. in production
 }
 ```
 
@@ -154,6 +155,42 @@ import { loadPdf } from 'colorsbymax/pdf'
 PDF.js still downloads only when a visitor picks a PDF. Sites that don't opt in never install or bundle it, and the upload offers images only.
 
 `examples/tsungi.config.js` is a complete example for tsungi.online, the first site to use colorsbymax.
+
+## Finished? Keep your colours and hide the switcher
+
+The colours you pick in the panel are saved only in your own browser. When you're happy with them, press **I'm done** at the bottom of the panel. It shows your colours and three ways to finish, each with code to copy and a prompt you can paste into Claude, Cursor, Copilot or any AI editor. **Cancel, keep using colorsbymax** takes you back without changing anything.
+
+### Keep the colours and hide it in production (recommended)
+
+Make your pick the site's default for everyone, and keep the button out of production while it still shows when you run the site locally, so you can keep iterating:
+
+```js
+// With the one-line setup, replace `import 'colorsbymax/auto'` with:
+import { autoMount } from 'colorsbymax/auto'
+
+autoMount({
+  defaultTheme: { name: 'Ocean', tokens: { primary: '#0d6b84', /* …every colour… */ } },
+  hidden: import.meta.env.PROD,
+})
+```
+
+With `ThemeProvider`, add the same `defaultTheme` and `hidden` to its `config`. The panel fills in all your colours for you. Not using Vite? Use `process.env.NODE_ENV === 'production'` in place of `import.meta.env.PROD` (Next.js, webpack).
+
+**Bring it back later:** it keeps showing in development. To show it in production again, set `hidden: false` or remove the line, or ask your AI editor: *"Show the colorsbymax colour switcher again in production: in its config, set hidden to false or remove the hidden line."*
+
+### Hide it on this device only
+
+Hides the button in your browser straight away, with no code change and nothing different for anyone else. **To bring it back**, press **Alt+Shift+C** on the page, or open it with `?colorsbymax` at the end of the address.
+
+### Remove colorsbymax
+
+1. `npm uninstall colorsbymax`
+2. Delete its import (`import 'colorsbymax/auto'`, `autoMount`, or `ThemeProvider` and `ThemeSwitcher`) and any colorsbymax pre-paint script.
+3. Keep your colours:
+   - If your site uses the `--color-*` variables, paste the CSS the panel gives you (`:root { --color-primary: …; … }`) into your global stylesheet.
+   - If colorsbymax was re-colouring hard-coded colours for you, the chosen colours only exist while it runs, so your CSS needs updating to them. The panel's prompt asks your AI editor to do that.
+
+To bring it back later, install it again and follow the [Quick start](#quick-start).
 
 ## Updating
 

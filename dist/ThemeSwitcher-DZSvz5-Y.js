@@ -1772,6 +1772,8 @@ var newId = () => `custom-${Date.now().toString(36)}-${Math.random().toString(36
 *   Where each token is used on this site, shown in the editors
 * @property {boolean} [scrollbars]  Colour the page's scrollbars from the theme (default true)
 * @property {() => Promise<any>} [pdf]  Enables PDF uploads: pass `loadPdf` from 'colorsbymax/pdf'
+* @property {boolean} [hidden]  Hide the colour button and panel; the theme still applies. Use
+*   `hidden: import.meta.env.PROD` to keep it out of production once the colours are chosen.
 * @property {'bottom-right' | 'bottom-left' | 'top-left' | 'top-right'} [position]  Where the colour
 *   button starts (default 'bottom-right'). 'top-right' sits under a floating nav bar.
 * @property {boolean | 'auto'} [recolour]  Re-colour a site that doesn't paint with the --color-*
@@ -1797,20 +1799,28 @@ function resolveSite(config, pageColours) {
 		tokens: completeTokens(sanitizeTokens(t.tokens), defaultTheme.tokens)
 	}));
 	const fixes = fixAll(defaultTheme.tokens);
+	const accessible = Object.keys(fixes).length ? [{
+		id: "site-accessible",
+		name: `${defaultTheme.name} (accessible)`,
+		site: true,
+		tokens: {
+			...defaultTheme.tokens,
+			...fixes
+		}
+	}] : [];
+	const pageOriginal = pageColours && config.defaultTheme ? [{
+		id: "site-original",
+		name: `${siteName} original`,
+		site: true,
+		tokens: pageColours
+	}] : [];
 	return {
 		siteName,
 		defaultTheme,
 		siteThemes: [
 			defaultTheme,
-			...Object.keys(fixes).length ? [{
-				id: "site-accessible",
-				name: `${defaultTheme.name} (accessible)`,
-				site: true,
-				tokens: {
-					...defaultTheme.tokens,
-					...fixes
-				}
-			}] : [],
+			...accessible,
+			...pageOriginal,
 			...extra
 		]
 	};
@@ -1877,7 +1887,7 @@ function ThemeProvider({ config = {}, children }) {
 		pageColours,
 		defaultTheme
 	]);
-	const original = base.id === defaultTheme.id && !Object.keys(state.overrides).length;
+	const original = (base.id === "site-original" || base.id === defaultTheme.id && !initialConfig.defaultTheme) && !Object.keys(state.overrides).length;
 	useLayoutEffect(() => {
 		recolourer.current?.apply(original ? null : tokens);
 	}, [
@@ -1926,6 +1936,8 @@ function ThemeProvider({ config = {}, children }) {
 		usage: initialConfig.usage ?? {},
 		loadPdf: initialConfig.pdf ?? null,
 		position: initialConfig.position ?? "bottom-right",
+		/** True when the config hides the switcher (e.g. in production); the theme still applies. */
+		hidden: Boolean(initialConfig.hidden),
 		/** True when colorsbymax is swapping the page's own colours (the site isn't wired to tokens). */
 		recolouring: Boolean(pageColours),
 		/** Turns re-colouring of the site's logo on or off (the switcher's "Colour the logo" setting). */
@@ -2487,6 +2499,7 @@ function themeFromPalette(colours) {
 * @property {number | 'full' | null} panelHeight  Pixels, 'full' for all the room there is, or null to fit the content
 * @property {boolean} libraryCollapsed  Whether the library's category chips are folded away
 * @property {boolean} colourLogo  Whether themes re-colour the site's logo too (off keeps its own colours)
+* @property {boolean} hideButton  Hidden on this device from the finish screen (Alt+Shift+C brings it back)
 */
 /** @type {PanelSettings} */
 var DEFAULT_SETTINGS = {
@@ -2501,7 +2514,8 @@ var DEFAULT_SETTINGS = {
 	panelWidth: null,
 	panelHeight: null,
 	libraryCollapsed: false,
-	colourLogo: false
+	colourLogo: false,
+	hideButton: false
 };
 /** Size presets offered in settings; dragging an edge gives a custom size instead. */
 var PANEL_PRESETS = [
@@ -2703,6 +2717,7 @@ function ThemePanel() {
 				}),
 				view === "contrast" && /* @__PURE__ */ jsx(ContrastView, { onBack: () => setView("main") }),
 				view === "settings" && /* @__PURE__ */ jsx(SettingsView, { onBack: () => setView("main") }),
+				view === "finish" && /* @__PURE__ */ jsx(FinishView, { onBack: () => setView("main") }),
 				/* @__PURE__ */ jsxs("div", {
 					hidden: view !== "main",
 					children: [/* @__PURE__ */ jsxs(ContrastNav.Provider, {
@@ -2729,14 +2744,25 @@ function ThemePanel() {
 						]
 					}), /* @__PURE__ */ jsx("footer", {
 						className: "border-t border-zinc-200 px-4 py-3",
-						children: /* @__PURE__ */ jsxs("button", {
-							type: "button",
-							className: `${btn} w-full`,
-							onClick: resetToDefault,
-							children: [/* @__PURE__ */ jsx(RotateCcw, {
-								className: "w-3.5 h-3.5",
-								"aria-hidden": "true"
-							}), "Reset to default"]
+						children: /* @__PURE__ */ jsxs("div", {
+							className: "flex gap-2",
+							children: [/* @__PURE__ */ jsxs("button", {
+								type: "button",
+								className: `${btn} flex-1`,
+								onClick: resetToDefault,
+								children: [/* @__PURE__ */ jsx(RotateCcw, {
+									className: "w-3.5 h-3.5",
+									"aria-hidden": "true"
+								}), "Reset to default"]
+							}), /* @__PURE__ */ jsxs("button", {
+								type: "button",
+								className: `${btnPrimary} flex-1`,
+								onClick: (e) => showView("finish", e.currentTarget),
+								children: [/* @__PURE__ */ jsx(Check, {
+									className: "w-3.5 h-3.5",
+									"aria-hidden": "true"
+								}), "I’m done"]
+							})]
 						})
 					})]
 				})
@@ -2802,6 +2828,308 @@ function Toast({ toast, onDismiss }) {
 					className: "w-3.5 h-3.5",
 					"aria-hidden": "true"
 				})
+			})
+		]
+	});
+}
+var PROD = "import.meta.env.PROD";
+var tokenLines = (tokens, indent) => TOKEN_KEYS.map((k) => `${indent}'${k}': '${tokens[k]}',`).join("\n");
+/** Code that makes the chosen colours the site's default and hides the switcher in production. */
+function keepSnippet(kind, name, tokens) {
+	const theme = `defaultTheme: {\n    name: ${JSON.stringify(name)},\n    tokens: {\n${tokenLines(tokens, "      ")}\n    },\n  },\n  // Hides the colour button in production; set to false to bring it back.\n  hidden: ${PROD},`;
+	if (kind === "auto") return `// Replace \`import 'colorsbymax/auto'\` with:\nimport { autoMount } from 'colorsbymax/auto'\n\nautoMount({\n  ${theme}\n})`;
+	return `// Add to the config you pass to <ThemeProvider>:\n<ThemeProvider config={{\n  ...config,\n  ${theme}\n}}>`;
+}
+var cssSnippet = (tokens) => `:root {\n${TOKEN_KEYS.map((k) => `  --color-${k}: ${tokens[k]};`).join("\n")}\n}`;
+var keepPrompt = (name, tokens) => `Update my colorsbymax setup so the colours I chose become my site's default and the colour switcher is hidden in production. In the colorsbymax config (the autoMount({...}) call, or the config passed to <ThemeProvider>), set defaultTheme to { name: ${JSON.stringify(name)}, tokens: ${JSON.stringify(tokens)} } and set hidden: ${PROD} (use process.env.NODE_ENV === 'production' if this isn't a Vite project). If the site uses import 'colorsbymax/auto', replace it with import { autoMount } from 'colorsbymax/auto' and an autoMount({...}) call with that config. Don't change anything else.`;
+var BRING_BACK_PROMPT = "Show the colorsbymax colour switcher again in production: in its config (the autoMount({...}) call or the config passed to <ThemeProvider>), set hidden to false or remove the hidden line. Don't change anything else.";
+var removePrompt = (tokens, recolouring) => recolouring ? `Remove colorsbymax from this project but keep the colours it currently shows. The site's CSS uses hard-coded colours that colorsbymax was swapping at runtime, so update the site's own CSS to use this palette instead (primary is the main brand colour, background the page, ink the text): ${JSON.stringify(tokens)}. Then uninstall the colorsbymax package and delete its import (import 'colorsbymax/auto', autoMount, ThemeProvider or ThemeSwitcher) and any colorsbymax pre-paint script in index.html.` : `Remove colorsbymax from this project but keep my colours: add these CSS variables to my global stylesheet, replacing any existing --color-* values: ${cssSnippet(tokens)} Then uninstall the colorsbymax package and delete its usage (ThemeProvider, ThemeSwitcher, autoMount or import 'colorsbymax/auto') and any colorsbymax pre-paint script in index.html. Keep colorsbymax/tokens.css only if nothing else needs it.`;
+/** Shows code with a copy button. */
+function CopyBlock({ label, text, copyLabel = "Copy" }) {
+	const { toast } = usePanel();
+	const id = useId();
+	return /* @__PURE__ */ jsxs("div", {
+		className: "space-y-1",
+		children: [/* @__PURE__ */ jsxs("div", {
+			className: "flex items-center justify-between gap-2",
+			children: [/* @__PURE__ */ jsx("span", {
+				id,
+				className: "text-[11px] font-semibold text-zinc-700",
+				children: label
+			}), /* @__PURE__ */ jsxs("button", {
+				type: "button",
+				className: `${btn} px-2 py-1`,
+				onClick: async () => {
+					try {
+						await navigator.clipboard.writeText(text);
+						toast(`Copied: ${label.toLowerCase()}.`);
+					} catch {
+						toast("Couldn’t reach the clipboard. Select the text and copy it instead.");
+					}
+				},
+				children: [
+					/* @__PURE__ */ jsx(Copy, {
+						className: "w-3.5 h-3.5",
+						"aria-hidden": "true"
+					}),
+					" ",
+					copyLabel
+				]
+			})]
+		}), /* @__PURE__ */ jsx("pre", {
+			"aria-labelledby": id,
+			tabIndex: 0,
+			className: "max-h-40 overflow-auto rounded-lg border border-zinc-200 bg-zinc-50 p-2.5 font-mono text-[11px] leading-snug text-zinc-800 whitespace-pre-wrap break-all",
+			children: text
+		})]
+	});
+}
+var FINISH_OPTIONS = [
+	{
+		id: "keep",
+		label: "Keep these colours and hide it in production",
+		note: "Recommended. Everyone sees your colours; the button still shows while you develop."
+	},
+	{
+		id: "local",
+		label: "Hide it on this device only",
+		note: "Quick and undoable. Nothing changes for anyone else."
+	},
+	{
+		id: "remove",
+		label: "Remove colorsbymax",
+		note: "Uninstall it and keep the colours in your own CSS."
+	}
+];
+/**
+* After "I'm done": how to keep the chosen colours for every visitor and hide the switcher, hide it
+* here only, or remove colorsbymax, each with code and a prompt for an AI editor. Cancel goes back.
+*/
+function FinishView({ onBack }) {
+	const { tokens, active, recolouring } = useTheme();
+	const { update } = useSettings();
+	const [choice, setChoice] = useState("keep");
+	const [kind, setKind] = useState(() => document.querySelector("[data-colorsbymax=\"auto\"]") ? "auto" : "provider");
+	const headingRef = useRef(null);
+	useEffect(() => headingRef.current?.focus(), []);
+	const name = active.name.replace(/ \(dark\)$/, " dark");
+	return /* @__PURE__ */ jsxs("div", {
+		className: "px-4 py-3 space-y-4",
+		children: [
+			/* @__PURE__ */ jsxs("button", {
+				type: "button",
+				className: `${btn} border-transparent px-1.5`,
+				onClick: onBack,
+				children: [/* @__PURE__ */ jsx(ArrowLeft, {
+					className: "w-3.5 h-3.5",
+					"aria-hidden": "true"
+				}), " Back"]
+			}),
+			/* @__PURE__ */ jsxs("div", {
+				className: "space-y-1.5",
+				children: [
+					/* @__PURE__ */ jsx("h3", {
+						ref: headingRef,
+						tabIndex: -1,
+						className: "text-sm font-semibold focus:outline-none",
+						children: "Happy with your colours?"
+					}),
+					/* @__PURE__ */ jsxs("p", {
+						className: "text-[11px] text-zinc-600",
+						children: [
+							"Your pick, ",
+							/* @__PURE__ */ jsx("strong", {
+								className: "font-semibold text-zinc-900",
+								children: active.name
+							}),
+							", is only saved in this browser. To show it to every visitor and keep the button out of production, put it in your code:"
+						]
+					}),
+					/* @__PURE__ */ jsx(Swatches, { tokens })
+				]
+			}),
+			/* @__PURE__ */ jsx("div", {
+				role: "radiogroup",
+				"aria-label": "What to do",
+				className: "space-y-1.5",
+				children: FINISH_OPTIONS.map((o) => /* @__PURE__ */ jsxs("button", {
+					type: "button",
+					role: "radio",
+					"aria-checked": choice === o.id,
+					onClick: () => setChoice(o.id),
+					className: `w-full rounded-xl border px-3 py-2 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 ${choice === o.id ? "border-zinc-900 bg-zinc-100" : "border-zinc-200 hover:bg-zinc-50"}`,
+					children: [/* @__PURE__ */ jsx("span", {
+						className: "block text-xs font-semibold text-zinc-900",
+						children: o.label
+					}), /* @__PURE__ */ jsx("span", {
+						className: "block text-[11px] text-zinc-600",
+						children: o.note
+					})]
+				}, o.id))
+			}),
+			choice === "keep" && /* @__PURE__ */ jsxs("div", {
+				className: "space-y-3",
+				children: [
+					/* @__PURE__ */ jsx("div", {
+						role: "radiogroup",
+						"aria-label": "How colorsbymax is set up",
+						className: "grid grid-cols-2 gap-2",
+						children: [["auto", "One-line import"], ["provider", "ThemeProvider"]].map(([id, label]) => /* @__PURE__ */ jsx("button", {
+							type: "button",
+							role: "radio",
+							"aria-checked": kind === id,
+							onClick: () => setKind(id),
+							className: `h-8 rounded-lg border px-2 text-xs font-medium cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 ${kind === id ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50"}`,
+							children: label
+						}, id))
+					}),
+					/* @__PURE__ */ jsx(CopyBlock, {
+						label: "Code for your site",
+						text: keepSnippet(kind, name, tokens)
+					}),
+					/* @__PURE__ */ jsxs("p", {
+						className: "text-[11px] text-zinc-600",
+						children: [
+							"Not using Vite? Use ",
+							/* @__PURE__ */ jsx("code", {
+								className: "font-mono",
+								children: "process.env.NODE_ENV === 'production'"
+							}),
+							" instead of ",
+							/* @__PURE__ */ jsx("code", {
+								className: "font-mono",
+								children: PROD
+							}),
+							" (Next.js, webpack)."
+						]
+					}),
+					/* @__PURE__ */ jsx(CopyBlock, {
+						label: "Or ask Claude, Cursor or Copilot",
+						text: keepPrompt(name, tokens),
+						copyLabel: "Copy prompt"
+					}),
+					/* @__PURE__ */ jsxs("div", {
+						className: "rounded-lg bg-zinc-100 p-2.5 text-[11px] text-zinc-700 space-y-1.5",
+						children: [/* @__PURE__ */ jsxs("p", { children: [
+							/* @__PURE__ */ jsx("strong", {
+								className: "font-semibold text-zinc-900",
+								children: "Bring it back later:"
+							}),
+							" it still shows when you run the site locally, so you can keep iterating. To show it in production too, set ",
+							/* @__PURE__ */ jsx("code", {
+								className: "font-mono",
+								children: "hidden: false"
+							}),
+							"."
+						] }), /* @__PURE__ */ jsx(CopyBlock, {
+							label: "Prompt to bring it back",
+							text: BRING_BACK_PROMPT,
+							copyLabel: "Copy prompt"
+						})]
+					})
+				]
+			}),
+			choice === "local" && /* @__PURE__ */ jsxs("div", {
+				className: "space-y-2",
+				children: [
+					/* @__PURE__ */ jsx("p", {
+						className: "text-[11px] text-zinc-600",
+						children: "Hides the colour button in this browser only, and keeps showing your current colours here. It doesn’t change your code or what anyone else sees."
+					}),
+					/* @__PURE__ */ jsxs("p", {
+						className: "rounded-lg bg-zinc-100 p-2.5 text-[11px] text-zinc-700",
+						children: [
+							/* @__PURE__ */ jsx("strong", {
+								className: "font-semibold text-zinc-900",
+								children: "To bring it back:"
+							}),
+							" press ",
+							/* @__PURE__ */ jsx("kbd", {
+								className: "font-mono",
+								children: "Alt"
+							}),
+							"+",
+							/* @__PURE__ */ jsx("kbd", {
+								className: "font-mono",
+								children: "Shift"
+							}),
+							"+",
+							/* @__PURE__ */ jsx("kbd", {
+								className: "font-mono",
+								children: "C"
+							}),
+							" on the page, or open it with ",
+							/* @__PURE__ */ jsx("code", {
+								className: "font-mono",
+								children: "?colorsbymax"
+							}),
+							" at the end of the address."
+						]
+					}),
+					/* @__PURE__ */ jsx("button", {
+						type: "button",
+						className: `${btnPrimary} w-full`,
+						onClick: () => update({ hideButton: true }),
+						children: "Hide the button here"
+					})
+				]
+			}),
+			choice === "remove" && /* @__PURE__ */ jsxs("div", {
+				className: "space-y-3",
+				children: [
+					/* @__PURE__ */ jsxs("ol", {
+						className: "list-decimal space-y-1 pl-4 text-[11px] text-zinc-700",
+						children: [
+							/* @__PURE__ */ jsxs("li", { children: ["Uninstall it: ", /* @__PURE__ */ jsx("code", {
+								className: "font-mono",
+								children: "npm uninstall colorsbymax"
+							})] }),
+							/* @__PURE__ */ jsxs("li", { children: [
+								"Delete its import (",
+								/* @__PURE__ */ jsx("code", {
+									className: "font-mono",
+									children: "import 'colorsbymax/auto'"
+								}),
+								", ",
+								/* @__PURE__ */ jsx("code", {
+									className: "font-mono",
+									children: "autoMount"
+								}),
+								", or ",
+								/* @__PURE__ */ jsx("code", {
+									className: "font-mono",
+									children: "ThemeProvider"
+								}),
+								" and ",
+								/* @__PURE__ */ jsx("code", {
+									className: "font-mono",
+									children: "ThemeSwitcher"
+								}),
+								") and any colorsbymax pre-paint script."
+							] }),
+							/* @__PURE__ */ jsx("li", { children: recolouring ? "Keep the colours: your site’s CSS uses its own hard-coded colours, which colorsbymax was swapping as the page ran, so they need writing into your CSS. The prompt below asks your AI editor to do that." : "Keep the colours: paste these into your global stylesheet, replacing your current --color-* values." })
+						]
+					}),
+					!recolouring && /* @__PURE__ */ jsx(CopyBlock, {
+						label: "CSS for your colours",
+						text: cssSnippet(tokens)
+					}),
+					/* @__PURE__ */ jsx(CopyBlock, {
+						label: "Or ask Claude, Cursor or Copilot",
+						text: removePrompt(tokens, recolouring),
+						copyLabel: "Copy prompt"
+					}),
+					/* @__PURE__ */ jsx("p", {
+						className: "text-[11px] text-zinc-600",
+						children: "To bring it back later, install it again and follow the Quick start in the README."
+					})
+				]
+			}),
+			/* @__PURE__ */ jsx("button", {
+				type: "button",
+				className: `${btn} w-full`,
+				onClick: onBack,
+				children: "Cancel, keep using colorsbymax"
 			})
 		]
 	});
@@ -4225,7 +4553,7 @@ function ImportExport() {
 }
 //#endregion
 //#region src/panel-css.generated.js
-var panel_css_generated_default = "/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */\n@layer properties{@supports (display:block){*,:before,:after,::backdrop{--tw-translate-x:0;--tw-translate-y:0;--tw-translate-z:0;--tw-scale-x:1;--tw-scale-y:1;--tw-scale-z:1;--tw-space-y-reverse:0;--tw-border-style:solid;--tw-leading:initial;--tw-font-weight:initial;--tw-tracking:initial;--tw-ordinal:initial;--tw-slashed-zero:initial;--tw-numeric-figure:initial;--tw-numeric-spacing:initial;--tw-numeric-fraction:initial;--tw-shadow:0 0 #0000;--tw-shadow-color:initial;--tw-shadow-alpha:100%;--tw-inset-shadow:0 0 #0000;--tw-inset-shadow-color:initial;--tw-inset-shadow-alpha:100%;--tw-ring-color:initial;--tw-ring-shadow:0 0 #0000;--tw-inset-ring-color:initial;--tw-inset-ring-shadow:0 0 #0000;--tw-ring-inset:initial;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-offset-shadow:0 0 #0000;--tw-backdrop-blur:initial;--tw-backdrop-brightness:initial;--tw-backdrop-contrast:initial;--tw-backdrop-grayscale:initial;--tw-backdrop-hue-rotate:initial;--tw-backdrop-invert:initial;--tw-backdrop-opacity:initial;--tw-backdrop-saturate:initial;--tw-backdrop-sepia:initial;--tw-duration:initial;--tw-ease:initial}}}@layer theme{:root,:host{--font-sans:-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", \"Noto Sans\", Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\";--font-mono:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace;--color-red-600:oklch(57.7% .245 27.325);--color-red-700:oklch(50.5% .213 27.518);--color-amber-50:oklch(98.7% .022 95.277);--color-amber-100:oklch(96.2% .059 95.617);--color-amber-200:oklch(92.4% .12 95.746);--color-amber-300:oklch(87.9% .169 91.605);--color-amber-700:oklch(55.5% .163 48.998);--color-amber-800:oklch(47.3% .137 46.201);--color-amber-900:oklch(41.4% .112 45.904);--color-amber-950:oklch(27.9% .077 45.635);--color-emerald-50:oklch(97.9% .021 166.113);--color-emerald-800:oklch(43.2% .095 166.913);--color-emerald-900:oklch(37.8% .077 168.94);--color-sky-50:oklch(97.7% .013 236.62);--color-sky-100:oklch(95.1% .026 236.824);--color-sky-900:oklch(39.1% .09 240.876);--color-zinc-50:oklch(98.5% 0 none);--color-zinc-100:oklch(96.7% .001 286.375);--color-zinc-200:oklch(92% .004 286.32);--color-zinc-300:oklch(87.1% .006 286.286);--color-zinc-400:oklch(70.5% .015 286.067);--color-zinc-500:oklch(55.2% .016 285.938);--color-zinc-600:oklch(44.2% .017 285.786);--color-zinc-700:oklch(37% .013 285.805);--color-zinc-800:oklch(27.4% .006 286.033);--color-zinc-900:oklch(21% .006 285.885);--color-white:#fff;--spacing:4px;--text-xs:12px;--text-xs--line-height:calc(1 / .75);--text-sm:14px;--text-sm--line-height:calc(1.25 / .875);--text-base:16px;--text-base--line-height:calc(1.5 / 1);--font-weight-medium:500;--font-weight-semibold:600;--tracking-tight:-.025em;--tracking-normal:0em;--tracking-wide:.025em;--leading-snug:1.375;--radius-md:6px;--radius-lg:8px;--radius-xl:12px;--radius-2xl:16px;--ease-in-out:cubic-bezier(.4, 0, .2, 1);--animate-spin:spin 1s linear infinite;--default-transition-duration:.15s;--default-transition-timing-function:cubic-bezier(.4, 0, .2, 1);--default-font-family:var(--font-sans);--default-mono-font-family:var(--font-mono)}}@layer base{*,:after,:before,::backdrop{box-sizing:border-box;border:0 solid;margin:0;padding:0}::file-selector-button{box-sizing:border-box;border:0 solid;margin:0;padding:0}html,:host{-webkit-text-size-adjust:100%;tab-size:4;line-height:1.5;font-family:var(--default-font-family,-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", \"Noto Sans\", Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\");font-feature-settings:var(--default-font-feature-settings,normal);font-variation-settings:var(--default-font-variation-settings,normal);-webkit-tap-highlight-color:transparent}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;-webkit-text-decoration:inherit;-webkit-text-decoration:inherit;-webkit-text-decoration:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,samp,pre{font-family:var(--default-mono-font-family,ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace);font-feature-settings:var(--default-mono-font-feature-settings,normal);font-variation-settings:var(--default-mono-font-variation-settings,normal);font-size:1em}small{font-size:80%}sub,sup{vertical-align:baseline;font-size:75%;line-height:0;position:relative}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}:-moz-focusring:where(:not(iframe)){outline:auto}progress{vertical-align:baseline}summary{display:list-item}ol,ul,menu{list-style:none}img,svg,video,canvas,audio,iframe,embed,object{vertical-align:middle;display:block}img,video{max-width:100%;height:auto}button,input,select,optgroup,textarea{font:inherit;font-feature-settings:inherit;font-variation-settings:inherit;letter-spacing:inherit;color:inherit;opacity:1;background-color:#0000;border-radius:0}::file-selector-button{font:inherit;font-feature-settings:inherit;font-variation-settings:inherit;letter-spacing:inherit;color:inherit;opacity:1;background-color:#0000;border-radius:0}:where(select:is([multiple],[size])) optgroup{font-weight:bolder}:where(select:is([multiple],[size])) optgroup option{padding-inline-start:20px}::file-selector-button{margin-inline-end:4px}::placeholder{opacity:1}@supports (not ((-webkit-appearance:-apple-pay-button))) or (contain-intrinsic-size:1px){::placeholder{color:currentColor}@supports (color:color-mix(in lab, red, red)){::placeholder{color:color-mix(in oklab, currentcolor 50%, transparent)}}}textarea{resize:vertical}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-date-and-time-value{min-height:1lh;text-align:inherit}::-webkit-datetime-edit{display:inline-flex}::-webkit-datetime-edit-fields-wrapper{padding:0}::-webkit-datetime-edit{padding-block:0}::-webkit-datetime-edit-year-field{padding-block:0}::-webkit-datetime-edit-month-field{padding-block:0}::-webkit-datetime-edit-day-field{padding-block:0}::-webkit-datetime-edit-hour-field{padding-block:0}::-webkit-datetime-edit-minute-field{padding-block:0}::-webkit-datetime-edit-second-field{padding-block:0}::-webkit-datetime-edit-millisecond-field{padding-block:0}::-webkit-datetime-edit-meridiem-field{padding-block:0}::-webkit-calendar-picker-indicator{line-height:1}:-moz-ui-invalid{box-shadow:none}button,input:where([type=button],[type=reset],[type=submit]){appearance:button}::file-selector-button{appearance:button}::-webkit-inner-spin-button{height:auto}::-webkit-outer-spin-button{height:auto}[hidden]:where(:not([hidden=until-found])){display:none!important}.theme-switcher{letter-spacing:normal;color:var(--color-zinc-900);font-family:Inter,ui-sans-serif,system-ui,sans-serif;font-size:16px;line-height:1.5}}@layer components;@layer utilities{.\\@container{container-type:inline-size}.pointer-events-auto{pointer-events:auto}.pointer-events-none{pointer-events:none}.invisible{visibility:hidden}.visible{visibility:visible}.sr-only{clip-path:inset(50%);white-space:nowrap;border-width:0;width:1px;height:1px;margin:-1px;padding:0;position:absolute;overflow:hidden}.absolute{position:absolute}.fixed{position:fixed}.relative{position:relative}.sticky{position:sticky}.inset-x-3{inset-inline:calc(var(--spacing) * 3)}.inset-x-5{inset-inline:calc(var(--spacing) * 5)}.inset-y-5{inset-block:calc(var(--spacing) * 5)}.-top-2{top:calc(var(--spacing) * -2)}.top-0{top:0}.top-1\\.5{top:calc(var(--spacing) * 1.5)}.top-1\\/2{top:50%}.top-5{top:calc(var(--spacing) * 5)}.top-\\[84px\\]{top:84px}.-right-0\\.5{right:calc(var(--spacing) * -.5)}.-right-2{right:calc(var(--spacing) * -2)}.right-1\\.5{right:calc(var(--spacing) * 1.5)}.right-5{right:calc(var(--spacing) * 5)}.right-6{right:calc(var(--spacing) * 6)}.right-full{right:100%}.-bottom-0\\.5{bottom:calc(var(--spacing) * -.5)}.-bottom-2{bottom:calc(var(--spacing) * -2)}.bottom-3{bottom:calc(var(--spacing) * 3)}.bottom-5{bottom:calc(var(--spacing) * 5)}.-left-2{left:calc(var(--spacing) * -2)}.left-5{left:calc(var(--spacing) * 5)}.left-full{left:100%}.z-10{z-index:10}.z-20{z-index:20}.z-30{z-index:30}.z-\\[60\\]{z-index:60}.z-\\[70\\]{z-index:70}.container{width:100%}@media (min-width:640px){.container{max-width:640px}}@media (min-width:768px){.container{max-width:768px}}@media (min-width:1024px){.container{max-width:1024px}}@media (min-width:1280px){.container{max-width:1280px}}@media (min-width:1536px){.container{max-width:1536px}}.mt-0\\.5{margin-top:calc(var(--spacing) * .5)}.mt-1{margin-top:var(--spacing)}.mt-1\\.5{margin-top:calc(var(--spacing) * 1.5)}.mt-2{margin-top:calc(var(--spacing) * 2)}.mt-2\\.5{margin-top:calc(var(--spacing) * 2.5)}.mt-px{margin-top:1px}.-mr-1{margin-right:calc(var(--spacing) * -1)}.mr-2{margin-right:calc(var(--spacing) * 2)}.mb-1{margin-bottom:var(--spacing)}.ml-2{margin-left:calc(var(--spacing) * 2)}.ml-auto{margin-left:auto}.block{display:block}.flex{display:flex}.grid{display:grid}.hidden{display:none}.inline-flex{display:inline-flex}.h-3{height:calc(var(--spacing) * 3)}.h-3\\.5{height:calc(var(--spacing) * 3.5)}.h-4{height:calc(var(--spacing) * 4)}.h-5{height:calc(var(--spacing) * 5)}.h-7{height:calc(var(--spacing) * 7)}.h-8{height:calc(var(--spacing) * 8)}.h-9{height:calc(var(--spacing) * 9)}.h-12{height:calc(var(--spacing) * 12)}.h-px{height:1px}.min-h-0{min-height:0}.w-3{width:calc(var(--spacing) * 3)}.w-3\\.5{width:calc(var(--spacing) * 3.5)}.w-4{width:calc(var(--spacing) * 4)}.w-5{width:calc(var(--spacing) * 5)}.w-7{width:calc(var(--spacing) * 7)}.w-9{width:calc(var(--spacing) * 9)}.w-16{width:calc(var(--spacing) * 16)}.w-\\[5\\.5rem\\]{width:88px}.w-full{width:100%}.max-w-\\[240px\\]{max-width:240px}.max-w-full{max-width:100%}.min-w-0{min-width:0}.flex-1{flex:1}.shrink-0{flex-shrink:0}.-translate-y-1\\/2{--tw-translate-y:calc(calc(1 / 2 * 100%) * -1);translate:var(--tw-translate-x) var(--tw-translate-y)}.scale-110{--tw-scale-x:110%;--tw-scale-y:110%;--tw-scale-z:110%;scale:var(--tw-scale-x) var(--tw-scale-y)}.rotate-90{rotate:90deg}.animate-spin{animation:var(--animate-spin)}.cursor-ew-resize{cursor:ew-resize}.cursor-grabbing{cursor:grabbing}.cursor-nesw-resize{cursor:nesw-resize}.cursor-ns-resize{cursor:ns-resize}.cursor-nwse-resize{cursor:nwse-resize}.cursor-pointer{cursor:pointer}.touch-none{touch-action:none}.resize{resize:both}.grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.flex-col{flex-direction:column}.flex-wrap{flex-wrap:wrap}.place-items-center{place-items:center}.items-center{align-items:center}.items-start{align-items:flex-start}.justify-between{justify-content:space-between}.justify-center{justify-content:center}.gap-0\\.5{gap:calc(var(--spacing) * .5)}.gap-1{gap:var(--spacing)}.gap-1\\.5{gap:calc(var(--spacing) * 1.5)}.gap-2{gap:calc(var(--spacing) * 2)}.gap-2\\.5{gap:calc(var(--spacing) * 2.5)}.gap-3{gap:calc(var(--spacing) * 3)}:where(.space-y-1>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(var(--spacing) * var(--tw-space-y-reverse));margin-block-end:calc(var(--spacing) * calc(1 - var(--tw-space-y-reverse)))}:where(.space-y-1\\.5>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 1.5) * var(--tw-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 1.5) * calc(1 - var(--tw-space-y-reverse)))}:where(.space-y-2>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 2) * var(--tw-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 2) * calc(1 - var(--tw-space-y-reverse)))}:where(.space-y-3>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 3) * var(--tw-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 3) * calc(1 - var(--tw-space-y-reverse)))}:where(.space-y-4>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 4) * var(--tw-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 4) * calc(1 - var(--tw-space-y-reverse)))}.truncate{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.overflow-hidden{overflow:hidden}.overflow-y-auto{overflow-y:auto}.overscroll-contain{overscroll-behavior:contain}.rounded{border-radius:4px}.rounded-2xl{border-radius:var(--radius-2xl)}.rounded-\\[inherit\\]{border-radius:inherit}.rounded-full{border-radius:3.40282e38px}.rounded-lg{border-radius:var(--radius-lg)}.rounded-md{border-radius:var(--radius-md)}.rounded-xl{border-radius:var(--radius-xl)}.border{border-style:var(--tw-border-style);border-width:1px}.border-2{border-style:var(--tw-border-style);border-width:2px}.border-t{border-top-style:var(--tw-border-style);border-top-width:1px}.border-b{border-bottom-style:var(--tw-border-style);border-bottom-width:1px}.border-dashed{--tw-border-style:dashed;border-style:dashed}.border-amber-300{border-color:var(--color-amber-300)}.border-red-600{border-color:var(--color-red-600)}.border-transparent{border-color:#0000}.border-white{border-color:var(--color-white)}.border-zinc-200{border-color:var(--color-zinc-200)}.border-zinc-300{border-color:var(--color-zinc-300)}.border-zinc-900{border-color:var(--color-zinc-900)}.bg-amber-50{background-color:var(--color-amber-50)}.bg-amber-100{background-color:var(--color-amber-100)}.bg-emerald-50{background-color:var(--color-emerald-50)}.bg-sky-50{background-color:var(--color-sky-50)}.bg-sky-100{background-color:var(--color-sky-100)}.bg-white{background-color:var(--color-white)}.bg-white\\/90{background-color:#ffffffe6}@supports (color:color-mix(in lab, red, red)){.bg-white\\/90{background-color:color-mix(in oklab, var(--color-white) 90%, transparent)}}.bg-zinc-50{background-color:var(--color-zinc-50)}.bg-zinc-100{background-color:var(--color-zinc-100)}.bg-zinc-200{background-color:var(--color-zinc-200)}.bg-zinc-900{background-color:var(--color-zinc-900)}.p-0\\.5{padding:calc(var(--spacing) * .5)}.p-2\\.5{padding:calc(var(--spacing) * 2.5)}.p-3{padding:calc(var(--spacing) * 3)}.px-1{padding-inline:var(--spacing)}.px-1\\.5{padding-inline:calc(var(--spacing) * 1.5)}.px-2{padding-inline:calc(var(--spacing) * 2)}.px-2\\.5{padding-inline:calc(var(--spacing) * 2.5)}.px-3{padding-inline:calc(var(--spacing) * 3)}.px-4{padding-inline:calc(var(--spacing) * 4)}.py-0\\.5{padding-block:calc(var(--spacing) * .5)}.py-1{padding-block:var(--spacing)}.py-1\\.5{padding-block:calc(var(--spacing) * 1.5)}.py-2{padding-block:calc(var(--spacing) * 2)}.py-2\\.5{padding-block:calc(var(--spacing) * 2.5)}.py-3{padding-block:calc(var(--spacing) * 3)}.py-5{padding-block:calc(var(--spacing) * 5)}.py-6{padding-block:calc(var(--spacing) * 6)}.pr-12{padding-right:calc(var(--spacing) * 12)}.pb-4{padding-bottom:calc(var(--spacing) * 4)}.pl-1{padding-left:var(--spacing)}.text-center{text-align:center}.text-left{text-align:left}.align-super{vertical-align:super}.font-mono{font-family:var(--font-mono)}.text-base{font-size:var(--text-base);line-height:var(--tw-leading,var(--text-base--line-height))}.text-sm{font-size:var(--text-sm);line-height:var(--tw-leading,var(--text-sm--line-height))}.text-xs{font-size:var(--text-xs);line-height:var(--tw-leading,var(--text-xs--line-height))}.text-\\[10px\\]{font-size:10px}.text-\\[11px\\]{font-size:11px}.leading-snug{--tw-leading:var(--leading-snug);line-height:var(--leading-snug)}.font-medium{--tw-font-weight:var(--font-weight-medium);font-weight:var(--font-weight-medium)}.font-semibold{--tw-font-weight:var(--font-weight-semibold);font-weight:var(--font-weight-semibold)}.tracking-normal{--tw-tracking:var(--tracking-normal);letter-spacing:var(--tracking-normal)}.tracking-tight{--tw-tracking:var(--tracking-tight);letter-spacing:var(--tracking-tight)}.tracking-wide{--tw-tracking:var(--tracking-wide);letter-spacing:var(--tracking-wide)}.whitespace-nowrap{white-space:nowrap}.text-amber-700{color:var(--color-amber-700)}.text-amber-800{color:var(--color-amber-800)}.text-amber-900{color:var(--color-amber-900)}.text-amber-950{color:var(--color-amber-950)}.text-emerald-800{color:var(--color-emerald-800)}.text-emerald-900{color:var(--color-emerald-900)}.text-red-700{color:var(--color-red-700)}.text-sky-900{color:var(--color-sky-900)}.text-white{color:var(--color-white)}.text-zinc-300{color:var(--color-zinc-300)}.text-zinc-500{color:var(--color-zinc-500)}.text-zinc-600{color:var(--color-zinc-600)}.text-zinc-700{color:var(--color-zinc-700)}.text-zinc-800{color:var(--color-zinc-800)}.text-zinc-900{color:var(--color-zinc-900)}.normal-case{text-transform:none}.uppercase{text-transform:uppercase}.tabular-nums{--tw-numeric-spacing:tabular-nums;font-variant-numeric:var(--tw-ordinal,) var(--tw-slashed-zero,) var(--tw-numeric-figure,) var(--tw-numeric-spacing,) var(--tw-numeric-fraction,)}.underline{text-decoration-line:underline}.underline-offset-2{text-underline-offset:2px}.accent-zinc-900{accent-color:var(--color-zinc-900)}.opacity-25{opacity:.25}.opacity-70{opacity:.7}.shadow{--tw-shadow:0 1px 3px 0 var(--tw-shadow-color,#0000001a), 0 1px 2px -1px var(--tw-shadow-color,#0000001a);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.shadow-2xl{--tw-shadow:0 25px 50px -12px var(--tw-shadow-color,#00000040);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.shadow-lg{--tw-shadow:0 10px 15px -3px var(--tw-shadow-color,#0000001a), 0 4px 6px -4px var(--tw-shadow-color,#0000001a);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.shadow-md{--tw-shadow:0 4px 6px -1px var(--tw-shadow-color,#0000001a), 0 2px 4px -2px var(--tw-shadow-color,#0000001a);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.shadow-sm{--tw-shadow:0 1px 3px 0 var(--tw-shadow-color,#0000001a), 0 1px 2px -1px var(--tw-shadow-color,#0000001a);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.shadow-xl{--tw-shadow:0 20px 25px -5px var(--tw-shadow-color,#0000001a), 0 8px 10px -6px var(--tw-shadow-color,#0000001a);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.ring-1{--tw-ring-shadow:var(--tw-ring-inset,) 0 0 0 calc(1px + var(--tw-ring-offset-width)) var(--tw-ring-color,currentcolor);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.ring-zinc-900{--tw-ring-color:var(--color-zinc-900)}.backdrop-blur{--tw-backdrop-blur:blur(8px);-webkit-backdrop-filter:var(--tw-backdrop-blur,) var(--tw-backdrop-brightness,) var(--tw-backdrop-contrast,) var(--tw-backdrop-grayscale,) var(--tw-backdrop-hue-rotate,) var(--tw-backdrop-invert,) var(--tw-backdrop-opacity,) var(--tw-backdrop-saturate,) var(--tw-backdrop-sepia,);backdrop-filter:var(--tw-backdrop-blur,) var(--tw-backdrop-brightness,) var(--tw-backdrop-contrast,) var(--tw-backdrop-grayscale,) var(--tw-backdrop-hue-rotate,) var(--tw-backdrop-invert,) var(--tw-backdrop-opacity,) var(--tw-backdrop-saturate,) var(--tw-backdrop-sepia,)}.transition-\\[color\\,background-color\\,box-shadow\\,scale\\]{transition-property:color,background-color,box-shadow,scale;transition-timing-function:var(--tw-ease,var(--default-transition-timing-function));transition-duration:var(--tw-duration,var(--default-transition-duration))}.transition-colors{transition-property:color,background-color,border-color,outline-color,text-decoration-color,fill,stroke,--tw-gradient-from,--tw-gradient-via,--tw-gradient-to;transition-timing-function:var(--tw-ease,var(--default-transition-timing-function));transition-duration:var(--tw-duration,var(--default-transition-duration))}.transition-transform{transition-property:transform,translate,scale,rotate;transition-timing-function:var(--tw-ease,var(--default-transition-timing-function));transition-duration:var(--tw-duration,var(--default-transition-duration))}.duration-700{--tw-duration:.7s;transition-duration:.7s}.ease-in-out{--tw-ease:var(--ease-in-out);transition-timing-function:var(--ease-in-out)}.select-none{-webkit-user-select:none;user-select:none}.placeholder\\:text-zinc-500::placeholder{color:var(--color-zinc-500)}@media (hover:hover){.hover\\:bg-amber-200:hover{background-color:var(--color-amber-200)}.hover\\:bg-white:hover{background-color:var(--color-white)}.hover\\:bg-zinc-50:hover{background-color:var(--color-zinc-50)}.hover\\:bg-zinc-200:hover{background-color:var(--color-zinc-200)}.hover\\:bg-zinc-400\\/30:hover{background-color:#9f9fa94d}@supports (color:color-mix(in lab, red, red)){.hover\\:bg-zinc-400\\/30:hover{background-color:color-mix(in oklab, var(--color-zinc-400) 30%, transparent)}}.hover\\:bg-zinc-700:hover{background-color:var(--color-zinc-700)}.hover\\:text-amber-950:hover{color:var(--color-amber-950)}.hover\\:text-zinc-900:hover{color:var(--color-zinc-900)}.hover\\:opacity-100:hover{opacity:1}}.focus\\:outline-none:focus{--tw-outline-style:none;outline-style:none}.focus-visible\\:ring-2:focus-visible{--tw-ring-shadow:var(--tw-ring-inset,) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color,currentcolor);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.focus-visible\\:ring-white:focus-visible{--tw-ring-color:var(--color-white)}.focus-visible\\:ring-zinc-900:focus-visible{--tw-ring-color:var(--color-zinc-900)}.focus-visible\\:ring-offset-1:focus-visible{--tw-ring-offset-width:1px;--tw-ring-offset-shadow:var(--tw-ring-inset,) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color)}.focus-visible\\:ring-offset-2:focus-visible{--tw-ring-offset-width:2px;--tw-ring-offset-shadow:var(--tw-ring-inset,) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color)}.focus-visible\\:outline-none:focus-visible{--tw-outline-style:none;outline-style:none}.focus-visible\\:ring-inset:focus-visible{--tw-ring-inset:inset}.disabled\\:opacity-50:disabled{opacity:.5}@media (prefers-reduced-motion:reduce){.motion-reduce\\:animate-none{animation:none}.motion-reduce\\:transition-none{transition-property:none}}@media (min-width:1200px){.min-\\[1200px\\]\\:top-\\[27px\\]{top:27px}.min-\\[1200px\\]\\:right-4{right:calc(var(--spacing) * 4)}}@container (min-width:380px){.\\@min-\\[380px\\]\\:h-10{height:calc(var(--spacing) * 10)}.\\@min-\\[380px\\]\\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.\\@min-\\[380px\\]\\:flex-row{flex-direction:row}.\\@min-\\[380px\\]\\:justify-start{justify-content:flex-start}.\\@min-\\[380px\\]\\:gap-1\\.5{gap:calc(var(--spacing) * 1.5)}}@container (min-width:440px){.\\@min-\\[440px\\]\\:inline{display:inline}.\\@min-\\[440px\\]\\:px-2\\.5{padding-inline:calc(var(--spacing) * 2.5)}}@container (min-width:520px){.\\@min-\\[520px\\]\\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}}}:host{all:initial}.cbm-dark{color-scheme:dark;--color-white:oklch(21% .006 285.885);--color-zinc-50:oklch(24.5% .006 286);--color-zinc-100:oklch(27.4% .006 286.033);--color-zinc-200:oklch(33% .01 285.9);--color-zinc-300:oklch(42% .015 285.8);--color-zinc-400:oklch(52% .016 285.9);--color-zinc-500:oklch(68% .015 286.067);--color-zinc-600:oklch(74% .012 286);--color-zinc-700:oklch(82% .008 286.2);--color-zinc-800:oklch(88% .006 286.3);--color-zinc-900:oklch(96.7% .001 286.375);--color-zinc-950:oklch(98.5% 0 0);--color-amber-50:oklch(27.9% .077 45.635);--color-amber-100:oklch(33% .09 46);--color-amber-200:oklch(41.4% .112 45.904);--color-amber-300:oklch(55.5% .163 48.998);--color-amber-700:oklch(87.9% .169 91.605);--color-amber-800:oklch(92.4% .12 95.746);--color-amber-900:oklch(96.2% .059 95.617);--color-amber-950:oklch(98.7% .022 95.277);--color-emerald-50:oklch(26.2% .051 172.552);--color-emerald-800:oklch(90.5% .093 164.15);--color-emerald-900:oklch(95% .052 163.051);--color-sky-50:oklch(29.3% .066 243.157);--color-sky-100:oklch(39.1% .09 240.876);--color-sky-900:oklch(95.1% .026 236.824);--color-red-600:oklch(70.4% .191 22.216);--color-red-700:oklch(80.8% .114 19.571)}.cbm-dark *{--tw-ring-offset-color:oklch(21% .006 285.885)}.theme-scroll{--cbm-thumb:var(--color-primary,oklch(55.2% .016 285.938))}@supports (color:color-mix(in lab, red, red)){.theme-scroll{--cbm-thumb:color-mix(in srgb, var(--color-primary,var(--color-zinc-500)) 55%, var(--color-white))}}.theme-scroll{--cbm-thumb-hover:var(--color-primary,oklch(55.2% .016 285.938))}@supports (color:color-mix(in lab, red, red)){.theme-scroll{--cbm-thumb-hover:color-mix(in srgb, var(--color-primary,var(--color-zinc-500)) 80%, var(--color-white))}}.theme-scroll{scrollbar-width:thin;scrollbar-color:var(--cbm-thumb) transparent}.theme-scroll:hover{scrollbar-color:var(--cbm-thumb-hover) transparent}.theme-scroll::-webkit-scrollbar{width:6px}.theme-scroll::-webkit-scrollbar-track{background:0 0}.theme-scroll::-webkit-scrollbar-thumb{background:var(--cbm-thumb);border-radius:9999px}.theme-scroll:hover::-webkit-scrollbar-thumb{background:var(--cbm-thumb-hover)}.theme-panel{transform-origin:100% 0;animation:.16s ease-out theme-panel-in}@keyframes theme-panel-in{0%{opacity:0;transform:translateY(-6px)scale(.98)}}.theme-hint{animation:.12s ease-out theme-hint-in}.theme-toast{animation:.18s ease-out theme-toast-in}@keyframes theme-toast-in{0%{opacity:0;transform:translateY(8px)}}@keyframes theme-hint-in{0%{opacity:0}}@media (prefers-reduced-motion:reduce){.theme-panel,.theme-hint,.theme-toast{animation:none}}.theme-panel summary{list-style:none}.theme-panel summary::-webkit-details-marker{display:none}.theme-panel details[open]>summary .theme-chevron{transform:rotate(90deg)}@keyframes spin{to{transform:rotate(360deg)}}";
+var panel_css_generated_default = "/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */\n@layer properties{@supports (display:block){*,:before,:after,::backdrop{--tw-translate-x:0;--tw-translate-y:0;--tw-translate-z:0;--tw-scale-x:1;--tw-scale-y:1;--tw-scale-z:1;--tw-space-y-reverse:0;--tw-border-style:solid;--tw-leading:initial;--tw-font-weight:initial;--tw-tracking:initial;--tw-ordinal:initial;--tw-slashed-zero:initial;--tw-numeric-figure:initial;--tw-numeric-spacing:initial;--tw-numeric-fraction:initial;--tw-shadow:0 0 #0000;--tw-shadow-color:initial;--tw-shadow-alpha:100%;--tw-inset-shadow:0 0 #0000;--tw-inset-shadow-color:initial;--tw-inset-shadow-alpha:100%;--tw-ring-color:initial;--tw-ring-shadow:0 0 #0000;--tw-inset-ring-color:initial;--tw-inset-ring-shadow:0 0 #0000;--tw-ring-inset:initial;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-offset-shadow:0 0 #0000;--tw-backdrop-blur:initial;--tw-backdrop-brightness:initial;--tw-backdrop-contrast:initial;--tw-backdrop-grayscale:initial;--tw-backdrop-hue-rotate:initial;--tw-backdrop-invert:initial;--tw-backdrop-opacity:initial;--tw-backdrop-saturate:initial;--tw-backdrop-sepia:initial;--tw-duration:initial;--tw-ease:initial}}}@layer theme{:root,:host{--font-sans:-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", \"Noto Sans\", Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\";--font-mono:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace;--color-red-600:oklch(57.7% .245 27.325);--color-red-700:oklch(50.5% .213 27.518);--color-amber-50:oklch(98.7% .022 95.277);--color-amber-100:oklch(96.2% .059 95.617);--color-amber-200:oklch(92.4% .12 95.746);--color-amber-300:oklch(87.9% .169 91.605);--color-amber-700:oklch(55.5% .163 48.998);--color-amber-800:oklch(47.3% .137 46.201);--color-amber-900:oklch(41.4% .112 45.904);--color-amber-950:oklch(27.9% .077 45.635);--color-emerald-50:oklch(97.9% .021 166.113);--color-emerald-800:oklch(43.2% .095 166.913);--color-emerald-900:oklch(37.8% .077 168.94);--color-sky-50:oklch(97.7% .013 236.62);--color-sky-100:oklch(95.1% .026 236.824);--color-sky-900:oklch(39.1% .09 240.876);--color-zinc-50:oklch(98.5% 0 none);--color-zinc-100:oklch(96.7% .001 286.375);--color-zinc-200:oklch(92% .004 286.32);--color-zinc-300:oklch(87.1% .006 286.286);--color-zinc-400:oklch(70.5% .015 286.067);--color-zinc-500:oklch(55.2% .016 285.938);--color-zinc-600:oklch(44.2% .017 285.786);--color-zinc-700:oklch(37% .013 285.805);--color-zinc-800:oklch(27.4% .006 286.033);--color-zinc-900:oklch(21% .006 285.885);--color-white:#fff;--spacing:4px;--text-xs:12px;--text-xs--line-height:calc(1 / .75);--text-sm:14px;--text-sm--line-height:calc(1.25 / .875);--text-base:16px;--text-base--line-height:calc(1.5 / 1);--font-weight-medium:500;--font-weight-semibold:600;--tracking-tight:-.025em;--tracking-normal:0em;--tracking-wide:.025em;--leading-snug:1.375;--radius-md:6px;--radius-lg:8px;--radius-xl:12px;--radius-2xl:16px;--ease-in-out:cubic-bezier(.4, 0, .2, 1);--animate-spin:spin 1s linear infinite;--default-transition-duration:.15s;--default-transition-timing-function:cubic-bezier(.4, 0, .2, 1);--default-font-family:var(--font-sans);--default-mono-font-family:var(--font-mono)}}@layer base{*,:after,:before,::backdrop{box-sizing:border-box;border:0 solid;margin:0;padding:0}::file-selector-button{box-sizing:border-box;border:0 solid;margin:0;padding:0}html,:host{-webkit-text-size-adjust:100%;tab-size:4;line-height:1.5;font-family:var(--default-font-family,-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", \"Noto Sans\", Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\");font-feature-settings:var(--default-font-feature-settings,normal);font-variation-settings:var(--default-font-variation-settings,normal);-webkit-tap-highlight-color:transparent}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;-webkit-text-decoration:inherit;-webkit-text-decoration:inherit;-webkit-text-decoration:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,samp,pre{font-family:var(--default-mono-font-family,ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace);font-feature-settings:var(--default-mono-font-feature-settings,normal);font-variation-settings:var(--default-mono-font-variation-settings,normal);font-size:1em}small{font-size:80%}sub,sup{vertical-align:baseline;font-size:75%;line-height:0;position:relative}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}:-moz-focusring:where(:not(iframe)){outline:auto}progress{vertical-align:baseline}summary{display:list-item}ol,ul,menu{list-style:none}img,svg,video,canvas,audio,iframe,embed,object{vertical-align:middle;display:block}img,video{max-width:100%;height:auto}button,input,select,optgroup,textarea{font:inherit;font-feature-settings:inherit;font-variation-settings:inherit;letter-spacing:inherit;color:inherit;opacity:1;background-color:#0000;border-radius:0}::file-selector-button{font:inherit;font-feature-settings:inherit;font-variation-settings:inherit;letter-spacing:inherit;color:inherit;opacity:1;background-color:#0000;border-radius:0}:where(select:is([multiple],[size])) optgroup{font-weight:bolder}:where(select:is([multiple],[size])) optgroup option{padding-inline-start:20px}::file-selector-button{margin-inline-end:4px}::placeholder{opacity:1}@supports (not ((-webkit-appearance:-apple-pay-button))) or (contain-intrinsic-size:1px){::placeholder{color:currentColor}@supports (color:color-mix(in lab, red, red)){::placeholder{color:color-mix(in oklab, currentcolor 50%, transparent)}}}textarea{resize:vertical}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-date-and-time-value{min-height:1lh;text-align:inherit}::-webkit-datetime-edit{display:inline-flex}::-webkit-datetime-edit-fields-wrapper{padding:0}::-webkit-datetime-edit{padding-block:0}::-webkit-datetime-edit-year-field{padding-block:0}::-webkit-datetime-edit-month-field{padding-block:0}::-webkit-datetime-edit-day-field{padding-block:0}::-webkit-datetime-edit-hour-field{padding-block:0}::-webkit-datetime-edit-minute-field{padding-block:0}::-webkit-datetime-edit-second-field{padding-block:0}::-webkit-datetime-edit-millisecond-field{padding-block:0}::-webkit-datetime-edit-meridiem-field{padding-block:0}::-webkit-calendar-picker-indicator{line-height:1}:-moz-ui-invalid{box-shadow:none}button,input:where([type=button],[type=reset],[type=submit]){appearance:button}::file-selector-button{appearance:button}::-webkit-inner-spin-button{height:auto}::-webkit-outer-spin-button{height:auto}[hidden]:where(:not([hidden=until-found])){display:none!important}.theme-switcher{letter-spacing:normal;color:var(--color-zinc-900);font-family:Inter,ui-sans-serif,system-ui,sans-serif;font-size:16px;line-height:1.5}}@layer components;@layer utilities{.\\@container{container-type:inline-size}.pointer-events-auto{pointer-events:auto}.pointer-events-none{pointer-events:none}.invisible{visibility:hidden}.visible{visibility:visible}.sr-only{clip-path:inset(50%);white-space:nowrap;border-width:0;width:1px;height:1px;margin:-1px;padding:0;position:absolute;overflow:hidden}.absolute{position:absolute}.fixed{position:fixed}.relative{position:relative}.sticky{position:sticky}.inset-x-3{inset-inline:calc(var(--spacing) * 3)}.inset-x-5{inset-inline:calc(var(--spacing) * 5)}.inset-y-5{inset-block:calc(var(--spacing) * 5)}.-top-2{top:calc(var(--spacing) * -2)}.top-0{top:0}.top-1\\.5{top:calc(var(--spacing) * 1.5)}.top-1\\/2{top:50%}.top-5{top:calc(var(--spacing) * 5)}.top-\\[84px\\]{top:84px}.-right-0\\.5{right:calc(var(--spacing) * -.5)}.-right-2{right:calc(var(--spacing) * -2)}.right-1\\.5{right:calc(var(--spacing) * 1.5)}.right-5{right:calc(var(--spacing) * 5)}.right-6{right:calc(var(--spacing) * 6)}.right-full{right:100%}.-bottom-0\\.5{bottom:calc(var(--spacing) * -.5)}.-bottom-2{bottom:calc(var(--spacing) * -2)}.bottom-3{bottom:calc(var(--spacing) * 3)}.bottom-5{bottom:calc(var(--spacing) * 5)}.-left-2{left:calc(var(--spacing) * -2)}.left-5{left:calc(var(--spacing) * 5)}.left-full{left:100%}.z-10{z-index:10}.z-20{z-index:20}.z-30{z-index:30}.z-\\[60\\]{z-index:60}.z-\\[70\\]{z-index:70}.container{width:100%}@media (min-width:640px){.container{max-width:640px}}@media (min-width:768px){.container{max-width:768px}}@media (min-width:1024px){.container{max-width:1024px}}@media (min-width:1280px){.container{max-width:1280px}}@media (min-width:1536px){.container{max-width:1536px}}.mt-0\\.5{margin-top:calc(var(--spacing) * .5)}.mt-1{margin-top:var(--spacing)}.mt-1\\.5{margin-top:calc(var(--spacing) * 1.5)}.mt-2{margin-top:calc(var(--spacing) * 2)}.mt-2\\.5{margin-top:calc(var(--spacing) * 2.5)}.mt-px{margin-top:1px}.-mr-1{margin-right:calc(var(--spacing) * -1)}.mr-2{margin-right:calc(var(--spacing) * 2)}.mb-1{margin-bottom:var(--spacing)}.ml-2{margin-left:calc(var(--spacing) * 2)}.ml-auto{margin-left:auto}.block{display:block}.flex{display:flex}.grid{display:grid}.hidden{display:none}.inline-flex{display:inline-flex}.h-3{height:calc(var(--spacing) * 3)}.h-3\\.5{height:calc(var(--spacing) * 3.5)}.h-4{height:calc(var(--spacing) * 4)}.h-5{height:calc(var(--spacing) * 5)}.h-7{height:calc(var(--spacing) * 7)}.h-8{height:calc(var(--spacing) * 8)}.h-9{height:calc(var(--spacing) * 9)}.h-12{height:calc(var(--spacing) * 12)}.h-px{height:1px}.max-h-40{max-height:calc(var(--spacing) * 40)}.min-h-0{min-height:0}.w-3{width:calc(var(--spacing) * 3)}.w-3\\.5{width:calc(var(--spacing) * 3.5)}.w-4{width:calc(var(--spacing) * 4)}.w-5{width:calc(var(--spacing) * 5)}.w-7{width:calc(var(--spacing) * 7)}.w-9{width:calc(var(--spacing) * 9)}.w-16{width:calc(var(--spacing) * 16)}.w-\\[5\\.5rem\\]{width:88px}.w-full{width:100%}.max-w-\\[240px\\]{max-width:240px}.max-w-full{max-width:100%}.min-w-0{min-width:0}.flex-1{flex:1}.shrink-0{flex-shrink:0}.-translate-y-1\\/2{--tw-translate-y:calc(calc(1 / 2 * 100%) * -1);translate:var(--tw-translate-x) var(--tw-translate-y)}.scale-110{--tw-scale-x:110%;--tw-scale-y:110%;--tw-scale-z:110%;scale:var(--tw-scale-x) var(--tw-scale-y)}.rotate-90{rotate:90deg}.animate-spin{animation:var(--animate-spin)}.cursor-ew-resize{cursor:ew-resize}.cursor-grabbing{cursor:grabbing}.cursor-nesw-resize{cursor:nesw-resize}.cursor-ns-resize{cursor:ns-resize}.cursor-nwse-resize{cursor:nwse-resize}.cursor-pointer{cursor:pointer}.touch-none{touch-action:none}.resize{resize:both}.list-decimal{list-style-type:decimal}.grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.flex-col{flex-direction:column}.flex-wrap{flex-wrap:wrap}.place-items-center{place-items:center}.items-center{align-items:center}.items-start{align-items:flex-start}.justify-between{justify-content:space-between}.justify-center{justify-content:center}.gap-0\\.5{gap:calc(var(--spacing) * .5)}.gap-1{gap:var(--spacing)}.gap-1\\.5{gap:calc(var(--spacing) * 1.5)}.gap-2{gap:calc(var(--spacing) * 2)}.gap-2\\.5{gap:calc(var(--spacing) * 2.5)}.gap-3{gap:calc(var(--spacing) * 3)}:where(.space-y-1>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(var(--spacing) * var(--tw-space-y-reverse));margin-block-end:calc(var(--spacing) * calc(1 - var(--tw-space-y-reverse)))}:where(.space-y-1\\.5>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 1.5) * var(--tw-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 1.5) * calc(1 - var(--tw-space-y-reverse)))}:where(.space-y-2>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 2) * var(--tw-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 2) * calc(1 - var(--tw-space-y-reverse)))}:where(.space-y-3>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 3) * var(--tw-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 3) * calc(1 - var(--tw-space-y-reverse)))}:where(.space-y-4>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 4) * var(--tw-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 4) * calc(1 - var(--tw-space-y-reverse)))}.truncate{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.overflow-auto{overflow:auto}.overflow-hidden{overflow:hidden}.overflow-y-auto{overflow-y:auto}.overscroll-contain{overscroll-behavior:contain}.rounded{border-radius:4px}.rounded-2xl{border-radius:var(--radius-2xl)}.rounded-\\[inherit\\]{border-radius:inherit}.rounded-full{border-radius:3.40282e38px}.rounded-lg{border-radius:var(--radius-lg)}.rounded-md{border-radius:var(--radius-md)}.rounded-xl{border-radius:var(--radius-xl)}.border{border-style:var(--tw-border-style);border-width:1px}.border-2{border-style:var(--tw-border-style);border-width:2px}.border-t{border-top-style:var(--tw-border-style);border-top-width:1px}.border-b{border-bottom-style:var(--tw-border-style);border-bottom-width:1px}.border-dashed{--tw-border-style:dashed;border-style:dashed}.border-amber-300{border-color:var(--color-amber-300)}.border-red-600{border-color:var(--color-red-600)}.border-transparent{border-color:#0000}.border-white{border-color:var(--color-white)}.border-zinc-200{border-color:var(--color-zinc-200)}.border-zinc-300{border-color:var(--color-zinc-300)}.border-zinc-900{border-color:var(--color-zinc-900)}.bg-amber-50{background-color:var(--color-amber-50)}.bg-amber-100{background-color:var(--color-amber-100)}.bg-emerald-50{background-color:var(--color-emerald-50)}.bg-sky-50{background-color:var(--color-sky-50)}.bg-sky-100{background-color:var(--color-sky-100)}.bg-white{background-color:var(--color-white)}.bg-white\\/90{background-color:#ffffffe6}@supports (color:color-mix(in lab, red, red)){.bg-white\\/90{background-color:color-mix(in oklab, var(--color-white) 90%, transparent)}}.bg-zinc-50{background-color:var(--color-zinc-50)}.bg-zinc-100{background-color:var(--color-zinc-100)}.bg-zinc-200{background-color:var(--color-zinc-200)}.bg-zinc-900{background-color:var(--color-zinc-900)}.p-0\\.5{padding:calc(var(--spacing) * .5)}.p-2\\.5{padding:calc(var(--spacing) * 2.5)}.p-3{padding:calc(var(--spacing) * 3)}.px-1{padding-inline:var(--spacing)}.px-1\\.5{padding-inline:calc(var(--spacing) * 1.5)}.px-2{padding-inline:calc(var(--spacing) * 2)}.px-2\\.5{padding-inline:calc(var(--spacing) * 2.5)}.px-3{padding-inline:calc(var(--spacing) * 3)}.px-4{padding-inline:calc(var(--spacing) * 4)}.py-0\\.5{padding-block:calc(var(--spacing) * .5)}.py-1{padding-block:var(--spacing)}.py-1\\.5{padding-block:calc(var(--spacing) * 1.5)}.py-2{padding-block:calc(var(--spacing) * 2)}.py-2\\.5{padding-block:calc(var(--spacing) * 2.5)}.py-3{padding-block:calc(var(--spacing) * 3)}.py-5{padding-block:calc(var(--spacing) * 5)}.py-6{padding-block:calc(var(--spacing) * 6)}.pr-12{padding-right:calc(var(--spacing) * 12)}.pb-4{padding-bottom:calc(var(--spacing) * 4)}.pl-1{padding-left:var(--spacing)}.pl-4{padding-left:calc(var(--spacing) * 4)}.text-center{text-align:center}.text-left{text-align:left}.align-super{vertical-align:super}.font-mono{font-family:var(--font-mono)}.text-base{font-size:var(--text-base);line-height:var(--tw-leading,var(--text-base--line-height))}.text-sm{font-size:var(--text-sm);line-height:var(--tw-leading,var(--text-sm--line-height))}.text-xs{font-size:var(--text-xs);line-height:var(--tw-leading,var(--text-xs--line-height))}.text-\\[10px\\]{font-size:10px}.text-\\[11px\\]{font-size:11px}.leading-snug{--tw-leading:var(--leading-snug);line-height:var(--leading-snug)}.font-medium{--tw-font-weight:var(--font-weight-medium);font-weight:var(--font-weight-medium)}.font-semibold{--tw-font-weight:var(--font-weight-semibold);font-weight:var(--font-weight-semibold)}.tracking-normal{--tw-tracking:var(--tracking-normal);letter-spacing:var(--tracking-normal)}.tracking-tight{--tw-tracking:var(--tracking-tight);letter-spacing:var(--tracking-tight)}.tracking-wide{--tw-tracking:var(--tracking-wide);letter-spacing:var(--tracking-wide)}.break-all{word-break:break-all}.whitespace-nowrap{white-space:nowrap}.whitespace-pre-wrap{white-space:pre-wrap}.text-amber-700{color:var(--color-amber-700)}.text-amber-800{color:var(--color-amber-800)}.text-amber-900{color:var(--color-amber-900)}.text-amber-950{color:var(--color-amber-950)}.text-emerald-800{color:var(--color-emerald-800)}.text-emerald-900{color:var(--color-emerald-900)}.text-red-700{color:var(--color-red-700)}.text-sky-900{color:var(--color-sky-900)}.text-white{color:var(--color-white)}.text-zinc-300{color:var(--color-zinc-300)}.text-zinc-500{color:var(--color-zinc-500)}.text-zinc-600{color:var(--color-zinc-600)}.text-zinc-700{color:var(--color-zinc-700)}.text-zinc-800{color:var(--color-zinc-800)}.text-zinc-900{color:var(--color-zinc-900)}.normal-case{text-transform:none}.uppercase{text-transform:uppercase}.tabular-nums{--tw-numeric-spacing:tabular-nums;font-variant-numeric:var(--tw-ordinal,) var(--tw-slashed-zero,) var(--tw-numeric-figure,) var(--tw-numeric-spacing,) var(--tw-numeric-fraction,)}.underline{text-decoration-line:underline}.underline-offset-2{text-underline-offset:2px}.accent-zinc-900{accent-color:var(--color-zinc-900)}.opacity-25{opacity:.25}.opacity-70{opacity:.7}.shadow{--tw-shadow:0 1px 3px 0 var(--tw-shadow-color,#0000001a), 0 1px 2px -1px var(--tw-shadow-color,#0000001a);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.shadow-2xl{--tw-shadow:0 25px 50px -12px var(--tw-shadow-color,#00000040);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.shadow-lg{--tw-shadow:0 10px 15px -3px var(--tw-shadow-color,#0000001a), 0 4px 6px -4px var(--tw-shadow-color,#0000001a);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.shadow-md{--tw-shadow:0 4px 6px -1px var(--tw-shadow-color,#0000001a), 0 2px 4px -2px var(--tw-shadow-color,#0000001a);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.shadow-sm{--tw-shadow:0 1px 3px 0 var(--tw-shadow-color,#0000001a), 0 1px 2px -1px var(--tw-shadow-color,#0000001a);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.shadow-xl{--tw-shadow:0 20px 25px -5px var(--tw-shadow-color,#0000001a), 0 8px 10px -6px var(--tw-shadow-color,#0000001a);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.ring-1{--tw-ring-shadow:var(--tw-ring-inset,) 0 0 0 calc(1px + var(--tw-ring-offset-width)) var(--tw-ring-color,currentcolor);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.ring-zinc-900{--tw-ring-color:var(--color-zinc-900)}.backdrop-blur{--tw-backdrop-blur:blur(8px);-webkit-backdrop-filter:var(--tw-backdrop-blur,) var(--tw-backdrop-brightness,) var(--tw-backdrop-contrast,) var(--tw-backdrop-grayscale,) var(--tw-backdrop-hue-rotate,) var(--tw-backdrop-invert,) var(--tw-backdrop-opacity,) var(--tw-backdrop-saturate,) var(--tw-backdrop-sepia,);backdrop-filter:var(--tw-backdrop-blur,) var(--tw-backdrop-brightness,) var(--tw-backdrop-contrast,) var(--tw-backdrop-grayscale,) var(--tw-backdrop-hue-rotate,) var(--tw-backdrop-invert,) var(--tw-backdrop-opacity,) var(--tw-backdrop-saturate,) var(--tw-backdrop-sepia,)}.transition-\\[color\\,background-color\\,box-shadow\\,scale\\]{transition-property:color,background-color,box-shadow,scale;transition-timing-function:var(--tw-ease,var(--default-transition-timing-function));transition-duration:var(--tw-duration,var(--default-transition-duration))}.transition-colors{transition-property:color,background-color,border-color,outline-color,text-decoration-color,fill,stroke,--tw-gradient-from,--tw-gradient-via,--tw-gradient-to;transition-timing-function:var(--tw-ease,var(--default-transition-timing-function));transition-duration:var(--tw-duration,var(--default-transition-duration))}.transition-transform{transition-property:transform,translate,scale,rotate;transition-timing-function:var(--tw-ease,var(--default-transition-timing-function));transition-duration:var(--tw-duration,var(--default-transition-duration))}.duration-700{--tw-duration:.7s;transition-duration:.7s}.ease-in-out{--tw-ease:var(--ease-in-out);transition-timing-function:var(--ease-in-out)}.select-none{-webkit-user-select:none;user-select:none}.placeholder\\:text-zinc-500::placeholder{color:var(--color-zinc-500)}@media (hover:hover){.hover\\:bg-amber-200:hover{background-color:var(--color-amber-200)}.hover\\:bg-white:hover{background-color:var(--color-white)}.hover\\:bg-zinc-50:hover{background-color:var(--color-zinc-50)}.hover\\:bg-zinc-200:hover{background-color:var(--color-zinc-200)}.hover\\:bg-zinc-400\\/30:hover{background-color:#9f9fa94d}@supports (color:color-mix(in lab, red, red)){.hover\\:bg-zinc-400\\/30:hover{background-color:color-mix(in oklab, var(--color-zinc-400) 30%, transparent)}}.hover\\:bg-zinc-700:hover{background-color:var(--color-zinc-700)}.hover\\:text-amber-950:hover{color:var(--color-amber-950)}.hover\\:text-zinc-900:hover{color:var(--color-zinc-900)}.hover\\:opacity-100:hover{opacity:1}}.focus\\:outline-none:focus{--tw-outline-style:none;outline-style:none}.focus-visible\\:ring-2:focus-visible{--tw-ring-shadow:var(--tw-ring-inset,) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color,currentcolor);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.focus-visible\\:ring-white:focus-visible{--tw-ring-color:var(--color-white)}.focus-visible\\:ring-zinc-900:focus-visible{--tw-ring-color:var(--color-zinc-900)}.focus-visible\\:ring-offset-1:focus-visible{--tw-ring-offset-width:1px;--tw-ring-offset-shadow:var(--tw-ring-inset,) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color)}.focus-visible\\:ring-offset-2:focus-visible{--tw-ring-offset-width:2px;--tw-ring-offset-shadow:var(--tw-ring-inset,) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color)}.focus-visible\\:outline-none:focus-visible{--tw-outline-style:none;outline-style:none}.focus-visible\\:ring-inset:focus-visible{--tw-ring-inset:inset}.disabled\\:opacity-50:disabled{opacity:.5}@media (prefers-reduced-motion:reduce){.motion-reduce\\:animate-none{animation:none}.motion-reduce\\:transition-none{transition-property:none}}@media (min-width:1200px){.min-\\[1200px\\]\\:top-\\[27px\\]{top:27px}.min-\\[1200px\\]\\:right-4{right:calc(var(--spacing) * 4)}}@container (min-width:380px){.\\@min-\\[380px\\]\\:h-10{height:calc(var(--spacing) * 10)}.\\@min-\\[380px\\]\\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.\\@min-\\[380px\\]\\:flex-row{flex-direction:row}.\\@min-\\[380px\\]\\:justify-start{justify-content:flex-start}.\\@min-\\[380px\\]\\:gap-1\\.5{gap:calc(var(--spacing) * 1.5)}}@container (min-width:440px){.\\@min-\\[440px\\]\\:inline{display:inline}.\\@min-\\[440px\\]\\:px-2\\.5{padding-inline:calc(var(--spacing) * 2.5)}}@container (min-width:520px){.\\@min-\\[520px\\]\\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}}}:host{all:initial}.cbm-dark{color-scheme:dark;--color-white:oklch(21% .006 285.885);--color-zinc-50:oklch(24.5% .006 286);--color-zinc-100:oklch(27.4% .006 286.033);--color-zinc-200:oklch(33% .01 285.9);--color-zinc-300:oklch(42% .015 285.8);--color-zinc-400:oklch(52% .016 285.9);--color-zinc-500:oklch(68% .015 286.067);--color-zinc-600:oklch(74% .012 286);--color-zinc-700:oklch(82% .008 286.2);--color-zinc-800:oklch(88% .006 286.3);--color-zinc-900:oklch(96.7% .001 286.375);--color-zinc-950:oklch(98.5% 0 0);--color-amber-50:oklch(27.9% .077 45.635);--color-amber-100:oklch(33% .09 46);--color-amber-200:oklch(41.4% .112 45.904);--color-amber-300:oklch(55.5% .163 48.998);--color-amber-700:oklch(87.9% .169 91.605);--color-amber-800:oklch(92.4% .12 95.746);--color-amber-900:oklch(96.2% .059 95.617);--color-amber-950:oklch(98.7% .022 95.277);--color-emerald-50:oklch(26.2% .051 172.552);--color-emerald-800:oklch(90.5% .093 164.15);--color-emerald-900:oklch(95% .052 163.051);--color-sky-50:oklch(29.3% .066 243.157);--color-sky-100:oklch(39.1% .09 240.876);--color-sky-900:oklch(95.1% .026 236.824);--color-red-600:oklch(70.4% .191 22.216);--color-red-700:oklch(80.8% .114 19.571)}.cbm-dark *{--tw-ring-offset-color:oklch(21% .006 285.885)}.theme-scroll{--cbm-thumb:var(--color-primary,oklch(55.2% .016 285.938))}@supports (color:color-mix(in lab, red, red)){.theme-scroll{--cbm-thumb:color-mix(in srgb, var(--color-primary,var(--color-zinc-500)) 55%, var(--color-white))}}.theme-scroll{--cbm-thumb-hover:var(--color-primary,oklch(55.2% .016 285.938))}@supports (color:color-mix(in lab, red, red)){.theme-scroll{--cbm-thumb-hover:color-mix(in srgb, var(--color-primary,var(--color-zinc-500)) 80%, var(--color-white))}}.theme-scroll{scrollbar-width:thin;scrollbar-color:var(--cbm-thumb) transparent}.theme-scroll:hover{scrollbar-color:var(--cbm-thumb-hover) transparent}.theme-scroll::-webkit-scrollbar{width:6px}.theme-scroll::-webkit-scrollbar-track{background:0 0}.theme-scroll::-webkit-scrollbar-thumb{background:var(--cbm-thumb);border-radius:9999px}.theme-scroll:hover::-webkit-scrollbar-thumb{background:var(--cbm-thumb-hover)}.theme-panel{transform-origin:100% 0;animation:.16s ease-out theme-panel-in}@keyframes theme-panel-in{0%{opacity:0;transform:translateY(-6px)scale(.98)}}.theme-hint{animation:.12s ease-out theme-hint-in}.theme-toast{animation:.18s ease-out theme-toast-in}@keyframes theme-toast-in{0%{opacity:0;transform:translateY(8px)}}@keyframes theme-hint-in{0%{opacity:0}}@media (prefers-reduced-motion:reduce){.theme-panel,.theme-hint,.theme-toast{animation:none}}.theme-panel summary{list-style:none}.theme-panel summary::-webkit-details-marker{display:none}.theme-panel details[open]>summary .theme-chevron{transform:rotate(90deg)}@keyframes spin{to{transform:rotate(360deg)}}";
 //#endregion
 //#region src/ThemeSwitcher.jsx
 var CORNERS = {
@@ -4252,8 +4580,10 @@ var HOST_TAG = "colorsbymax-root";
 * needs nothing from the host site's CSS and the host's CSS can't restyle it.
 */
 function ThemeSwitcher() {
+	const { hidden } = useTheme();
 	const [mount, setMount] = useState(null);
 	useEffect(() => {
+		if (hidden) return;
 		const host = document.createElement(HOST_TAG);
 		const shadow = host.attachShadow({ mode: "open" });
 		const style = document.createElement("style");
@@ -4262,8 +4592,11 @@ function ThemeSwitcher() {
 		shadow.append(style, container);
 		document.body.append(host);
 		setMount(container);
-		return () => host.remove();
-	}, []);
+		return () => {
+			host.remove();
+			setMount(null);
+		};
+	}, [hidden]);
 	return mount && createPortal(/* @__PURE__ */ jsx(Switcher, {}), mount);
 }
 function Switcher() {
@@ -4272,6 +4605,24 @@ function Switcher() {
 	const [open, setOpen] = useState(false);
 	const [settings, setSettings] = useState(() => loadSettings(storageKey));
 	useEffect(() => setLogoColouring(settings.colourLogo), [settings.colourLogo, setLogoColouring]);
+	useEffect(() => {
+		const setHidden = (hide) => setSettings((s) => s.hideButton === hide ? s : storeSettings({
+			...s,
+			hideButton: hide
+		}));
+		if (new URLSearchParams(window.location.search).has("colorsbymax")) setHidden(false);
+		const onKey = (e) => {
+			if (e.altKey && e.shiftKey && e.code === "KeyC") {
+				e.preventDefault();
+				setSettings((s) => storeSettings({
+					...s,
+					hideButton: !s.hideButton
+				}));
+			}
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, []);
 	const prefersDark = usePrefersDark();
 	const mode = settings.mode === "system" ? prefersDark ? "dark" : "light" : settings.mode;
 	const buttonRef = useRef(null);
@@ -4482,6 +4833,7 @@ function Switcher() {
 			document.removeEventListener("pointerdown", onPointerDown);
 		};
 	}, [open, close]);
+	if (settings.hideButton) return null;
 	return /* @__PURE__ */ jsx(SettingsContext.Provider, {
 		value: settingsApi,
 		children: /* @__PURE__ */ jsxs("div", {

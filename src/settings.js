@@ -17,6 +17,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
  * @property {number | 'full' | null} panelHeight  Pixels, 'full' for all the room there is, or null to fit the content
  * @property {boolean} libraryCollapsed  Whether the library's category chips are folded away
  * @property {boolean} colourLogo  Whether themes re-colour the site's logo too (off keeps its own colours)
+ * @property {boolean} hideButton  Hidden on this device from the finish screen (Alt+Shift+C brings it back)
  */
 
 /** @type {PanelSettings} */
@@ -33,6 +34,7 @@ export const DEFAULT_SETTINGS = {
   panelHeight: null,
   libraryCollapsed: false,
   colourLogo: false,
+  hideButton: false,
 }
 
 /** Size presets offered in settings; dragging an edge gives a custom size instead. */

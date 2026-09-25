@@ -80,6 +80,11 @@ export interface ColorsByMaxConfig {
    * 'top-right' sits just under a floating nav bar. Visitors can still drag it anywhere.
    */
   position?: 'bottom-right' | 'bottom-left' | 'top-left' | 'top-right'
+  /**
+   * Hide the colour button and panel; the theme still applies. `hidden: import.meta.env.PROD`
+   * keeps it out of production once the colours are chosen, while it still shows in development.
+   */
+  hidden?: boolean
 }
 
 export interface ThemeProviderProps {
@@ -114,6 +119,8 @@ export interface ThemeApi {
   usage: Partial<Record<TokenKey, string>>
   loadPdf: (() => Promise<unknown>) | null
   position: 'bottom-right' | 'bottom-left' | 'top-left' | 'top-right'
+  /** True when the config hides the switcher; the theme still applies. */
+  hidden: boolean
   /** True when colorsbymax is swapping the page's own colours (the site isn't using the variables). */
   recolouring: boolean
   /** Turns re-colouring of the site's logo on or off. */
@@ -188,6 +195,8 @@ export interface PanelSettings {
   libraryCollapsed: boolean
   /** Whether themes re-colour the site's logo too. Off (the default) keeps its own colours. */
   colourLogo: boolean
+  /** Hidden on this device (from the finish screen); Alt+Shift+C or ?colorsbymax brings it back. */
+  hideButton: boolean
 }
 /** The visitor settings the panel starts with. */
 export const DEFAULT_SETTINGS: PanelSettings

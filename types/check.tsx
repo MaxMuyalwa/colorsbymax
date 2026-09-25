@@ -29,6 +29,7 @@ const config: ColorsByMaxConfig = {
   pdf: loadPdf,
   recolour: 'auto',
   position: 'top-right',
+  hidden: false,
 }
 
 const unmount: () => void = autoMount({ siteName: 'Example' })

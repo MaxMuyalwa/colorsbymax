@@ -44,9 +44,12 @@ export const HOST_TAG = 'colorsbymax-root'
  * needs nothing from the host site's CSS and the host's CSS can't restyle it.
  */
 export default function ThemeSwitcher() {
+  const { hidden } = useTheme()
   const [mount, setMount] = useState(null)
 
   useEffect(() => {
+    // Hidden by the site's config (e.g. in production): no button at all.
+    if (hidden) return
     const host = document.createElement(HOST_TAG)
     const shadow = host.attachShadow({ mode: 'open' })
     const style = document.createElement('style')
@@ -55,8 +58,11 @@ export default function ThemeSwitcher() {
     shadow.append(style, container)
     document.body.append(host)
     setMount(container)
-    return () => host.remove()
-  }, [])
+    return () => {
+      host.remove()
+      setMount(null)
+    }
+  }, [hidden])
 
   return mount && createPortal(<Switcher />, mount)
 }
@@ -67,6 +73,21 @@ function Switcher() {
   const [open, setOpen] = useState(false)
   const [settings, setSettings] = useState(() => loadSettings(storageKey))
   useEffect(() => setLogoColouring(settings.colourLogo), [settings.colourLogo, setLogoColouring])
+
+  // "Hide it on this device" (from the finish screen). It comes back with Alt+Shift+C, which also
+  // hides it, or by opening the page with ?colorsbymax in the address.
+  useEffect(() => {
+    const setHidden = (hide) => setSettings((s) => (s.hideButton === hide ? s : storeSettings({ ...s, hideButton: hide })))
+    if (new URLSearchParams(window.location.search).has('colorsbymax')) setHidden(false)
+    const onKey = (e) => {
+      if (e.altKey && e.shiftKey && e.code === 'KeyC') {
+        e.preventDefault()
+        setSettings((s) => storeSettings({ ...s, hideButton: !s.hideButton }))
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, []) // storeSettings only writes to storage
   const prefersDark = usePrefersDark()
   const mode = settings.mode === 'system' ? (prefersDark ? 'dark' : 'light') : settings.mode
   const buttonRef = useRef(null)
@@ -283,6 +304,8 @@ function Switcher() {
       document.removeEventListener('pointerdown', onPointerDown)
     }
   }, [open, close])
+
+  if (settings.hideButton) return null
 
   return (
     <SettingsContext.Provider value={settingsApi}>

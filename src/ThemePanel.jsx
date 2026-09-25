@@ -7,7 +7,7 @@ import { loadLibrary } from './library.js'
 import { inMode } from './modes.js'
 import { PANEL_PRESETS, useSettings } from './settings.js'
 import { useTheme } from './ThemeProvider.jsx'
-import { TOKEN_GROUPS, TOKEN_LABELS } from './tokens.js'
+import { TOKEN_GROUPS, TOKEN_KEYS, TOKEN_LABELS } from './tokens.js'
 
 const SWATCH_KEYS = ['primary', 'primary-alt', 'primary-dark', 'secondary', 'background', 'ink', 'data-1', 'data-2', 'data-3', 'data-4']
 
@@ -108,6 +108,7 @@ export default function ThemePanel() {
 
       {view === 'contrast' && <ContrastView onBack={() => setView('main')} />}
       {view === 'settings' && <SettingsView onBack={() => setView('main')} />}
+      {view === 'finish' && <FinishView onBack={() => setView('main')} />}
 
       {/* Kept mounted while another view is open so open sections and scroll state survive. */}
       <div hidden={view !== 'main'}>
@@ -133,10 +134,16 @@ export default function ThemePanel() {
       </ContrastNav.Provider>
 
       <footer className="border-t border-zinc-200 px-4 py-3">
-        <button type="button" className={`${btn} w-full`} onClick={resetToDefault}>
-          <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
-          Reset to default
-        </button>
+        <div className="flex gap-2">
+          <button type="button" className={`${btn} flex-1`} onClick={resetToDefault}>
+            <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+            Reset to default
+          </button>
+          <button type="button" className={`${btnPrimary} flex-1`} onClick={(e) => showView('finish', e.currentTarget)}>
+            <Check className="w-3.5 h-3.5" aria-hidden="true" />
+            I’m done
+          </button>
+        </div>
       </footer>
       </div>
     </div>
@@ -192,6 +199,184 @@ function Toast({ toast, onDismiss }) {
         className="-mr-1 shrink-0 rounded opacity-70 hover:opacity-100 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
       >
         <X className="w-3.5 h-3.5" aria-hidden="true" />
+      </button>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------- finishing
+
+const PROD = 'import.meta.env.PROD'
+const tokenLines = (tokens, indent) => TOKEN_KEYS.map((k) => `${indent}'${k}': '${tokens[k]}',`).join('\n')
+
+/** Code that makes the chosen colours the site's default and hides the switcher in production. */
+function keepSnippet(kind, name, tokens) {
+  const theme = `defaultTheme: {\n    name: ${JSON.stringify(name)},\n    tokens: {\n${tokenLines(tokens, '      ')}\n    },\n  },\n  // Hides the colour button in production; set to false to bring it back.\n  hidden: ${PROD},`
+  if (kind === 'auto') {
+    return `// Replace \`import 'colorsbymax/auto'\` with:\nimport { autoMount } from 'colorsbymax/auto'\n\nautoMount({\n  ${theme}\n})`
+  }
+  return `// Add to the config you pass to <ThemeProvider>:\n<ThemeProvider config={{\n  ...config,\n  ${theme}\n}}>`
+}
+
+const cssSnippet = (tokens) => `:root {\n${TOKEN_KEYS.map((k) => `  --color-${k}: ${tokens[k]};`).join('\n')}\n}`
+
+const keepPrompt = (name, tokens) =>
+  `Update my colorsbymax setup so the colours I chose become my site's default and the colour switcher is hidden in production. In the colorsbymax config (the autoMount({...}) call, or the config passed to <ThemeProvider>), set defaultTheme to { name: ${JSON.stringify(name)}, tokens: ${JSON.stringify(tokens)} } and set hidden: ${PROD} (use process.env.NODE_ENV === 'production' if this isn't a Vite project). If the site uses import 'colorsbymax/auto', replace it with import { autoMount } from 'colorsbymax/auto' and an autoMount({...}) call with that config. Don't change anything else.`
+
+const BRING_BACK_PROMPT =
+  "Show the colorsbymax colour switcher again in production: in its config (the autoMount({...}) call or the config passed to <ThemeProvider>), set hidden to false or remove the hidden line. Don't change anything else."
+
+const removePrompt = (tokens, recolouring) =>
+  recolouring
+    ? `Remove colorsbymax from this project but keep the colours it currently shows. The site's CSS uses hard-coded colours that colorsbymax was swapping at runtime, so update the site's own CSS to use this palette instead (primary is the main brand colour, background the page, ink the text): ${JSON.stringify(tokens)}. Then uninstall the colorsbymax package and delete its import (import 'colorsbymax/auto', autoMount, ThemeProvider or ThemeSwitcher) and any colorsbymax pre-paint script in index.html.`
+    : `Remove colorsbymax from this project but keep my colours: add these CSS variables to my global stylesheet, replacing any existing --color-* values: ${cssSnippet(tokens)} Then uninstall the colorsbymax package and delete its usage (ThemeProvider, ThemeSwitcher, autoMount or import 'colorsbymax/auto') and any colorsbymax pre-paint script in index.html. Keep colorsbymax/tokens.css only if nothing else needs it.`
+
+/** Shows code with a copy button. */
+function CopyBlock({ label, text, copyLabel = 'Copy' }) {
+  const { toast } = usePanel()
+  const id = useId()
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-2">
+        <span id={id} className="text-[11px] font-semibold text-zinc-700">{label}</span>
+        <button
+          type="button"
+          className={`${btn} px-2 py-1`}
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(text)
+              toast(`Copied: ${label.toLowerCase()}.`)
+            } catch {
+              toast('Couldn’t reach the clipboard. Select the text and copy it instead.')
+            }
+          }}
+        >
+          <Copy className="w-3.5 h-3.5" aria-hidden="true" /> {copyLabel}
+        </button>
+      </div>
+      <pre aria-labelledby={id} tabIndex={0} className="max-h-40 overflow-auto rounded-lg border border-zinc-200 bg-zinc-50 p-2.5 font-mono text-[11px] leading-snug text-zinc-800 whitespace-pre-wrap break-all">
+        {text}
+      </pre>
+    </div>
+  )
+}
+
+const FINISH_OPTIONS = [
+  { id: 'keep', label: 'Keep these colours and hide it in production', note: 'Recommended. Everyone sees your colours; the button still shows while you develop.' },
+  { id: 'local', label: 'Hide it on this device only', note: 'Quick and undoable. Nothing changes for anyone else.' },
+  { id: 'remove', label: 'Remove colorsbymax', note: 'Uninstall it and keep the colours in your own CSS.' },
+]
+
+/**
+ * After "I'm done": how to keep the chosen colours for every visitor and hide the switcher, hide it
+ * here only, or remove colorsbymax, each with code and a prompt for an AI editor. Cancel goes back.
+ */
+function FinishView({ onBack }) {
+  const { tokens, active, recolouring } = useTheme()
+  const { update } = useSettings()
+  const [choice, setChoice] = useState('keep')
+  const [kind, setKind] = useState(() => (document.querySelector('[data-colorsbymax="auto"]') ? 'auto' : 'provider'))
+  const headingRef = useRef(null)
+  useEffect(() => headingRef.current?.focus(), [])
+  const name = active.name.replace(/ \(dark\)$/, ' dark')
+
+  return (
+    <div className="px-4 py-3 space-y-4">
+      <button type="button" className={`${btn} border-transparent px-1.5`} onClick={onBack}>
+        <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" /> Back
+      </button>
+      <div className="space-y-1.5">
+        <h3 ref={headingRef} tabIndex={-1} className="text-sm font-semibold focus:outline-none">Happy with your colours?</h3>
+        <p className="text-[11px] text-zinc-600">
+          Your pick, <strong className="font-semibold text-zinc-900">{active.name}</strong>, is only saved in this browser. To show it to every visitor and keep the button out of production, put it in your code:
+        </p>
+        <Swatches tokens={tokens} />
+      </div>
+
+      <div role="radiogroup" aria-label="What to do" className="space-y-1.5">
+        {FINISH_OPTIONS.map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            role="radio"
+            aria-checked={choice === o.id}
+            onClick={() => setChoice(o.id)}
+            className={`w-full rounded-xl border px-3 py-2 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 ${
+              choice === o.id ? 'border-zinc-900 bg-zinc-100' : 'border-zinc-200 hover:bg-zinc-50'
+            }`}
+          >
+            <span className="block text-xs font-semibold text-zinc-900">{o.label}</span>
+            <span className="block text-[11px] text-zinc-600">{o.note}</span>
+          </button>
+        ))}
+      </div>
+
+      {choice === 'keep' && (
+        <div className="space-y-3">
+          <div role="radiogroup" aria-label="How colorsbymax is set up" className="grid grid-cols-2 gap-2">
+            {[
+              ['auto', 'One-line import'],
+              ['provider', 'ThemeProvider'],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={kind === id}
+                onClick={() => setKind(id)}
+                className={`h-8 rounded-lg border px-2 text-xs font-medium cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 ${
+                  kind === id ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <CopyBlock label="Code for your site" text={keepSnippet(kind, name, tokens)} />
+          <p className="text-[11px] text-zinc-600">
+            Not using Vite? Use <code className="font-mono">process.env.NODE_ENV === 'production'</code> instead of <code className="font-mono">{PROD}</code> (Next.js, webpack).
+          </p>
+          <CopyBlock label="Or ask Claude, Cursor or Copilot" text={keepPrompt(name, tokens)} copyLabel="Copy prompt" />
+          <div className="rounded-lg bg-zinc-100 p-2.5 text-[11px] text-zinc-700 space-y-1.5">
+            <p><strong className="font-semibold text-zinc-900">Bring it back later:</strong> it still shows when you run the site locally, so you can keep iterating. To show it in production too, set <code className="font-mono">hidden: false</code>.</p>
+            <CopyBlock label="Prompt to bring it back" text={BRING_BACK_PROMPT} copyLabel="Copy prompt" />
+          </div>
+        </div>
+      )}
+
+      {choice === 'local' && (
+        <div className="space-y-2">
+          <p className="text-[11px] text-zinc-600">
+            Hides the colour button in this browser only, and keeps showing your current colours here. It doesn’t change your code or what anyone else sees.
+          </p>
+          <p className="rounded-lg bg-zinc-100 p-2.5 text-[11px] text-zinc-700">
+            <strong className="font-semibold text-zinc-900">To bring it back:</strong> press <kbd className="font-mono">Alt</kbd>+<kbd className="font-mono">Shift</kbd>+<kbd className="font-mono">C</kbd> on the page, or open it with <code className="font-mono">?colorsbymax</code> at the end of the address.
+          </p>
+          <button type="button" className={`${btnPrimary} w-full`} onClick={() => update({ hideButton: true })}>
+            Hide the button here
+          </button>
+        </div>
+      )}
+
+      {choice === 'remove' && (
+        <div className="space-y-3">
+          <ol className="list-decimal space-y-1 pl-4 text-[11px] text-zinc-700">
+            <li>Uninstall it: <code className="font-mono">npm uninstall colorsbymax</code></li>
+            <li>Delete its import (<code className="font-mono">import 'colorsbymax/auto'</code>, <code className="font-mono">autoMount</code>, or <code className="font-mono">ThemeProvider</code> and <code className="font-mono">ThemeSwitcher</code>) and any colorsbymax pre-paint script.</li>
+            <li>
+              {recolouring
+                ? 'Keep the colours: your site’s CSS uses its own hard-coded colours, which colorsbymax was swapping as the page ran, so they need writing into your CSS. The prompt below asks your AI editor to do that.'
+                : 'Keep the colours: paste these into your global stylesheet, replacing your current --color-* values.'}
+            </li>
+          </ol>
+          {!recolouring && <CopyBlock label="CSS for your colours" text={cssSnippet(tokens)} />}
+          <CopyBlock label="Or ask Claude, Cursor or Copilot" text={removePrompt(tokens, recolouring)} copyLabel="Copy prompt" />
+          <p className="text-[11px] text-zinc-600">To bring it back later, install it again and follow the Quick start in the README.</p>
+        </div>
+      )}
+
+      <button type="button" className={`${btn} w-full`} onClick={onBack}>
+        Cancel, keep using colorsbymax
       </button>
     </div>
   )

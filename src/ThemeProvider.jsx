@@ -32,6 +32,8 @@ const newId = () => `custom-${Date.now().toString(36)}-${Math.random().toString(
  *   Where each token is used on this site, shown in the editors
  * @property {boolean} [scrollbars]  Colour the page's scrollbars from the theme (default true)
  * @property {() => Promise<any>} [pdf]  Enables PDF uploads: pass `loadPdf` from 'colorsbymax/pdf'
+ * @property {boolean} [hidden]  Hide the colour button and panel; the theme still applies. Use
+ *   `hidden: import.meta.env.PROD` to keep it out of production once the colours are chosen.
  * @property {'bottom-right' | 'bottom-left' | 'top-left' | 'top-right'} [position]  Where the colour
  *   button starts (default 'bottom-right'). 'top-right' sits under a floating nav bar.
  * @property {boolean | 'auto'} [recolour]  Re-colour a site that doesn't paint with the --color-*
@@ -64,7 +66,10 @@ function resolveSite(config, pageColours) {
   const accessible = Object.keys(fixes).length
     ? [{ id: 'site-accessible', name: `${defaultTheme.name} (accessible)`, site: true, tokens: { ...defaultTheme.tokens, ...fixes } }]
     : []
-  return { siteName, defaultTheme, siteThemes: [defaultTheme, ...accessible, ...extra] }
+  // A re-coloured site with chosen colours in its config can still go back to how its page looks.
+  const pageOriginal =
+    pageColours && config.defaultTheme ? [{ id: 'site-original', name: `${siteName} original`, site: true, tokens: pageColours }] : []
+  return { siteName, defaultTheme, siteThemes: [defaultTheme, ...accessible, ...pageOriginal, ...extra] }
 }
 
 /** @param {{ config?: ColorsByMaxConfig, children: import('react').ReactNode }} props */
@@ -127,8 +132,10 @@ export function ThemeProvider({ config = {}, children }) {
     return () => style.remove()
   }, [logoColouring, pageColours, defaultTheme])
 
-  // The site's own theme with no overrides is its original look, so nothing is swapped.
-  const original = base.id === defaultTheme.id && !Object.keys(state.overrides).length
+  // The page's own colours with no overrides are its original look, so nothing is swapped. (A
+  // defaultTheme in the config is chosen colours, which do need applying.)
+  const pageLook = base.id === 'site-original' || (base.id === defaultTheme.id && !initialConfig.defaultTheme)
+  const original = pageLook && !Object.keys(state.overrides).length
   useLayoutEffect(() => {
     recolourer.current?.apply(original ? null : tokens)
   }, [tokens, original, pageColours])
@@ -168,6 +175,8 @@ export function ThemeProvider({ config = {}, children }) {
     usage: initialConfig.usage ?? {},
     loadPdf: initialConfig.pdf ?? null,
     position: initialConfig.position ?? 'bottom-right',
+    /** True when the config hides the switcher (e.g. in production); the theme still applies. */
+    hidden: Boolean(initialConfig.hidden),
     /** True when colorsbymax is swapping the page's own colours (the site isn't wired to tokens). */
     recolouring: Boolean(pageColours),
     /** Turns re-colouring of the site's logo on or off (the switcher's "Colour the logo" setting). */
