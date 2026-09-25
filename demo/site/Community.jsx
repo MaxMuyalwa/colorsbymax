@@ -1,6 +1,7 @@
-import { ArrowUpRight, Bug, Coffee, Heart, Lightbulb, MessageCircleQuestion, MessageSquarePlus, Star } from 'lucide-react'
+import { ArrowUpRight, Bug, Coffee, Heart, Lightbulb, MessageCircleQuestion, MessageSquarePlus, Pointer, Star } from 'lucide-react'
 import { openFeedback } from './Feedback.jsx'
 import { GitHubIcon, Reveal, REPO, SUPPORT } from './ui.jsx'
+import { AirtelMoney } from './AirtelMoney.jsx'
 
 const KINDS = [
   { id: 'bug', label: 'Found a bug?', text: 'Tell Max what broke, with a screenshot.', Icon: Bug, tone: 'danger' },
@@ -87,44 +88,57 @@ export function Community() {
 /** The support page: ways to thank Max, with the coffee link to come. */
 export function Support() {
   return (
-    <main id="main" className="relative isolate overflow-hidden px-6 pt-36 pb-24">
+    <main id="main" className="relative isolate overflow-hidden px-6 pt-28 pb-16 md:pt-32">
       <div className="absolute inset-0 -z-10" aria-hidden="true">
         <div className="dot-grid absolute inset-0" />
         <div className="blob top-0 left-[-8%] h-[26rem] w-[26rem] bg-primary" />
         <div className="blob blob-slow top-[10%] right-[-10%] h-[24rem] w-[24rem] bg-primary-alt" />
       </div>
       <div className="mx-auto max-w-3xl text-center">
-        <span className="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-primary text-on-primary shadow-xl shadow-primary/30">
-          <Coffee className="h-8 w-8" aria-hidden="true" />
+        <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-primary text-on-primary shadow-xl shadow-primary/30">
+          <Coffee className="h-7 w-7" aria-hidden="true" />
         </span>
-        <h1 className="mt-6 font-display text-5xl font-extrabold tracking-tight text-ink md:text-6xl">
+        <h1 className="mt-5 font-display text-5xl font-extrabold tracking-tight text-ink md:text-6xl">
           Support <span className="text-gradient">colorsbymax</span>
         </h1>
-        <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-ink-secondary">
+        <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed text-ink-secondary">
           colorsbymax is free and open source, designed and built by Max Muyalwa at mrmaxdesigns. If it saved you time, here’s how to say thanks.
         </p>
       </div>
 
-      <div className="mx-auto mt-14 grid max-w-4xl gap-5 md:grid-cols-3">
-        <Reveal className="flex flex-col rounded-[2rem] border border-border bg-surface p-7 text-left">
-          <Coffee className="h-7 w-7 text-primary" aria-hidden="true" />
+      <div className="mx-auto mt-10 grid max-w-4xl gap-5 md:grid-cols-3">
+        <Reveal className="flex flex-col rounded-[2rem] border border-border bg-surface p-6 text-left">
+          {/* In Zambia or elsewhere in Africa: Airtel Money, from the flag, on the cup's row. */}
+          <div className="flex items-center justify-between gap-3">
+            <Coffee className="h-7 w-7 text-primary" aria-hidden="true" />
+            <span className="flex items-center gap-1.5">
+              <span className="nudge inline-flex items-center gap-1 text-xs font-semibold text-ink-secondary" aria-hidden="true">
+                Zambia?
+                <Pointer className="h-4 w-4 rotate-90 text-primary" />
+              </span>
+              <AirtelMoney />
+            </span>
+          </div>
           <h2 className="mt-4 font-display text-xl font-bold text-ink">Buy Max a coffee</h2>
-          <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-secondary">A small one-off thank you. The coffee page is being set up.</p>
-          <span className="mt-6 inline-flex items-center justify-center rounded-full border border-dashed border-border px-4 py-2.5 text-sm font-semibold text-ink-muted">Coming soon</span>
+          <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-secondary">
+            A small one-off thank you. In Zambia or elsewhere in Africa? Tap the flag to send it with Airtel Money. A way to
+            support from anywhere else in the world is on the way.
+          </p>
+          <span className="mt-5 inline-flex items-center justify-center rounded-full border border-dashed border-border px-4 py-2.5 text-sm font-semibold text-ink-muted">International: coming soon</span>
         </Reveal>
-        <Reveal delay={90} className="flex flex-col rounded-[2rem] border border-border bg-surface p-7 text-left">
+        <Reveal delay={90} className="flex flex-col rounded-[2rem] border border-border bg-surface p-6 text-left">
           <Star className="h-7 w-7 text-warning" aria-hidden="true" />
           <h2 className="mt-4 font-display text-xl font-bold text-ink">Star it on GitHub</h2>
           <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-secondary">Stars help other developers find colorsbymax. It takes one click.</p>
-          <a href={REPO} target="_blank" rel="noopener" className="mt-6 inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary transition hover:-translate-y-0.5">
+          <a href={REPO} target="_blank" rel="noopener" className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary transition hover:-translate-y-0.5">
             <GitHubIcon className="h-4 w-4" /> Star on GitHub
           </a>
         </Reveal>
-        <Reveal delay={180} className="flex flex-col rounded-[2rem] border border-border bg-surface p-7 text-left">
+        <Reveal delay={180} className="flex flex-col rounded-[2rem] border border-border bg-surface p-6 text-left">
           <MessageSquarePlus className="h-7 w-7 text-primary-alt" aria-hidden="true" />
           <h2 className="mt-4 font-display text-xl font-bold text-ink">Send feedback</h2>
           <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-secondary">Bugs, praise, ideas and questions all make colorsbymax better.</p>
-          <button type="button" onClick={() => openFeedback()} className="mt-6 inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 text-sm font-semibold text-ink transition hover:-translate-y-0.5 hover:border-primary">
+          <button type="button" onClick={() => openFeedback()} className="mt-5 inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 text-sm font-semibold text-ink transition hover:-translate-y-0.5 hover:border-primary">
             Send feedback
           </button>
         </Reveal>

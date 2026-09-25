@@ -124,6 +124,23 @@ body {
   transform: none;
 }
 
+/* A pointing finger that nudges towards what it points at, to say "tap this". */
+@media (prefers-reduced-motion: no-preference) {
+  .nudge {
+    animation: nudge 1.6s ease-in-out infinite;
+  }
+}
+@keyframes nudge {
+  0%,
+  60%,
+  100% {
+    transform: translateX(0);
+  }
+  30% {
+    transform: translateX(4px);
+  }
+}
+
 /* Overlays fade in. */
 @keyframes fade-in {
   from {
