@@ -2,7 +2,7 @@
 
 What changed in each colorsbymax release. Update with `npm install colorsbymax@latest`.
 
-## Unreleased
+## 0.3.0 (2026-09-25)
 
 - **Dark mode for every site, on every load.** The mode now lives in the theme provider: a saved Dark (or Auto on a dark device) turns the whole site dark as soon as it loads, not only when the mode is changed, and it keeps working when the switcher is hidden. Before, the panel could go dark while the site stayed light. Sites without a dark mode of their own get one: every theme's dark twin re-colours the page, contrast-checked.
 - **A light and dark switch for your site:** mark any element with `data-colorsbymax-mode="toggle"` (or `light`, `dark`, `system`) and colorsbymax wires it up and remembers the choice. `<html>` gets `data-colorsbymax-scheme` with the current mode, and `useTheme()` has `mode`, `modeSetting` and `setMode`.
@@ -17,7 +17,7 @@ What changed in each colorsbymax release. Update with `npm install colorsbymax@l
 - **A new colorsbymax site** at [mrmaxdesigns.com/colorsbymax](https://mrmaxdesigns.com/colorsbymax): what colorsbymax does and why, every colour role explained with a live preview, the rules of good colour (with a little history), setup guides, coding-agent setup, and a way back to mrmaxdesigns.com. Every colour on it follows the theme you pick.
 - **Set-up steps for many more coding agents,** in the README, the MCP README and the site: GitHub Copilot CLI, Codex, Google Antigravity, Gemini CLI, Grok Build, Windsurf, Kiro, Zed, JetBrains, Cline and Roo, and opencode, alongside Claude Code, Cursor, VS Code and Claude Desktop. The MCP server's docs tool has a new `agents` topic with all of them (colorsbymax-mcp 0.1.3).
 - **Dark themes always read.** A dark twin's brand, data and status colours are now lifted until they measurably pass against the dark background, and buttons get whichever text colour (dark or white) reads best. Before, a few vivid blues and violets stayed too dark to read (7 of the 720 built-in themes, and some sites' own colours); now every built-in theme passes every check in both light and dark.
-- The colorsbymax site's and the bakery demo's own colours now pass every contrast check in light and dark.
+- The colorsbymax site's own colours now pass every contrast check in light and dark.
 - Fixed: when the colour button was hidden on a device, the next page load could stop the switcher with an error.
 - The demo is live at [mrmaxdesigns.com/colorsbymax](https://mrmaxdesigns.com/colorsbymax), now the package's homepage.
 
