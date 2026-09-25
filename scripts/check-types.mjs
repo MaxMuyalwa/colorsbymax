@@ -8,6 +8,7 @@ let failed = false
 for (const [types, built] of [
   ['../types/index.d.ts', '../dist/index.js'],
   ['../types/pdf.d.ts', '../dist/pdf.js'],
+  ['../types/auto.d.ts', '../dist/auto.js'],
 ]) {
   const source = readFileSync(new URL(types, import.meta.url), 'utf8')
   const declared = new Set([...source.matchAll(/^export (?:function|const) (\w+)/gm)].map((m) => m[1]))

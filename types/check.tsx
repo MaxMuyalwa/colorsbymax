@@ -19,6 +19,7 @@ import {
   type TokenKey,
 } from 'colorsbymax'
 import { loadPdf } from 'colorsbymax/pdf'
+import { autoMount } from 'colorsbymax/auto'
 
 const config: ColorsByMaxConfig = {
   siteName: 'Example',
@@ -26,17 +27,22 @@ const config: ColorsByMaxConfig = {
   defaultTheme: { name: 'Example blue', tokens: { primary: '#2f6fdb', background: '#f8fafd' } },
   usage: { primary: 'Buttons' },
   pdf: loadPdf,
+  recolour: 'auto',
+  position: 'top-right',
 }
 
+const unmount: () => void = autoMount({ siteName: 'Example' })
+unmount()
+
 function Status() {
-  const { active, tokens, issues, selectTheme, fixAllIssues, importTheme } = useTheme()
+  const { active, tokens, issues, selectTheme, fixAllIssues, importTheme, recolouring } = useTheme()
   const key: TokenKey = 'primary'
   const hex: string = tokens[key]
   const ratio: number = contrastRatio(tokens.ink, tokens.background)
   const error: string | null = importTheme('{}')
   return (
     <p onClick={() => (issues.length ? fixAllIssues() : selectTheme(PRESETS[0].id))}>
-      {active.name} {hex} {ratio.toFixed(1)} {error}
+      {active.name} {hex} {ratio.toFixed(1)} {error} {recolouring ? 'recoloured' : ''}
     </p>
   )
 }

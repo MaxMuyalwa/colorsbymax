@@ -6,7 +6,8 @@ A floating theme switcher for websites. Visitors (or the site's owner) can re-co
 
 **At a glance**
 
-- **React 18 or 19.** `npm install colorsbymax`, then wrap your app (see [Add it to a site](#add-it-to-a-site)).
+- **Two steps.** `npm install colorsbymax`, then `import 'colorsbymax/auto'` once. The colour button appears and visitors can re-colour the site, even if its colours are hard-coded (see [Quick start](#quick-start)).
+- **React 18 or 19.**
 - **Tailwind optional.** The panel carries its own styles, so it works with Tailwind v4, older Tailwind or plain CSS. Your site only needs to paint its colours with `var(--color-…)` variables. The optional `colorsbymax/tokens.css` helper is for Tailwind v4 (`@theme` syntax); without Tailwind v4, define the variables yourself.
 - **TypeScript types included.**
 - **No runtime dependencies** besides React. PDF uploads are opt-in and need `pdfjs-dist` (see [PDF uploads](#pdf-uploads)).
@@ -44,19 +45,37 @@ npm install
 npm run dev
 ```
 
-This serves `demo/`: colorsbymax's own landing page, built with Tailwind, where every colour is a token (it uses every token group, and a strip shows the live values), and `/plain.html`, a plain-CSS bakery site with deliberately careless global styles to show they don't reach the panel.
+This serves `demo/`: colorsbymax's own landing page, built with Tailwind, where every colour is a token (it uses every token group, and a strip shows the live values); `/plain.html`, a plain-CSS bakery site with deliberately careless global styles to show they don't reach the panel; and `/unwired.html`, a coffee shop with only hard-coded colours whose whole setup is `import 'colorsbymax/auto'`.
 
-## Add it to a site
-
-colorsbymax needs React 18 or 19:
+## Quick start
 
 ```bash
 npm install colorsbymax
 ```
 
+Then add one line anywhere in your site's code, for example `main.jsx`:
+
+```js
+import 'colorsbymax/auto'
+```
+
+That's all. The colour button appears in the bottom-right corner once the page has loaded, and visitors can start swapping the site's colours. (npm doesn't let a package change your site on install, so this one line is the only step.)
+
+- **Any site's colours.** If your site doesn't use colorsbymax's colour variables, colorsbymax reads the colours actually on the page (backgrounds, text, borders, gradients and icons) and swaps each for its counterpart in the chosen theme: greys follow the theme's background and text, brand shades follow its brand colour, and success and error colours keep their meaning. Content added later is re-coloured too, and picking the site's own theme brings back the exact original.
+- **Settings.** Use `autoMount` instead of the plain import:
+
+  ```js
+  import { autoMount } from 'colorsbymax/auto'
+  autoMount({ siteName: 'My site', storageKey: 'my-site-theme' })
+  ```
+
+- **Where automatic re-colouring falls short:** images keep their colours, hover and focus colours keep the site's own, and colours drawn by `::before`/`::after` aren't swapped. For full control, use the colour variables below; colorsbymax then applies themes to them directly, with no page reading at all.
+
 Already installed it? Get the newest version with `npm install colorsbymax@latest` (see [Updating](#updating)).
 
-It ships as plain JavaScript with TypeScript types, so Vite, Next.js, webpack and other bundlers use it without extra setup. Installing changes nothing on its own; these steps add the colour button:
+## Add it to a site
+
+This is the full setup, for sites that want exact control over which colour goes where. colorsbymax needs React 18 or 19, and ships as plain JavaScript with TypeScript types, so Vite, Next.js, webpack and other bundlers use it without extra setup:
 
 1. **Paint the site with the token variables.** Use `var(--color-<token>)` wherever the site sets a colour, with your own colours as the starting values.
 
@@ -110,6 +129,10 @@ Without a `siteName`, the site group is named from the page's `og:site_name`, it
   usage: { primary: 'Buttons…' },   // optional notes shown in the colour editors
   scrollbars: true,                 // colour the page's scrollbars from the theme (default)
   pdf: loadPdf,                     // optional: allow PDF uploads (see below)
+  recolour: 'auto',                 // re-colour hard-coded colours: 'auto' (only if the site has
+                                    // no --color-* variables, the default), true or false
+  position: 'bottom-right',         // where the button starts: bottom-right (default), bottom-left,
+                                    // top-left, or top-right (just under a floating nav bar)
 }
 ```
 

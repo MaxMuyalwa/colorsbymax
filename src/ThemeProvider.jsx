@@ -1,7 +1,8 @@
-import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { checkTheme, fixAll, suggestFix } from './contrast.js'
 import { loadLibrary } from './library.js'
 import { DARK_SUFFIX, toDark } from './modes.js'
+import { createRecolourer, usesColourTokens } from './recolour.js'
 import { collectColors, detectSiteName, inferRoles, suggestThemes } from './scan.js'
 import { DEFAULT_STORAGE_KEY, loadState, sanitizeTokens, saveState } from './storage.js'
 import { BASE_TOKENS, PRESETS, TOKEN_KEYS, completeTokens } from './tokens.js'
@@ -31,16 +32,26 @@ const newId = () => `custom-${Date.now().toString(36)}-${Math.random().toString(
  *   Where each token is used on this site, shown in the editors
  * @property {boolean} [scrollbars]  Colour the page's scrollbars from the theme (default true)
  * @property {() => Promise<any>} [pdf]  Enables PDF uploads: pass `loadPdf` from 'colorsbymax/pdf'
+ * @property {'bottom-right' | 'bottom-left' | 'top-left' | 'top-right'} [position]  Where the colour
+ *   button starts (default 'bottom-right'). 'top-right' sits under a floating nav bar.
+ * @property {boolean | 'auto'} [recolour]  Re-colour a site that doesn't paint with the --color-*
+ *   variables, by swapping the colours actually on the page. 'auto' (default) does it only when
+ *   the site doesn't define --color-primary itself.
  */
 
-/** Resolves a config into the site theme group. The shipped default always comes first. */
-function resolveSite(config) {
+/**
+ * Resolves a config into the site theme group. The shipped default always comes first. Without
+ * one, a re-coloured site's own colours (read from the page) are its default.
+ */
+function resolveSite(config, pageColours) {
   const siteName = config.siteName || detectSiteName()
   const defaultTheme = {
     id: 'site-default',
-    name: config.defaultTheme?.name || `${siteName} default`,
+    name: config.defaultTheme?.name || `${siteName} ${pageColours ? 'original' : 'default'}`,
     site: true,
-    tokens: config.defaultTheme ? completeTokens(sanitizeTokens(config.defaultTheme.tokens)) : BASE_TOKENS,
+    tokens: config.defaultTheme
+      ? completeTokens(sanitizeTokens(config.defaultTheme.tokens))
+      : (pageColours ?? BASE_TOKENS),
   }
   const extra = (config.themes ?? []).map((t) => ({
     id: `site-${t.id}`,
@@ -60,7 +71,10 @@ function resolveSite(config) {
 export function ThemeProvider({ config = {}, children }) {
   const storageKey = config.storageKey || DEFAULT_STORAGE_KEY
   // Config is read once; it describes the host site and shouldn't change at runtime.
-  const [site] = useState(() => resolveSite(config))
+  const [initialConfig] = useState(config)
+  // The site's own colours, when it's being re-coloured (read once its content has rendered).
+  const [pageColours, setPageColours] = useState(null)
+  const site = useMemo(() => resolveSite(initialConfig, pageColours), [initialConfig, pageColours])
   const { siteName, defaultTheme } = site
   const [state, setState] = useState(() => loadState(storageKey, defaultTheme))
   // Scan suggestions join the site's own themes in its group.
@@ -82,6 +96,26 @@ export function ThemeProvider({ config = {}, children }) {
     applyTokens(tokens)
     saveState(storageKey, { ...state, activeId: base.id }, tokens)
   }, [tokens, state, base.id, storageKey])
+
+  // Re-colouring for sites that don't paint with the token variables. Layout effects run after
+  // the children have rendered, so the engine sees the site's content.
+  const recolourMode = initialConfig.recolour ?? 'auto'
+  const recolourer = useRef(null)
+  useLayoutEffect(() => {
+    if (recolourMode === false || (recolourMode === 'auto' && usesColourTokens())) return
+    const engine = createRecolourer()
+    recolourer.current = engine
+    setPageColours(engine.site)
+    return () => {
+      engine.stop()
+      recolourer.current = null
+    }
+  }, [recolourMode])
+  // The site's own theme with no overrides is its original look, so nothing is swapped.
+  const original = base.id === defaultTheme.id && !Object.keys(state.overrides).length
+  useLayoutEffect(() => {
+    recolourer.current?.apply(original ? null : tokens)
+  }, [tokens, original, pageColours])
 
   // Scrollbars in the theme's colours. The rule reads the token variables, so it follows every
   // theme change by itself, and :where() keeps it weaker than any scrollbar styling the site has.
@@ -115,8 +149,11 @@ export function ThemeProvider({ config = {}, children }) {
     state,
     storageKey,
     siteName,
-    usage: config.usage ?? {},
-    loadPdf: config.pdf ?? null,
+    usage: initialConfig.usage ?? {},
+    loadPdf: initialConfig.pdf ?? null,
+    position: initialConfig.position ?? 'bottom-right',
+    /** True when colorsbymax is swapping the page's own colours (the site isn't wired to tokens). */
+    recolouring: Boolean(pageColours),
     siteThemes,
     defaultTheme,
     presets: PRESETS,

@@ -13,7 +13,15 @@ import panelCss from './panel-css.generated.js'
 // top-right corner below ~1200px. There the button sits just under the nav's right end;
 // from 1200px up the gutter beside the nav is wide enough and it moves into the corner,
 // vertically centred on the nav.
-const BUTTON_POSITION = 'right-6 top-[84px] min-[1200px]:right-4 min-[1200px]:top-[27px]'
+// Where the colour button starts (config `position`). 'bottom-right', the default, is where chat and
+// help widgets usually sit. 'top-right' sits just under a floating nav bar, as on Tsungi.
+const CORNERS = {
+  'bottom-right': 'right-5 bottom-5',
+  'bottom-left': 'left-5 bottom-5',
+  'top-left': 'left-5 top-5',
+  'top-right': 'right-6 top-[84px] min-[1200px]:right-4 min-[1200px]:top-[27px]',
+}
+const CORNER_GAP = 20 // matches the 5-unit (20px) insets above
 
 // Once dragged, the colour button is placed in pixels and the panel opens beside it.
 const BUTTON_SIZE = 36
@@ -54,7 +62,8 @@ export default function ThemeSwitcher() {
 }
 
 function Switcher() {
-  const { issues, storageKey, tokens, active, themes, selectTheme } = useTheme()
+  const { issues, storageKey, tokens, active, themes, selectTheme, position: requested } = useTheme()
+  const position = CORNERS[requested] ? requested : 'bottom-right'
   const [open, setOpen] = useState(false)
   const [settings, setSettings] = useState(() => loadSettings(storageKey))
   const prefersDark = usePrefersDark()
@@ -77,7 +86,9 @@ function Switcher() {
   const [liveSize, setLiveSize] = useState(null)
   const resize = useRef(null)
   const size = liveSize ?? { width: settings.panelWidth, height: settings.panelHeight }
-  const layout = panelLayout(placed, viewport, size)
+  // A plain corner opens the panel beside the button, just as after a drag; 'top-right' keeps its
+  // own layout under the site's nav bar.
+  const layout = panelLayout(placed ?? (position === 'top-right' ? null : cornerPoint(position, viewport)), viewport, size)
 
   const onResizeStart = (edges) => (e) => {
     if (e.button !== 0) return
@@ -119,7 +130,7 @@ function Switcher() {
       ...((edges.top || edges.bottom) && { panelHeight: null }),
     })
   // The tooltip sits on the button's inward side; the default corner is on the right.
-  const hintOnLeft = placed ? placed.left + BUTTON_SIZE / 2 > viewport.width / 2 : true
+  const hintOnLeft = placed ? placed.left + BUTTON_SIZE / 2 > viewport.width / 2 : position.endsWith('right')
 
   const hideHint = () => {
     clearTimeout(hintTimer.current)
@@ -297,7 +308,7 @@ function Switcher() {
           onPointerCancel={onDragEnd}
           onLostPointerCapture={onDragEnd}
           style={placed ?? undefined}
-          className={`theme-switcher fixed z-[60] ${placed ? '' : BUTTON_POSITION} grid place-items-center w-9 h-9 rounded-full border border-zinc-200 bg-white/90 text-zinc-700 backdrop-blur hover:bg-white hover:text-zinc-900 transition-[color,background-color,box-shadow,scale] select-none ${settings.draggable ? 'touch-none' : ''} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 ${
+          className={`theme-switcher fixed z-[60] ${placed ? '' : CORNERS[position]} grid place-items-center w-9 h-9 rounded-full border border-zinc-200 bg-white/90 text-zinc-700 backdrop-blur hover:bg-white hover:text-zinc-900 transition-[color,background-color,box-shadow,scale] select-none ${settings.draggable ? 'touch-none' : ''} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 ${
             dragPoint ? 'scale-110 shadow-xl cursor-grabbing' : 'shadow-md cursor-pointer'
           }`}
         >
@@ -503,9 +514,17 @@ function fromRatios({ rx, ry }, viewport) {
   return clampToViewport({ left: EDGE + rx * (width - BUTTON_SIZE - 2 * EDGE), top: EDGE + ry * (height - BUTTON_SIZE - 2 * EDGE) }, viewport)
 }
 
+/** Pixel position of the button in a plain corner. */
+function cornerPoint(position, { width, height }) {
+  return {
+    left: position.endsWith('left') ? CORNER_GAP : width - CORNER_GAP - BUTTON_SIZE,
+    top: position.startsWith('top') ? CORNER_GAP : height - CORNER_GAP - BUTTON_SIZE,
+  }
+}
+
 /**
  * Where the panel goes and how big it is. In its default corner it sits under the site's nav
- * (matching BUTTON_POSITION). Next to a moved button it opens below the button in the top half
+ * (the 'top-right' position). Next to a moved button it opens below the button in the top half
  * of the screen and above it otherwise, lined up with the button's inward side. Its edges away
  * from the button (`free`) can be dragged to resize it; the edge at the button stays put.
  * @param {{ left: number, top: number } | null} button

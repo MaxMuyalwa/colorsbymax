@@ -15,7 +15,7 @@ export const MIN_ACCENT_SATURATION = 0.25
 export const LIBRARY_MATCHES = 4
 
 // Colour functions and hex values inside computed gradients.
-const COLOR_IN_GRADIENT = /(?:rgba?|hsla?|oklab|oklch|lab|lch|color)\([^()]*\)|#[0-9a-f]{3,8}\b/gi
+export const COLOR_IN_GRADIENT = /(?:rgba?|hsla?|oklab|oklch|lab|lch|color)\([^()]*\)|#[0-9a-f]{3,8}\b/gi
 
 const hueDist = (a, b) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b))
 const hsl = (h, s, l) => rgbToHex(hslToRgb([((h % 360) + 360) % 360, Math.min(1, Math.max(0, s)), Math.min(1, Math.max(0, l))]))
@@ -52,16 +52,19 @@ function createColorParser() {
 }
 
 /**
- * Temporarily removes colorsbymax's inline token overrides so the scan sees the site's own
- * colours. Everything happens synchronously, so nothing repaints in between.
+ * Temporarily removes colorsbymax's inline token overrides, and its re-colouring stylesheet, so a
+ * read sees the site's own colours. Everything happens synchronously, so nothing repaints in between.
  */
-function withoutAppliedTheme(fn) {
+export function withoutAppliedTheme(fn) {
   // Sites that animate colour changes (transition-colors, transition-all) would otherwise
   // report mid-transition colours from the applied theme. Transitions are switched off only for
   // this synchronous read; animations are left alone so entrance effects don't replay.
   const freeze = document.createElement('style')
   freeze.textContent = '*,*::before,*::after{transition:none!important}'
   document.head.appendChild(freeze)
+
+  const recolour = document.querySelector('style[data-colorsbymax="recolour"]')
+  if (recolour) recolour.disabled = true
 
   const style = document.documentElement.style
   const saved = []
@@ -76,6 +79,7 @@ function withoutAppliedTheme(fn) {
     return fn()
   } finally {
     for (const [prop, value] of saved) style.setProperty(prop, value)
+    if (recolour) recolour.disabled = false
     // Apply the restored colours while transitions are still off, so nothing animates back.
     void getComputedStyle(document.documentElement).color
     void document.body.offsetHeight

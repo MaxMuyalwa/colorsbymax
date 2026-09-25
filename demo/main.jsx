@@ -11,6 +11,8 @@ const config = {
   siteName: 'colorsbymax',
   storageKey: 'colorsbymax-demo',
   pdf: loadPdf,
+  // The button sits just under this page's floating nav bar.
+  position: 'top-right',
   defaultTheme: {
     name: 'colorsbymax Violet',
     tokens: {

@@ -2,6 +2,15 @@
 
 What changed in each colorsbymax release. Update with `npm install colorsbymax@latest`.
 
+## 0.2.0 (2026-09-25)
+
+**Upgrading from 0.1.x:** the colour button moves to the bottom-right corner; add `position: 'top-right'` to keep it where it was. If your site doesn't use colorsbymax's `--color-*` variables, themes now re-colour it automatically; to keep the old behaviour (themes set only the variables), pass `recolour: false` in the config.
+
+- **One-line setup.** `import 'colorsbymax/auto'` puts the colour button on the page with no wrapping or config. `autoMount(config)` from the same entry takes settings.
+- **Re-colours any site.** Sites with hard-coded colours are re-coloured by swapping the colours actually on the page for the chosen theme's, including gradients, borders and SVG icons, and content that appears later. Sites that use the colour variables work exactly as before.
+- **The colour button now starts in the bottom-right corner**, where chat and help widgets usually sit, and the panel opens above it. `position` picks another corner; `position: 'top-right'` keeps 0.1's spot just under a floating nav bar. Visitors can still drag it anywhere.
+- The site's own group shows its original colours ("… original") when colorsbymax is re-colouring it.
+
 ## 0.1.1 (2026-09-25)
 
 **Upgrading from 0.1.0:** nothing to change for most sites. The one exception: PDF uploads are now opt-in. To keep them, install `pdfjs-dist` and pass the loader in your config:

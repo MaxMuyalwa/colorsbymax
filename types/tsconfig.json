@@ -11,7 +11,8 @@
     "types": [],
     "paths": {
       "colorsbymax": ["./index.d.ts"],
-      "colorsbymax/pdf": ["./pdf.d.ts"]
+      "colorsbymax/pdf": ["./pdf.d.ts"],
+      "colorsbymax/auto": ["./auto.d.ts"]
     }
   },
   "files": ["check.tsx"]

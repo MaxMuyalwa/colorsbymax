@@ -69,6 +69,17 @@ export interface ColorsByMaxConfig {
   scrollbars?: boolean
   /** Enables PDF uploads: pass `loadPdf` from 'colorsbymax/pdf' (needs pdfjs-dist installed). */
   pdf?: () => Promise<unknown>
+  /**
+   * Re-colour a site that doesn't paint with the --color-* variables, by swapping the colours
+   * actually on the page. 'auto' (the default) does it only when the site doesn't define
+   * --color-primary itself; false never does.
+   */
+  recolour?: boolean | 'auto'
+  /**
+   * Where the colour button starts. Default 'bottom-right', like chat and help widgets;
+   * 'top-right' sits just under a floating nav bar. Visitors can still drag it anywhere.
+   */
+  position?: 'bottom-right' | 'bottom-left' | 'top-left' | 'top-right'
 }
 
 export interface ThemeProviderProps {
@@ -102,6 +113,9 @@ export interface ThemeApi {
   siteName: string
   usage: Partial<Record<TokenKey, string>>
   loadPdf: (() => Promise<unknown>) | null
+  position: 'bottom-right' | 'bottom-left' | 'top-left' | 'top-right'
+  /** True when colorsbymax is swapping the page's own colours (the site isn't using the variables). */
+  recolouring: boolean
   /** The site's own themes, then any scan suggestions. */
   siteThemes: Theme[]
   defaultTheme: Theme

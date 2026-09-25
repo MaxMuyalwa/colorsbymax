@@ -32,6 +32,9 @@
     "*": {
       "pdf": [
         "./types/pdf.d.ts"
+      ],
+      "auto": [
+        "./types/auto.d.ts"
       ]
     }
   },
@@ -41,6 +44,11 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./auto": {
+      "types": "./types/auto.d.ts",
+      "import": "./dist/auto.js",
+      "default": "./dist/auto.js"
+    },
     "./pdf": {
       "types": "./types/pdf.d.ts",
       "import": "./dist/pdf.js",
@@ -49,13 +57,16 @@
     "./tokens.css": "./src/tokens.css",
     "./package.json": "./package.json"
   },
-  "sideEffects": false,
+  "sideEffects": [
+    "./dist/auto.js"
+  ],
   "engines": {
     "node": ">=18"
   },
   "files": [
     "dist",
     "types/index.d.ts",
+    "types/auto.d.ts",
     "types/pdf.d.ts",
     "src/tokens.css",
     "LICENSE",

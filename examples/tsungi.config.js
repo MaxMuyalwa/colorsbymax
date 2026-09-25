@@ -5,6 +5,8 @@
 export default {
   siteName: 'Tsungi',
   storageKey: 'tsungi-theme',
+  // Keep the colour button just under Tsungi's floating nav bar.
+  position: 'top-right',
   defaultTheme: {
     name: 'Tsungi Orchid',
     tokens: {

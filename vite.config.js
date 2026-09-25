@@ -32,7 +32,7 @@ export default defineConfig({
     // PDF.js's reader is ~1.2 MB but loads only when someone uploads a PDF.
     chunkSizeWarningLimit: 1300,
     rollupOptions: {
-      input: { main: `${demo}/index.html`, plain: `${demo}/plain.html` },
+      input: { main: `${demo}/index.html`, plain: `${demo}/plain.html`, unwired: `${demo}/unwired.html` },
     },
   },
 })

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Harbour Coffee</title>
+    <style>
+      /* A typical site: hard-coded colours everywhere, no colorsbymax variables. The only
+         colorsbymax code on this page is the one-line import in unwired.js. */
+      body { margin: 0; font-family: system-ui, sans-serif; background: #fdf8f3; color: #2d2420; }
+      nav { position: sticky; top: 16px; z-index: 5; margin: 16px auto 0; max-width: 64rem; display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-radius: 999px; background: rgba(255, 255, 255, 0.85); border: 1px solid #eadfd4; box-shadow: 0 8px 24px rgba(45, 36, 32, 0.08); }
+      nav strong { color: #7a3e1d; }
+      nav a { color: #6b5b53; margin: 0 12px; text-decoration: none; }
+      nav a:hover { color: #2d2420; }
+      .btn { display: inline-block; background: #c2410c; color: #fff; border: 0; border-radius: 999px; padding: 10px 20px; font-weight: 600; cursor: pointer; }
+      .btn:hover { background: #9a3412; }
+      .btn.ghost { background: transparent; color: #c2410c; border: 2px solid #c2410c; }
+      header { text-align: center; padding: 96px 24px 64px; }
+      .badge { background: #fde7d6; color: #9a3412; padding: 4px 12px; border-radius: 999px; font-size: 14px; }
+      h1 { font-size: 56px; margin: 24px 0 12px; }
+      h1 span { background: linear-gradient(90deg, #c2410c, #d97706); -webkit-background-clip: text; background-clip: text; color: transparent; }
+      header p { color: #6b5b53; font-size: 19px; }
+      main { max-width: 64rem; margin: 0 auto; padding: 0 24px 64px; display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+      .card { background: #ffffff; border: 1px solid #eadfd4; border-radius: 16px; padding: 24px; }
+      .card h3 { margin: 12px 0 6px; }
+      .card p { color: #6b5b53; margin: 0; }
+      .icon { width: 36px; height: 36px; border-radius: 10px; background: #fde7d6; display: grid; place-items: center; }
+      .icon svg { width: 20px; height: 20px; fill: #c2410c; }
+      .tabs { max-width: 64rem; margin: 0 auto 48px; padding: 0 24px; display: flex; gap: 8px; }
+      .tab { padding: 8px 16px; border-radius: 10px; background: #f3e9df; color: #6b5b53; border: 0; cursor: pointer; }
+      .tab.on { background: #2d2420; color: #fdf8f3; }
+      .note { max-width: 64rem; margin: 0 auto 48px; padding: 16px 24px; border-left: 4px solid #15803d; background: #ecfdf3; color: #14532d; }
+      footer { background: #2d2420; color: #d6c7bc; padding: 40px 24px; text-align: center; }
+      footer a { color: #fdba74; }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <strong>Harbour Coffee</strong>
+      <div><a href="#menu">Menu</a><a href="#visit">Visit</a><a href="#about">About</a></div>
+      <button class="btn">Order ahead</button>
+    </nav>
+    <header>
+      <span class="badge">Roasted on the harbour since 2009</span>
+      <h1>Coffee worth <span>the walk</span></h1>
+      <p>Small-batch roasts, slow mornings and a view of the boats.</p>
+      <p><button class="btn">See the menu</button> <button class="btn ghost">Find us</button></p>
+    </header>
+    <div class="tabs" id="menu">
+      <button class="tab on">Espresso</button><button class="tab">Filter</button><button class="tab">Pastries</button>
+    </div>
+    <main>
+      <div class="card"><div class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg></div><h3>House blend</h3><p>Chocolate, cherry and a long finish.</p></div>
+      <div class="card"><div class="icon"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3" /></svg></div><h3>Single origin</h3><p>A new farm every month.</p></div>
+      <div class="card" style="border-color: #d97706"><div class="icon"><svg viewBox="0 0 24 24"><path d="M12 3 21 20H3z" /></svg></div><h3>Cold brew</h3><p>Steeped for eighteen hours.</p></div>
+    </main>
+    <p class="note">We’re open on public holidays.</p>
+    <footer>Harbour Coffee · Pier 4 · <a href="#top">Back to top</a></footer>
+    <script type="module" src="./unwired.js"></script>
+  </body>
+</html>
