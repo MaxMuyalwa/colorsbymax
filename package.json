@@ -59,7 +59,8 @@
     "types/pdf.d.ts",
     "src/tokens.css",
     "LICENSE",
-    "THIRD_PARTY_NOTICES.md"
+    "THIRD_PARTY_NOTICES.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "dev": "vite",

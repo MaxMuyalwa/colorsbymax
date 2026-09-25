@@ -54,6 +54,8 @@ colorsbymax needs React 18 or 19:
 npm install colorsbymax
 ```
 
+Already installed it? Get the newest version with `npm install colorsbymax@latest` (see [Updating](#updating)).
+
 It ships as plain JavaScript with TypeScript types, so Vite, Next.js, webpack and other bundlers use it without extra setup. Installing changes nothing on its own; these steps add the colour button:
 
 1. **Paint the site with the token variables.** Use `var(--color-<token>)` wherever the site sets a colour, with your own colours as the starting values.
@@ -128,6 +130,16 @@ import { loadPdf } from 'colorsbymax/pdf'
 PDF.js still downloads only when a visitor picks a PDF. Sites that don't opt in never install or bundle it, and the upload offers images only.
 
 `examples/tsungi.config.js` is a complete example for tsungi.online, the first site to use colorsbymax.
+
+## Updating
+
+```bash
+npm install colorsbymax@latest
+```
+
+This moves you to the newest release and records it in your `package.json`. `npm update` alone isn't enough while colorsbymax is below 1.0: with the usual `^0.1.0` range, npm treats 0.2.0 as a breaking change and stays on 0.1.x. Check which version you have with `npm ls colorsbymax`.
+
+What changed in each release, and anything you need to do when upgrading, is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Building the package
 
