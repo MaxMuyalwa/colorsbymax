@@ -10,6 +10,10 @@
       body { margin: 0; font-family: system-ui, sans-serif; background: #fdf8f3; color: #2d2420; }
       nav { position: sticky; top: 16px; z-index: 5; margin: 16px auto 0; max-width: 64rem; display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-radius: 999px; background: rgba(255, 255, 255, 0.85); border: 1px solid #eadfd4; box-shadow: 0 8px 24px rgba(45, 36, 32, 0.08); }
       nav strong { color: #7a3e1d; }
+      .brand-link { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; margin: 0; }
+      .shop { max-width: 64rem; margin: 0 auto 48px; padding: 0 24px; display: flex; gap: 24px; align-items: center; }
+      .fine-print { color: #d6c7bc; font-size: 13px; }
+      .shop img { border-radius: 12px; border: 1px solid #eadfd4; }
       nav a { color: #6b5b53; margin: 0 12px; text-decoration: none; }
       nav a:hover { color: #2d2420; }
       .btn { display: inline-block; background: #c2410c; color: #fff; border: 0; border-radius: 999px; padding: 10px 20px; font-weight: 600; cursor: pointer; }
@@ -29,7 +33,7 @@
       .tabs { max-width: 64rem; margin: 0 auto 48px; padding: 0 24px; display: flex; gap: 8px; }
       .tab { padding: 8px 16px; border-radius: 10px; background: #f3e9df; color: #6b5b53; border: 0; cursor: pointer; }
       .tab.on { background: #2d2420; color: #fdf8f3; }
-      .pills { max-width: 64rem; margin: 0 auto 32px; padding: 6px 24px; display: flex; gap: 4px; flex-wrap: wrap; }
+      .pills { position: static; max-width: 64rem; margin: 0 auto 32px; padding: 6px 24px; display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-start; background: none; border: 0; box-shadow: none; border-radius: 0; }
       .pills a { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; color: #3f3431; text-decoration: none; font-weight: 500; }
       .pills svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
       .pills a.on { background: #fde7d6; color: #7a3e1d; }
@@ -47,7 +51,7 @@
   </head>
   <body>
     <nav>
-      <strong class="logo">Harbour Coffee</strong>
+      <a class="brand-link" href="#top"><img class="logo" src="./assets/harbour-logo.png" alt="Harbour Coffee logo" width="32" height="32" /><strong>Harbour Coffee</strong></a>
       <div><a href="#menu">Menu</a><a href="#visit">Visit</a><a href="#about">About</a></div>
       <button class="btn">Order ahead</button>
     </nav>
@@ -77,6 +81,7 @@
       <div class="card"><div class="icon"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3" /></svg></div><h3>Single origin</h3><p>A new farm every month.</p></div>
       <div class="card" style="border-color: #d97706"><div class="icon"><svg viewBox="0 0 24 24"><path d="M12 3 21 20H3z" /></svg></div><h3>Cold brew</h3><p>Steeped for eighteen hours.</p></div>
     </main>
+    <section class="shop"><img src="./assets/beans.png" alt="A bag of house blend beans" width="160" height="120" /><div><p>Take a bag home: our house blend, roasted this week.</p><p class="fine-print">Prices include VAT. Beans ship within two days.</p></div></section>
     <p class="note">We’re open on public holidays.</p>
     <footer>Harbour Coffee · Pier 4 · <a href="#top">Back to top</a></footer>
     <script type="module" src="./unwired.js"></script>

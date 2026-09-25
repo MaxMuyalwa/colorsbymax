@@ -31,7 +31,14 @@ const visible = (el) => {
   return r.width > 2 && r.height > 2
 }
 const ownText = (el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())
-const describe = (el) => (el.getAttribute('aria-label') || el.alt || el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40)
+/** A short quote of an element's text for its note, cut at a word. */
+const describe = (el) => {
+  const text = (el.getAttribute('aria-label') || el.alt || el.textContent || '').trim().replace(/\s+/g, ' ')
+  if (text.length <= 48) return text
+  const cut = text.slice(0, 48)
+  const space = cut.lastIndexOf(' ')
+  return `${(space > 20 ? cut.slice(0, space) : cut).replace(/[,.;:]$/, '')}…`
+}
 const fmt = (r) => `${(Math.floor(r * 10) / 10).toFixed(1)}:1`
 
 /**

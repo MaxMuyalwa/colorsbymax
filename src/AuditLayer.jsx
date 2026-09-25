@@ -5,6 +5,12 @@ import { AlertTriangle, CheckCircle2, Contrast, RotateCcw, ScanSearch, X } from 
 const CARD_WIDTH = 264
 const GAP = 10
 const EDGE = 12
+/** Space kept between two notes. */
+const APART = 8
+/** A note's height before it has been measured. */
+const GUESS_HEIGHT = 150
+/** Below this width, only one note is open at a time; the numbered badges pick which. */
+const COMPACT_WIDTH = 640
 
 /**
  * The audit on the page: each finding outlined where it is, with a numbered card pointing at it,
@@ -14,6 +20,7 @@ export default function AuditLayer({ findings, anchor, themeIssues, onRecheck, o
   const [rects, setRects] = useState([])
   const [dismissed, setDismissed] = useState(() => new Set())
   const [inverted, setInverted] = useState(() => new Set())
+  const [selected, setSelected] = useState(null)
   const [anchorRect, setAnchorRect] = useState(null)
   const pinned = findings.filter((f) => !dismissed.has(f.id)).slice(0, MAX_PINNED)
   const hiddenCount = findings.filter((f) => !dismissed.has(f.id)).length - pinned.length
@@ -62,15 +69,45 @@ export default function AuditLayer({ findings, anchor, themeIssues, onRecheck, o
   const vh = document.documentElement.clientHeight
   const open = findings.filter((f) => !dismissed.has(f.id)).length
 
+  // Measured note heights, so notes can be kept from overlapping.
+  const heights = useRef({})
+  const layerRef = useRef(null)
+  useLayoutEffect(() => {
+    for (const note of layerRef.current?.querySelectorAll('[data-note]') ?? []) heights.current[note.dataset.note] = note.offsetHeight
+  })
+
+  // Each note goes below its element (above if there's no room), kept on screen. A note that
+  // would overlap an earlier one moves beside it, or below it when there's no room beside.
+  const placed = []
+  const compact = vw < COMPACT_WIDTH
+  const openId = pinned.some((f) => f.id === selected) ? selected : pinned[0]?.id
+  const showsNote = (f) => !compact || f.id === openId
+  const placements = pinned.map((f, i) => {
+    const r = rects[i]
+    if (!r || r.bottom < 0 || r.top > vh || !showsNote(f)) return null
+    const h = heights.current[f.id] ?? GUESS_HEIGHT
+    const below = r.bottom + GAP + h < vh || r.top < h + GAP
+    let top = below ? r.bottom + GAP : r.top - GAP - h
+    let left = Math.min(Math.max(r.left + r.width / 2 - CARD_WIDTH / 2, EDGE), vw - CARD_WIDTH - EDGE)
+    for (let tries = 0; tries < placed.length + 1; tries++) {
+      const hit = placed.find((p) => left < p.left + CARD_WIDTH + APART && left + CARD_WIDTH + APART > p.left && top < p.top + p.h + APART && top + h + APART > p.top)
+      if (!hit) break
+      if (hit.left + 2 * CARD_WIDTH + APART + EDGE <= vw) left = hit.left + CARD_WIDTH + APART
+      else top = hit.top + hit.h + APART
+    }
+    placed.push({ left, top, h })
+    const arrow = Math.min(Math.max(r.left + r.width / 2 - left, 16), CARD_WIDTH - 16)
+    // Only point at the element while the note is still next to it.
+    const pointing = below ? Math.abs(top - (r.bottom + GAP)) < 2 : Math.abs(top + h - (r.top - GAP)) < 2
+    return { left: Math.round(left), top: Math.round(top), below, arrow: Math.round(arrow), pointing }
+  })
+
   return (
-    <>
+    <div ref={layerRef}>
       {pinned.map((f, i) => {
         const r = rects[i]
         if (!r || r.bottom < 0 || r.top > vh) return null
-        // The card goes below the element, or above it if there's no room, kept on screen.
-        const below = r.bottom + GAP + 150 < vh || r.top < 170
-        const left = Math.round(Math.min(Math.max(r.left + r.width / 2 - CARD_WIDTH / 2, EDGE), vw - CARD_WIDTH - EDGE))
-        const arrow = Math.round(Math.min(Math.max(r.left + r.width / 2 - left, 16), CARD_WIDTH - 16))
+        const place = placements[i]
         return (
           <div key={f.id}>
             <div
@@ -78,24 +115,42 @@ export default function AuditLayer({ findings, anchor, themeIssues, onRecheck, o
               className="pointer-events-none fixed z-[55] rounded-md border-2 border-dashed border-amber-400"
               style={{ left: r.left - 4, top: r.top - 4, width: r.width + 8, height: r.height + 8 }}
             />
-            <span
-              aria-hidden="true"
-              className="pointer-events-none fixed z-[56] grid h-5 w-5 place-items-center rounded-full bg-amber-400 text-[11px] font-bold text-zinc-900"
-              style={{ left: r.left - 12, top: r.top - 12 }}
-            >
-              {i + 1}
-            </span>
-            <div
-              role="note"
-              aria-label={`Audit finding ${i + 1}: ${f.title}`}
-              className="theme-switcher theme-hint fixed z-[62] rounded-xl border border-zinc-200 bg-white p-3 text-zinc-900 shadow-xl"
-              style={{ left, width: CARD_WIDTH, ...(below ? { top: r.bottom + GAP } : { bottom: vh - r.top + GAP }) }}
-            >
+            {compact ? (
+              // On small screens the badges choose which note is open.
+              <button
+                type="button"
+                aria-label={`Show audit finding ${i + 1}: ${f.title}`}
+                aria-pressed={f.id === openId}
+                onClick={() => setSelected(f.id)}
+                className={`fixed z-[57] grid h-6 w-6 place-items-center rounded-full bg-amber-400 text-[11px] font-bold text-zinc-900 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 ${f.id === openId ? 'ring-2 ring-white' : ''}`}
+                style={{ left: r.left - 14, top: r.top - 14 }}
+              >
+                {i + 1}
+              </button>
+            ) : (
               <span
                 aria-hidden="true"
-                className={`absolute h-2.5 w-2.5 rotate-45 border-zinc-200 bg-white ${below ? '-top-[6px] border-l border-t' : '-bottom-[6px] border-b border-r'}`}
-                style={{ left: arrow - 5 }}
-              />
+                className="pointer-events-none fixed z-[56] grid h-5 w-5 place-items-center rounded-full bg-amber-400 text-[11px] font-bold text-zinc-900"
+                style={{ left: r.left - 12, top: r.top - 12 }}
+              >
+                {i + 1}
+              </span>
+            )}
+            {place && (
+            <div
+              role="note"
+              data-note={f.id}
+              aria-label={`Audit finding ${i + 1}: ${f.title}`}
+              className="theme-switcher theme-hint fixed z-[62] rounded-xl border border-zinc-200 bg-white p-3 text-zinc-900 shadow-xl"
+              style={{ left: place.left, top: place.top, width: CARD_WIDTH }}
+            >
+              {place.pointing && (
+                <span
+                  aria-hidden="true"
+                  className={`absolute h-2.5 w-2.5 rotate-45 border-zinc-200 bg-white ${place.below ? '-top-[6px] border-l border-t' : '-bottom-[6px] border-b border-r'}`}
+                  style={{ left: place.arrow - 5 }}
+                />
+              )}
               <p className="flex items-start gap-1.5 text-xs font-semibold">
                 <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-amber-400 text-[10px] font-bold text-zinc-900">{i + 1}</span>
                 {f.title}
@@ -134,12 +189,13 @@ export default function AuditLayer({ findings, anchor, themeIssues, onRecheck, o
                 </button>
               </div>
             </div>
+            )}
           </div>
         )
       })}
 
       <AuditBar anchorRect={anchorRect} open={open} hiddenCount={hiddenCount} themeIssues={themeIssues} onRecheck={onRecheck} onClose={onClose} />
-    </>
+    </div>
   )
 }
 
