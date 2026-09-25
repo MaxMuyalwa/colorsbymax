@@ -2,9 +2,10 @@
 // rating, screenshots (pasted, dropped, chosen or captured) and the technical details a QA would
 // want, attached automatically. Drafts are kept in this browser until sent.
 //
-// Delivery: set VITE_FEEDBACK_ENDPOINT at build time and the report is POSTed there as
-// multipart form data (a "report" JSON field plus the screenshots as files). Without it, the
-// visitor gets the finished report to open as a GitHub issue, copy, or download.
+// Delivery: the report is POSTed to the site's /api/feedback function (api/feedback.js, which
+// emails it through Resend) as multipart form data: a "report" JSON field plus the screenshots as
+// files. VITE_FEEDBACK_ENDPOINT points it elsewhere. With no endpoint (the dev server), or if
+// sending fails, the visitor gets the finished report to open as a GitHub issue, copy, or download.
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
@@ -15,7 +16,8 @@ import { useTheme } from '../../src/index.js'
 import { version } from '../../package.json'
 import { GitHubIcon, REPO } from './ui.jsx'
 
-const ENDPOINT = import.meta.env.VITE_FEEDBACK_ENDPOINT
+const ENDPOINT = import.meta.env.VITE_FEEDBACK_ENDPOINT ?? (import.meta.env.PROD ? `${import.meta.env.BASE_URL}api/feedback` : null)
+const SEND_BUDGET = 3.5 * 1024 * 1024 // screenshots together, under the server's 4 MB limit
 const DRAFT_KEY = 'colorsbymax-site:feedback-draft'
 const MAX_SHOTS = 6
 const MAX_SHOT_BYTES = 12 * 1024 * 1024
@@ -137,6 +139,32 @@ async function readShot(file, name = file.name) {
   } finally {
     URL.revokeObjectURL(url)
   }
+}
+
+/** A screenshot as a JPEG blob for sending, at most `side` pixels on its longer edge. */
+async function shotBlob(shot, side, quality) {
+  const img = await new Promise((resolve, reject) => {
+    const i = new Image()
+    i.onload = () => resolve(i)
+    i.onerror = reject
+    i.src = shot.data
+  })
+  const scale = Math.min(1, side / Math.max(img.naturalWidth, img.naturalHeight))
+  const canvas = Object.assign(document.createElement('canvas'), { width: Math.round(img.naturalWidth * scale), height: Math.round(img.naturalHeight * scale) })
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#ffffff' // JPEG has no transparency
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+  return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality))
+}
+
+/** All the screenshots as JPEGs, made smaller until they fit the send budget together. */
+async function shotsForSending(shots) {
+  for (const [side, quality] of [[1920, 0.85], [1600, 0.8], [1280, 0.75], [1024, 0.7], [800, 0.6]]) {
+    const blobs = await Promise.all(shots.map((s) => shotBlob(s, side, quality)))
+    if (blobs.reduce((n, b) => n + b.size, 0) <= SEND_BUDGET) return blobs.map((b, i) => [b, shots[i].name.replace(/\.\w+$/, '') + '.jpg'])
+  }
+  throw new Error('Screenshots too large')
 }
 
 const stars = (n) => (n ? `${'★'.repeat(n)}${'☆'.repeat(5 - n)} (${n}/5, ${RATINGS[n - 1]})` : 'not rated')
@@ -393,6 +421,7 @@ export function Feedback() {
   const environment = useEnvironment()
   // After a failed send, focus moves to the first field that needs attention, once it has rendered.
   const focusError = useRef(false)
+  const honeypot = useRef(null)
   useEffect(() => {
     if (!focusError.current) return
     focusError.current = false
@@ -493,7 +522,8 @@ export function Feedback() {
     try {
       const body = new FormData()
       body.append('report', JSON.stringify(report))
-      for (const s of shots) body.append('screenshots', await (await fetch(s.data)).blob(), s.name)
+      body.append('website', honeypot.current?.value ?? '')
+      for (const [blob, name] of await shotsForSending(shots)) body.append('screenshots', blob, name)
       const res = await fetch(ENDPOINT, { method: 'POST', body })
       if (!res.ok) throw new Error(String(res.status))
       setStatus('sent')
@@ -762,7 +792,17 @@ export function Feedback() {
                   </>
                 )}
               </div>
-              {status === 'failed' && <p className="rounded-xl bg-danger/10 p-3 text-sm font-semibold text-danger">Couldn’t send it just now. Your report is saved here; try again in a moment.</p>}
+              {status === 'failed' && (
+                <p className="rounded-xl bg-danger/10 p-3 text-sm font-semibold text-danger">
+                  Couldn’t send it just now. Your report is saved here; try again in a moment, or{' '}
+                  <button type="button" onClick={() => setStatus('ready')} className="cursor-pointer underline underline-offset-2">
+                    send it another way
+                  </button>
+                  .
+                </p>
+              )}
+              {/* Hidden from people; bots that fill in every field give themselves away. */}
+              <input ref={honeypot} type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" className="sr-only" />
             </div>
 
             <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border bg-surface px-6 py-4">
