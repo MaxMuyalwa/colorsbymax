@@ -4,7 +4,8 @@
 /* colorsbymax's own colours, overriding the neutral defaults. Every colour on the page is a
    token, so whichever theme a visitor picks re-colours all of it. */
 @theme static {
-  --color-primary: #5b3df5;
+  --color-primary: #593bf5;
+  --color-app-primary: #5333f5;
   --color-primary-dark: #1e1b4b;
   --color-primary-alt: #e0457b;
   --color-secondary: #ece9fe;

@@ -24,8 +24,10 @@ const config = {
   position: 'top-right',
   defaultTheme: {
     name: 'colorsbymax Violet',
+    // Checked with colorsbymax's own contrast rules: every pairing passes, in light and in dark.
     tokens: {
-      primary: '#5b3df5',
+      primary: '#593bf5',
+      'app-primary': '#5333f5',
       'primary-dark': '#1e1b4b',
       'primary-alt': '#e0457b',
       secondary: '#ece9fe',

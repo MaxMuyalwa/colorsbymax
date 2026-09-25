@@ -12,7 +12,9 @@ createRoot(document.getElementById('colorsbymax')).render(
       defaultTheme: {
         name: 'Northfield Crust',
         tokens: {
-          primary: '#b4532a',
+          // Deep enough for white button text and for links on the cream page (contrast checked).
+          primary: '#9f4925',
+          'app-primary': '#8d4121',
           'primary-dark': '#6b2d14',
           background: '#fbf6ef',
           secondary: '#f3e3d3',
