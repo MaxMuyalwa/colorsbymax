@@ -504,7 +504,6 @@ const BURST_PIECES = Array.from({ length: 12 }, (_, i) => {
 function Burst({ tokens }) {
   return (
     <span aria-hidden="true" className="theme-burst pointer-events-none absolute inset-0">
-      <span className="theme-burst-ring" style={{ borderColor: tokens.primary }} />
       {BURST_PIECES.map((p, i) => (
         <span
           key={i}
