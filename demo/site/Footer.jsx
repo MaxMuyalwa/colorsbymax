@@ -1,4 +1,4 @@
-import { ArrowUpRight, Phone } from 'lucide-react'
+import { ArrowUpRight, Mail, Phone } from 'lucide-react'
 import { GitHubIcon, MCP_NPM, MRMAX, NPM, REPO, SUPPORT } from './ui.jsx'
 import { Wordmark } from './Nav.jsx'
 import { openFeedback } from './Feedback.jsx'
@@ -42,10 +42,11 @@ const COLUMNS = [
   },
 ]
 
-// Max's numbers: calls on Airtel, messages on WhatsApp (MTN). Shown as buttons, not numbers.
+// How to reach Max: calls on Airtel, messages on WhatsApp (MTN), and email. Shown as buttons.
 const CONTACT = [
   { label: 'Call', href: 'tel:+260779053092', aria: 'Call Max on +260 779 05 30 92', Icon: Phone },
   { label: 'WhatsApp', href: 'https://wa.me/260962095424', aria: 'Message Max on WhatsApp, +260 962 09 54 24', Icon: WhatsAppIcon, external: true },
+  { label: 'Email', href: 'mailto:mmkaluku@gmail.com', aria: 'Email Max at mmkaluku@gmail.com', Icon: Mail },
 ]
 
 /** WhatsApp's mark (Lucide doesn't ship brand icons). */
