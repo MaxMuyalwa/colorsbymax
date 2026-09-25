@@ -66,14 +66,14 @@ Already installed it? Get the newest version with `npm install colorsbymax@lates
 
 ## Try the demo
 
-The demo is live at **[mrmaxdesigns.com/colorsbymax](https://mrmaxdesigns.com/colorsbymax)**, with the [Harbour Coffee](https://mrmaxdesigns.com/colorsbymax/unwired) site (hard-coded colours, re-coloured automatically) and the [Northfield Bakery](https://mrmaxdesigns.com/colorsbymax/plain) site (plain CSS). To run it locally:
+colorsbymax's home, **[mrmaxdesigns.com/colorsbymax](https://mrmaxdesigns.com/colorsbymax)**, is the demo: open the colour button and the whole page re-colours. To run it locally:
 
 ```bash
 npm install
 npm run dev
 ```
 
-This serves `demo/`: colorsbymax's own landing page, built with Tailwind, where every colour is a token (it uses every token group, and a strip shows the live values); `/plain.html`, a plain-CSS bakery site with deliberately careless global styles to show they don't reach the panel; and `/unwired.html`, a coffee shop with only hard-coded colours whose whole setup is `import 'colorsbymax/auto'`.
+This serves `demo/`, the same site: built with Tailwind, where every colour is a token, and every token group is used. Its sections are in `demo/site/`.
 
 <br>
 
@@ -246,7 +246,7 @@ When you're done choosing colours, the panel's **I'm done** button gives you rea
 - **Contrast checks.** Problems show as a badge on the theme; the breakdown offers per-item fixes or "Fix all automatically", which changes lightness only.
 - **No flash on reload.** An inline pre-paint script applies the saved theme before the page draws.
 - **Works on any site.** The panel carries its own stylesheet inside a shadow root, so it needs no Tailwind or other CSS from the site, and the site's CSS can't restyle it.
-- **Movable colour button.** The floating button starts in the corner; visitors can drag it anywhere (mouse or touch; a tooltip says so on hover, and the panel closes while it moves) and it stays there, remembered across reloads. The panel then opens beside it, on whichever side has room. Its dot cycles through the current theme's colours.
+- **Movable colour button.** The floating button starts in the corner; visitors can drag it anywhere (mouse or touch; a tooltip says so on hover, and an open panel moves with it) and it stays there, remembered across reloads. The panel then opens beside it, on whichever side has room. Its dot cycles through the current theme's colours.
 - **Light and dark mode.** Every built-in theme is designed light; dark mode lists a generated dark twin of each (dark surfaces, light text, brand colours lifted to read on dark, then contrast-fixed) and switches the current theme to its twin. The panel turns dark with it. Custom palettes stay as they were made.
 - **Visitor settings.** The gear in the panel header opens settings: theme mode (Light, Dark, Auto), panel size (Compact, Standard, Large), which groups and sections to show, whether the button can be dragged or its dot animates, and moving the button back to its corner. Saved per site.
 - **Resizable panel.** Drag the panel's free edges or corner (the ones away from the colour button) to any size, or pick a size in settings; double-click an edge to reset it. The layout follows the panel's width, so a large panel shows three theme cards a row.
@@ -282,7 +282,7 @@ This is the full setup, for sites that want exact control over which colour goes
    }
    ```
 
-   With plain CSS, or Tailwind before v4, define the variables yourself (`demo/plain.html` shows this):
+   With plain CSS, or Tailwind before v4, define the variables yourself:
 
    ```css
    :root {
@@ -304,7 +304,7 @@ This is the full setup, for sites that want exact control over which colour goes
    </ThemeProvider>
    ```
 
-   The switcher needs React but not a React site: `demo/plain.jsx` mounts it on its own next to a static page.
+   The switcher needs React but not a React site: `autoMount` from `colorsbymax/auto` mounts it on its own next to any page.
 
 3. **Add the pre-paint script** to `<head>`, as a classic inline `<script>`, using the same storage key. `prePaintScript(storageKey)` returns its source, and `demo/index.html` shows it in place.
 

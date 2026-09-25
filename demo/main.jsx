@@ -12,6 +12,7 @@ import { Setup } from './site/Setup.jsx'
 import { Agents } from './site/Agents.jsx'
 import { About, Closing } from './site/About.jsx'
 import { Footer } from './site/Footer.jsx'
+import { Feedback } from './site/Feedback.jsx'
 import './demo.css'
 
 // colorsbymax's own site, and the demo: every colour on the page is a colorsbymax token, so the
@@ -57,6 +58,7 @@ function Site() {
         <Closing />
       </main>
       <Footer />
+      <Feedback />
     </div>
   )
 }

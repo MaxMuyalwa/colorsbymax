@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ArrowUpRight, Menu, X } from 'lucide-react'
 import { MRMAX } from './ui.jsx'
 import { StarButton } from './StarButton.jsx'
+import { FeedbackButton, openFeedback } from './Feedback.jsx'
 
 const LINKS = [
   ['Why', '#why'],
@@ -61,6 +62,7 @@ export function Nav() {
           ))}
         </div>
         <div className="flex items-center gap-2">
+          <FeedbackButton />
           <StarButton />
           <a
             href={MRMAX}
@@ -94,6 +96,16 @@ export function Nav() {
               {label}
             </a>
           ))}
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false)
+              openFeedback()
+            }}
+            className="block w-full cursor-pointer rounded-2xl px-4 py-3 text-left font-medium text-ink hover:bg-accent hover:text-on-accent"
+          >
+            Send feedback
+          </button>
           <a href="https://github.com/MaxMuyalwa" target="_blank" rel="noopener" className="block rounded-2xl px-4 py-3 font-medium text-ink hover:bg-accent hover:text-on-accent">
             Follow MaxMuyalwa on GitHub
           </a>

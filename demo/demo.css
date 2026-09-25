@@ -118,6 +118,13 @@ body {
   transform: none;
 }
 
+/* Overlays fade in. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
 /* Tab panels and the mobile menu fade up as they open. */
 @keyframes tab-in {
   from {
