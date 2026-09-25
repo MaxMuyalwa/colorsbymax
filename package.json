@@ -1,7 +1,7 @@
 {
   "name": "colorsbymax",
   "version": "0.1.0",
-  "description": "colorsbymax™ by mrmaxdesigns: a runtime theme switcher with presets, a 715-theme library, custom palettes and WCAG contrast checks.",
+  "description": "A live theme switcher for any website: site themes, 700+ palettes, for light/dark modes and WCAG contrast checks.",
   "keywords": [
     "theme",
     "theme-switcher",
