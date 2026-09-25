@@ -16,11 +16,19 @@ The agent inspects the project, gets the exact install command and edits for its
 
 It runs with `npx`, so there's nothing to install first. Node 18 or later.
 
+**Adding the server doesn't change your site by itself.** It gives your agent the tools. After adding it:
+
+1. **Start a new chat or session** in your project. Agents load MCP servers when a session starts.
+2. **Ask:** *"Add colorsbymax to this project."* The agent installs colorsbymax and adds the one line it needs.
+3. **Run your site.** The colour button appears in the bottom-right corner.
+
 **Claude Code**
 
 ```bash
 claude mcp add colorsbymax -- npx -y colorsbymax-mcp
 ```
+
+Add `--scope user` to have it in every project. If your terminal says `claude` isn't found, ask Claude Code itself to add the server `npx -y colorsbymax-mcp`.
 
 **Cursor**: `.cursor/mcp.json` in your project, or `~/.cursor/mcp.json` for every project:
 

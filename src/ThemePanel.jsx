@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Check, CheckCircle2, ChevronRight, Copy, Download, ArrowLeft, Globe, ImageUp, Loader2, Monitor, Moon, RotateCcw, ScanLine, ScanSearch, Settings, Shuffle, Paintbrush, Sun, Trash2, Upload, UserRound, Wand2, X } from './icons.jsx'
+import { AlertTriangle, Check, CheckCircle2, ChevronRight, ClipboardPaste, Copy, Download, ArrowLeft, Globe, ImageUp, Loader2, Monitor, Moon, RotateCcw, ScanLine, ScanSearch, Settings, Shuffle, Paintbrush, Sun, Trash2, Upload, UserRound, Wand2, X } from './icons.jsx'
 import { normalizeHex } from './color.js'
 import { checkTheme } from './contrast.js'
 import { coloursFromFile, themeFromPalette } from './extract.js'
@@ -1206,7 +1206,18 @@ const FROM_NOTE = {
   'pdf-text': 'Found colour codes written in the PDF.',
 }
 
-/** Builds a custom palette from the colours in an uploaded image, or a PDF where the site allows it. */
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)
+/** The paste shortcut, as the visitor's keyboard shows it. */
+const PASTE_KEYS = IS_MAC ? '⌘V' : 'Ctrl+V'
+const PASTED = 'Pasted image'
+
+/** The first image (or PDF) in a clipboard's files: a screenshot, or a copied picture. */
+const fileFromClipboard = (data) => [...(data?.files ?? [])].find((f) => f.type.startsWith('image/') || f.type === 'application/pdf')
+
+/**
+ * Builds a custom palette from the colours in an image (uploaded, dropped or pasted from the
+ * clipboard), or a PDF where the site allows it.
+ */
 function PaletteFromFile() {
   const { addPalette, loadPdf } = useTheme()
   const kinds = loadPdf ? 'image or PDF' : 'image'
@@ -1217,40 +1228,118 @@ function PaletteFromFile() {
   const [off, setOff] = useState(() => new Set())
   const [name, setName] = useState('')
   const [dragOver, setDragOver] = useState(false)
+  // The file being read, shown in the drop zone so it's clear what was added: an image's
+  // thumbnail, or a PDF's name. { url (object URL, images only), label, pasted, size? }
+  const [picture, setPicture] = useState(null)
+  const [flash, setFlash] = useState(false)
   const fileRef = useRef(null)
+  const zoneRef = useRef(null)
   const nameId = useId()
 
   const chosen = found ? found.colours.filter((c) => !off.has(c)) : []
   const preview = useMemo(() => (chosen.length ? themeFromPalette(chosen) : null), [chosen.join()])
 
-  const read = async (file) => {
+  // Object URLs hold the image in memory until revoked: release the old one on change and unmount.
+  useEffect(() => () => picture?.url && URL.revokeObjectURL(picture.url), [picture?.url])
+  // A paste can come from anywhere in the panel: bring the drop zone, now showing the image, into view.
+  useEffect(() => {
+    if (!picture?.pasted) return
+    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    zoneRef.current?.scrollIntoView({ block: 'nearest', behavior: still ? 'auto' : 'smooth' })
+  }, [picture?.url, picture?.pasted])
+  useEffect(() => {
+    if (!flash) return
+    const t = setTimeout(() => setFlash(false), 1200)
+    return () => clearTimeout(t)
+  }, [flash])
+
+  /**
+   * @param {string} [label]  what to call the file; pasted images have no useful name
+   * @param {boolean} [pasted]
+   */
+  const read = async (file, label = file?.name, pasted = false) => {
     if (!file) return
     setBusy(true)
     setError(null)
+    setFound(null)
+    setPicture({ url: file.type.startsWith('image/') ? URL.createObjectURL(file) : null, label, pasted })
     try {
       const { colours, from } = await coloursFromFile(file, { loadPdf })
       if (!colours.length) throw new Error('Couldn’t find any colours in that file.')
-      setFound({ fileName: file.name, colours, from })
+      setFound({ fileName: label, colours, from })
       setOff(new Set())
-      setName(file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim().slice(0, 60) || 'Uploaded palette')
+      setName(label.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim().slice(0, 60) || 'Uploaded palette')
     } catch (e) {
-      setFound(null)
+      setPicture(null)
       setError(e.message || 'Couldn’t read that file.')
     } finally {
       setBusy(false)
     }
   }
 
+  const clear = () => {
+    setFound(null)
+    setPicture(null)
+  }
+
+  /** Reads a pasted image, opening Import / export first if it's collapsed, so the result shows. */
+  const readPasted = (file) => {
+    const section = zoneRef.current?.closest('details')
+    if (section && !section.open) section.open = true
+    setFlash(true)
+    read(file, PASTED, true)
+  }
+  const readPastedRef = useRef(readPasted)
+  readPastedRef.current = readPasted
+
+  // Ctrl+V / ⌘V anywhere in the panel. Text pasted into a field (a palette name, theme JSON)
+  // goes in as usual; only an image on the clipboard is taken.
+  useEffect(() => {
+    const root = zoneRef.current?.getRootNode()
+    if (!root) return
+    const onPaste = (e) => {
+      const file = fileFromClipboard(e.clipboardData)
+      if (!file) return
+      const target = e.composedPath()[0]
+      const typing = target instanceof HTMLElement && (target.isContentEditable || target.localName === 'input' || target.localName === 'textarea')
+      if (typing && e.clipboardData.types.includes('text/plain')) return
+      e.preventDefault()
+      readPastedRef.current(file)
+    }
+    root.addEventListener('paste', onPaste)
+    return () => root.removeEventListener('paste', onPaste)
+  }, [])
+
+  // The Paste button reads the clipboard directly. Browsers that don't allow it, or a visitor
+  // who declines, can still use the keyboard shortcut.
+  const pasteFromClipboard = async () => {
+    setError(null)
+    if (!navigator.clipboard?.read) {
+      setError(`This browser can’t paste from a button. Press ${PASTE_KEYS} instead.`)
+      return
+    }
+    try {
+      for (const item of await navigator.clipboard.read()) {
+        const type = item.types.find((t) => t.startsWith('image/'))
+        if (type) return readPasted(new File([await item.getType(type)], PASTED, { type }))
+      }
+      setError('There’s no image on the clipboard. Take a screenshot or copy a picture, then paste.')
+    } catch {
+      setError(`Couldn’t read the clipboard. Press ${PASTE_KEYS} to paste instead.`)
+    }
+  }
+
   const create = () => {
     addPalette(name, preview)
     savedToYours(name.trim() || 'Uploaded palette')
-    setFound(null)
+    clear()
   }
 
   return (
     <div className="space-y-1.5">
       <p className="text-xs font-medium text-zinc-700">Palette from an {kinds}</p>
       <div
+        ref={zoneRef}
         onDragOver={(e) => {
           e.preventDefault()
           setDragOver(true)
@@ -1261,17 +1350,63 @@ function PaletteFromFile() {
           setDragOver(false)
           read(e.dataTransfer.files?.[0])
         }}
-        className={`rounded-xl border border-dashed p-3 text-center ${dragOver ? 'border-zinc-900 bg-zinc-100' : 'border-zinc-300 bg-zinc-50'}`}
+        className={`rounded-xl border border-dashed p-3 text-center transition-shadow motion-reduce:transition-none ${dragOver || flash ? 'border-zinc-900 bg-zinc-100' : 'border-zinc-300 bg-zinc-50'} ${flash ? 'ring-2 ring-zinc-900 ring-offset-1' : ''}`}
       >
+        {picture && (
+          <figure className="mb-2.5 flex items-center gap-3 rounded-lg border border-zinc-200 bg-white p-2 text-left">
+            {picture.url ? (
+              <img
+                src={picture.url}
+                alt={picture.label}
+                className="h-16 w-24 shrink-0 rounded-md border border-zinc-200 bg-zinc-100 object-contain"
+                onLoad={(e) => {
+                  // Read the event now: React clears currentTarget before a state updater runs.
+                  const { naturalWidth: w, naturalHeight: h, src } = e.currentTarget
+                  setPicture((p) => (p && p.url === src ? { ...p, size: `${w} × ${h}` } : p))
+                }}
+              />
+            ) : (
+              <span className="grid h-16 w-24 shrink-0 place-items-center rounded-md border border-zinc-200 bg-zinc-100 font-mono text-xs font-semibold text-zinc-600" aria-hidden="true">
+                PDF
+              </span>
+            )}
+            <figcaption role="status" className="min-w-0 flex-1 space-y-0.5 text-[11px] text-zinc-600">
+              <span className="flex items-center gap-1 font-medium text-zinc-900">
+                {busy ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-800" aria-hidden="true" />
+                )}
+                {picture.pasted ? 'Image pasted' : picture.url ? 'Image added' : 'PDF added'}
+              </span>
+              <span className="block truncate">
+                {picture.label}
+                {picture.size ? ` · ${picture.size}` : ''}
+              </span>
+              <span className="block">{busy ? 'Reading its colours…' : 'Its colours are below.'}</span>
+            </figcaption>
+            <button type="button" className={`${btn} shrink-0 border-transparent px-1.5`} onClick={clear} aria-label={`Remove ${picture.label}`} data-tip="Remove">
+              <X className="w-3.5 h-3.5" aria-hidden="true" />
+            </button>
+          </figure>
+        )}
         <button type="button" className={btn} onClick={() => fileRef.current?.click()} disabled={busy} aria-busy={busy}>
           {busy ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
           ) : (
             <ImageUp className="w-3.5 h-3.5" aria-hidden="true" />
           )}
-          {busy ? 'Reading colours…' : `Choose ${kinds}…`}
+          {busy ? 'Reading colours…' : picture ? 'Choose another…' : `Choose ${kinds}…`}
+        </button>{' '}
+        <button type="button" className={btn} onClick={pasteFromClipboard} disabled={busy} aria-keyshortcuts={IS_MAC ? 'Meta+V' : 'Control+V'}>
+          <ClipboardPaste className="w-3.5 h-3.5" aria-hidden="true" />
+          {picture ? 'Paste another' : 'Paste image'}
         </button>
-        <p className="mt-1.5 text-[11px] text-zinc-600">or drop one here. A mood board, screenshot or photo{loadPdf ? ', or a brand guide PDF,' : ''} works.</p>
+        {!picture && (
+          <p className="mt-1.5 text-[11px] text-zinc-600">
+            or drop one here, or press <kbd className="font-mono">{PASTE_KEYS}</kbd> to paste a screenshot. A mood board, screenshot or photo{loadPdf ? ', or a brand guide PDF,' : ''} works.
+          </p>
+        )}
         <input
           ref={fileRef}
           type="file"
@@ -1331,7 +1466,7 @@ function PaletteFromFile() {
             <button type="button" className={btnPrimary} onClick={create} disabled={!preview}>
               Create palette
             </button>
-            <button type="button" className={btn} onClick={() => setFound(null)}>
+            <button type="button" className={btn} onClick={clear}>
               Discard
             </button>
           </div>

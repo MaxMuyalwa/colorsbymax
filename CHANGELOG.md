@@ -2,6 +2,11 @@
 
 What changed in each colorsbymax release. Update with `npm install colorsbymax@latest`.
 
+## 0.2.3 (2026-09-25)
+
+- **Paste an image to build a palette.** Took a screenshot of something whose colours you like? Open the panel and press Ctrl+V (⌘V on a Mac), or use the new **Paste image** button in Import / export. Import / export opens by itself and shows a thumbnail of the image, marked "Image pasted", with its size and a button to remove it (dropped and chosen images get the same preview). Pasting text into a field still works as usual.
+- The README and the MCP README now explain the steps after adding the MCP server: start a new session, ask your agent to add colorsbymax, and run your site.
+
 ## 0.2.2 (2026-09-25)
 
 - **MCP server for AI agents.** [colorsbymax-mcp](mcp/) lets Claude Code, Cursor, VS Code Copilot and other agents set colorsbymax up in a project (with the right edits for Vite, Next.js, Remix, Astro, Nuxt, SvelteKit, plain HTML and more), find themes, build one from brand colours, check contrast and finish. Add it with `claude mcp add colorsbymax -- npx -y colorsbymax-mcp`.

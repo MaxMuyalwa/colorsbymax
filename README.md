@@ -90,6 +90,13 @@ Your coding agent can set colorsbymax up and use it for you. [colorsbymax-mcp](m
 
 It reads your project but never changes it: the agent makes the edits, so you review them as usual. It runs with `npx`, so there's nothing to install first (Node 18 or later).
 
+**Adding the server doesn't change your site by itself.** It gives your agent the tools; the agent then sets colorsbymax up when you ask:
+
+1. **Add the server** once, with the steps for your editor below.
+2. **Start a new chat or session** in your project. Agents load MCP servers when a session starts, so one that was already open won't see it yet.
+3. **Ask:** *"Add colorsbymax to this project."* The agent installs the package and adds the one line (or the right version of it for your framework).
+4. **Run your site** (for example `npm run dev`). The colour button appears in the bottom-right corner.
+
 ### Claude Code
 
 ```bash
@@ -97,6 +104,8 @@ claude mcp add colorsbymax -- npx -y colorsbymax-mcp
 ```
 
 That adds it for you in this project. Add `--scope user` to have it in every project, or `--scope project` to share it with your team through a `.mcp.json` file. Check it with `/mcp` inside Claude Code.
+
+If your terminal says `claude` isn't found (the desktop app doesn't always put it on your PATH), ask Claude Code itself: *"Add the colorsbymax MCP server: `npx -y colorsbymax-mcp`."*
 
 ### Cursor
 
@@ -166,7 +175,7 @@ When you're done choosing colours, the panel's **I'm done** button gives you rea
 - **Scan the site.** Press "Scan site" and colorsbymax reads the colours actually painted on the page (ignoring any theme it has applied, and including gradients). It works out the page background, surfaces, text and brand colours, then adds themes named after the site: Scanned (as found), Accessible, Soft, Bold, Complementary, and the closest library matches. Scans run only when asked, and the results are remembered.
 - **Max’s picks and library.** 5 hand-tuned picks, plus 715 library themes (Bright, Fun, Pastel, Earth tones, Summer, Autumn, Winter, Spring, Ocean, Warm, Nature, Moody, Monochrome, Eclectic) with search and "Surprise me". The library loads only when the panel opens.
 - **Custom palettes, single-colour overrides, JSON import/export.**
-- **Palettes from images and PDFs.** In Import / export, upload or drop a mood board, screenshot or photo. colorsbymax picks out its main colours, lets you leave any out, previews the palette it builds around them and saves it as a custom palette. Nothing leaves the browser. PDFs, such as brand guides, work where the site [turns them on](#pdf-uploads); hex codes written in a PDF take priority.
+- **Palettes from images and PDFs.** In Import / export, upload or drop a mood board, screenshot or photo, or paste one straight from the clipboard: take a screenshot, open the panel and press Ctrl+V (⌘V on a Mac), or use **Paste image**. colorsbymax picks out its main colours, lets you leave any out, previews the palette it builds around them and saves it as a custom palette. Nothing leaves the browser. PDFs, such as brand guides, work where the site [turns them on](#pdf-uploads); hex codes written in a PDF take priority.
 - **Contrast checks.** Problems show as a badge on the theme; the breakdown offers per-item fixes or "Fix all automatically", which changes lightness only.
 - **No flash on reload.** An inline pre-paint script applies the saved theme before the page draws.
 - **Works on any site.** The panel carries its own stylesheet inside a shadow root, so it needs no Tailwind or other CSS from the site, and the site's CSS can't restyle it.
