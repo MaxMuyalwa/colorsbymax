@@ -10,6 +10,8 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-c2410c?style=flat-square" alt="MIT licence"></a>
 </p>
 
+<p align="center"><strong><a href="https://mrmaxdesigns.com/colorsbymax">See it live at mrmaxdesigns.com/colorsbymax →</a></strong><br>Open the colour button on the page and re-colour the whole site.</p>
+
 A floating theme switcher for websites. Visitors (or the site's owner) can re-colour the whole site instantly: pick one of the site's own themes, a hand-tuned pick, or one of 715 library themes in 14 categories; build and share custom palettes; or override single colours. Every theme is checked against the Web Content Accessibility Guidelines (WCAG) contrast rules, with one-click fixes.
 
 <p align="center">
@@ -63,6 +65,8 @@ That's all. The colour button appears in the bottom-right corner once the page h
 Already installed it? Get the newest version with `npm install colorsbymax@latest` (see [Updating](#updating)).
 
 ## Try the demo
+
+The demo is live at **[mrmaxdesigns.com/colorsbymax](https://mrmaxdesigns.com/colorsbymax)**, with the [Harbour Coffee](https://mrmaxdesigns.com/colorsbymax/unwired) site (hard-coded colours, re-coloured automatically) and the [Northfield Bakery](https://mrmaxdesigns.com/colorsbymax/plain) site (plain CSS). To run it locally:
 
 ```bash
 npm install

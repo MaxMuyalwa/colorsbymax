@@ -2,6 +2,10 @@
 
 What changed in each colorsbymax release. Update with `npm install colorsbymax@latest`.
 
+## Unreleased
+
+- The demo is live at [mrmaxdesigns.com/colorsbymax](https://mrmaxdesigns.com/colorsbymax), now the package's homepage.
+
 ## 0.2.3 (2026-09-25)
 
 - **Paste an image to build a palette.** Took a screenshot of something whose colours you like? Open the panel and press Ctrl+V (⌘V on a Mac), or use the new **Paste image** button in Import / export. Import / export opens by itself and shows a thumbnail of the image, marked "Image pasted", with its size and a button to remove it (dropped and chosen images get the same preview). Pasting text into a field still works as usual.
