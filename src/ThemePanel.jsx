@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Check, CheckCircle2, ChevronRight, ClipboardPaste, Copy, Download, ArrowLeft, Globe, ImageUp, Loader2, Monitor, Moon, RotateCcw, ScanLine, ScanSearch, Settings, Shuffle, Paintbrush, Sun, Trash2, Upload, UserRound, Wand2, X } from './icons.jsx'
+import { AlertTriangle, Check, CheckCircle2, ChevronRight, ClipboardPaste, Copy, Download, ArrowLeft, Globe, ImageUp, Loader2, Monitor, Moon, RotateCcw, ScanLine, ScanSearch, Settings, Shuffle, Paintbrush, Sun, ToggleRight, Trash2, Upload, UserRound, Wand2, X } from './icons.jsx'
 import { normalizeHex } from './color.js'
 import { checkTheme } from './contrast.js'
 import { coloursFromFile, themeFromPalette } from './extract.js'
 import { BRING_BACK_PROMPT, cssSnippet, keepPrompt, keepSnippet, NODE_PROD, removePrompt, VITE_PROD } from './finish.js'
+import { TOGGLE_CSS, TOGGLE_HTML, TOGGLE_PROMPT, TOGGLE_REACT, isPreviewing, previewToggle, removePreview } from './modeToggle.js'
 import { loadLibrary } from './library.js'
 import { inMode } from './modes.js'
 import { PANEL_PRESETS, useSettings } from './settings.js'
@@ -120,6 +121,17 @@ export default function ThemePanel() {
         </div>
         <button
           type="button"
+          onClick={(e) => (view === 'mode-toggle' ? setView('main') : showView('mode-toggle', e.currentTarget))}
+          className={`${btn} shrink-0 whitespace-nowrap px-1.5 @min-[500px]:px-2 ${view === 'mode-toggle' ? 'border-zinc-900 bg-zinc-100' : 'border-transparent'}`}
+          aria-pressed={view === 'mode-toggle'}
+          aria-label="Add a light and dark switch to your site"
+          data-tip="Add a light and dark switch to your site"
+        >
+          <ToggleRight className="w-4 h-4" aria-hidden="true" />
+          <span className="hidden @min-[500px]:inline">Add to site</span>
+        </button>
+        <button
+          type="button"
           onClick={audit.toggle}
           className={`${btn} px-2 ${audit.on ? 'border-zinc-900 bg-zinc-100' : 'border-transparent'}`}
           aria-pressed={audit.on}
@@ -144,6 +156,7 @@ export default function ThemePanel() {
       {view === 'contrast' && <ContrastView onBack={() => setView('main')} />}
       {view === 'settings' && <SettingsView onBack={() => setView('main')} />}
       {view === 'finish' && <FinishView onBack={() => setView('main')} />}
+      {view === 'mode-toggle' && <ModeToggleView onBack={() => setView('main')} />}
 
       {/* Kept mounted while another view is open so open sections and scroll state survive. */}
       <div hidden={view !== 'main'}>
@@ -240,6 +253,106 @@ function Toast({ toast, onDismiss }) {
 }
 
 // ---------------------------------------------------------------- finishing
+
+/**
+ * "Add to site": a light and dark switch for the site itself. Every theme has a dark version, so any
+ * site can switch; this shows the switch, previews it in the page's top bar, and gives the code and
+ * an AI-editor prompt to add it for good.
+ */
+function ModeToggleView({ onBack }) {
+  const { settings, update } = useSettings()
+  const { toast } = usePanel()
+  const headingRef = useRef(null)
+  const [previewing, setPreviewing] = useState(isPreviewing)
+  const [tab, setTab] = useState('html')
+  useEffect(() => headingRef.current?.focus(), [])
+
+  const preview = () => {
+    const where = previewToggle()
+    setPreviewing(true)
+    toast(where === 'nav' ? 'The switch is in your top bar. Try it; it’s gone when you reload.' : 'No top bar found, so the switch is in the top-left corner. It’s gone when you reload.')
+  }
+  const stop = () => {
+    removePreview()
+    setPreviewing(false)
+  }
+
+  return (
+    <div className="px-4 py-3 space-y-4">
+      <button type="button" className={`${btn} border-transparent px-1.5`} onClick={onBack}>
+        <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" /> Back
+      </button>
+      <h3 ref={headingRef} tabIndex={-1} className="text-sm font-semibold focus:outline-none">
+        Add a light and dark switch to your site
+      </h3>
+      <p className="text-xs text-zinc-600">
+        Every theme has a dark version, so your whole site can switch, even if it never had a dark mode. Put a switch in your top bar and
+        visitors can choose; colorsbymax does the rest and remembers their choice. It keeps working when the colour button is hidden.
+      </p>
+
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+        <div className="text-xs text-zinc-700">
+          <p className="font-semibold text-zinc-900">Try it here first</p>
+          <p>{previewing ? 'The switch is on this page. It’s gone when you reload.' : 'Puts a working switch in this page’s top bar.'}</p>
+        </div>
+        {previewing ? (
+          <button type="button" className={btn} onClick={stop}>
+            Remove
+          </button>
+        ) : (
+          <button type="button" className={btnPrimary} onClick={preview}>
+            <ToggleRight className="w-3.5 h-3.5" aria-hidden="true" /> Preview it
+          </button>
+        )}
+      </div>
+
+      <div role="radiogroup" aria-label="Mode" className="grid grid-cols-3 gap-2">
+        {MODES.map(({ id, label, Icon }) => (
+          <button
+            key={id}
+            type="button"
+            role="radio"
+            aria-checked={settings.mode === id}
+            onClick={() => update({ mode: id })}
+            className={`flex h-8 items-center justify-center gap-1.5 rounded-lg border text-xs font-medium cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 ${
+              settings.mode === id ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50'
+            }`}
+          >
+            <Icon className="w-3.5 h-3.5" aria-hidden="true" /> {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-zinc-900">Add it for good</p>
+        <div role="tablist" aria-label="Code for" className="flex gap-1">
+          {[
+            ['html', 'HTML'],
+            ['react', 'React'],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => setTab(id)}
+              className={`rounded-md px-2 py-1 text-[11px] font-semibold cursor-pointer ${tab === id ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-100'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <CopyBlock label={tab === 'html' ? 'In your top bar' : 'ModeToggle.jsx'} text={tab === 'html' ? TOGGLE_HTML : TOGGLE_REACT} />
+        <CopyBlock label="In your global stylesheet" text={TOGGLE_CSS} />
+        <CopyBlock label="Or ask Claude, Cursor or Copilot" text={TOGGLE_PROMPT} copyLabel="Copy prompt" />
+      </div>
+      <p className="rounded-lg bg-zinc-100 p-2.5 text-[11px] text-zinc-700">
+        <strong className="font-semibold text-zinc-900">Already have a dark mode?</strong> You don’t need this. The theme you pick colours your
+        site well in light and dark, with contrast checked in both.
+      </p>
+    </div>
+  )
+}
 
 /** Shows code with a copy button. */
 function CopyBlock({ label, text, copyLabel = 'Copy' }) {

@@ -99,7 +99,11 @@ export function createRecolourer() {
   document.head.append(sheet)
 
   // The site's colours as a full token set, from the same analysis the site scan uses.
-  const site = themeFromRoles(inferRoles(collectColors()).roles)
+  const { roles } = inferRoles(collectColors())
+  const site = themeFromRoles(roles)
+  // A plain site (greys only, no brand colour of its own) would barely change with a theme. There,
+  // grey icons and plain text links take the theme's brand colour, as a designer would colour them.
+  const plain = !roles.primary
   const siteBgL = hslOf(site.background)[2]
   const siteInkL = hslOf(site.ink)[2]
 
@@ -107,11 +111,11 @@ export function createRecolourer() {
   const entries = new Map()
   let theme = null
 
-  const idFor = (prop, value, kind, backdrop = null, role = null) => {
-    const key = `${prop}|${value}|${backdrop ?? ''}|${role ?? ''}`
+  const idFor = (prop, value, kind, backdrop = null, role = null, accent = false) => {
+    const key = `${prop}|${value}|${backdrop ?? ''}|${role ?? ''}|${accent ? 'a' : ''}`
     let entry = entries.get(key)
     if (!entry) {
-      entry = { id: `c${entries.size.toString(36)}`, prop, value, kind, backdrop, role }
+      entry = { id: `c${entries.size.toString(36)}`, prop, value, kind, backdrop, role, accent }
       entries.set(key, entry)
       // Added once the read is over: changing the sheet's text mid-read would build a fresh sheet,
       // which starts enabled, so later reads would see themed colours as the site's own.
@@ -143,9 +147,12 @@ export function createRecolourer() {
     const cs = getComputedStyle(el)
     const ids = []
     const role = el instanceof SVGElement || !hasOwnText(el) ? 'icon' : 'text'
+    // On a plain site: icons, and text links, that don't sit on a fill of their own (so not buttons).
+    const ownFill = (parse(cs.backgroundColor)?.alpha ?? 0) >= 0.5
+    const accent = plain && !ownFill && (role === 'icon' || el.localName === 'a')
     const colour = (prop, css, kind) => {
       if (!parse(css)) return
-      ids.push(FOREGROUND.has(prop) ? idFor(prop, css, kind, backdropOf(el), prop === 'color' ? role : 'icon') : idFor(prop, css, kind))
+      ids.push(FOREGROUND.has(prop) ? idFor(prop, css, kind, backdropOf(el), prop === 'color' ? role : 'icon', accent) : idFor(prop, css, kind))
     }
     colour('background-color', cs.backgroundColor, 'bg')
     colour('color', cs.color, 'text')
@@ -276,12 +283,16 @@ export function createRecolourer() {
     if (entry.prop === 'background-image') {
       value = entry.value.replace(COLOR_IN_GRADIENT, (stop) => mapColour(stop, entry.kind))
     } else if (entry.backdrop) {
-      const fg = mapHex(entry.value, entry.kind)
+      // A grey icon or link on a plain site becomes the theme's brand colour.
+      const own = parse(entry.value)
+      const brand = entry.accent && own && hslOf(own.hex)[1] < NEUTRAL_SATURATION
+      const fg = brand ? { hex: theme.primary, alpha: own.alpha } : mapHex(entry.value, entry.kind)
       const bg = mapHex(entry.backdrop, 'bg')
       const original = { fg: parse(entry.value)?.hex, bg: parse(entry.backdrop)?.hex }
       if (fg && bg && original.fg && original.bg) {
         const aim = entry.role === 'text' ? MIN_TEXT_CONTRAST : MIN_ICON_CONTRAST
-        const target = Math.min(aim, contrastRatio(original.fg, original.bg))
+        // A newly coloured icon or link must read; otherwise never aim above the site's own pair.
+        const target = brand ? aim : Math.min(aim, contrastRatio(original.fg, original.bg))
         const lighter = luminance(original.fg) > luminance(original.bg)
         value = format({ ...fg, hex: readable(fg.hex, bg.hex, target, lighter) })
       } else value = mapColour(entry.value, entry.kind)

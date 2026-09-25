@@ -341,7 +341,7 @@ Give visitors a light and dark switch anywhere, styled your way, by marking an e
 <button data-colorsbymax-mode="toggle">Light / dark</button>
 ```
 
-`toggle` switches between light and dark; `light`, `dark` and `system` set one mode. colorsbymax wires the click, remembers the choice and sets `aria-pressed`. The page is marked with the current mode, for anything your CSS wants to adjust, like photos:
+The panel's **Add to site** button (next to Light, Dark and Auto) previews one in your top bar and gives you ready-made code and an AI-editor prompt. `toggle` switches between light and dark; `light`, `dark` and `system` set one mode. colorsbymax wires the click, remembers the choice and sets `aria-pressed`. The page is marked with the current mode, for anything your CSS wants to adjust, like photos:
 
 ```css
 html[data-colorsbymax-scheme="dark"] .hero-photo {
