@@ -36,7 +36,7 @@ const DRAG_THRESHOLD = 5 // pixels of movement before a press becomes a drag
 const HINT_DELAY = 100 // ms of hovering before the drag tooltip shows; just enough to skip passing sweeps
 const DOT_INTERVAL = 1500 // ms between the colour button dot's colour changes
 const INTRO_DELAY = 900 // ms the colour button waits before making its entrance
-const BURST_TIME = 1100 // ms the entrance burst lasts
+const BURST_TIME = 1100 // ms a burst of colour lasts
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])'
 
@@ -77,20 +77,29 @@ function Switcher() {
   const [open, setOpen] = useState(false)
 
   // The entrance: a moment after the page loads, the button pops in with a burst of the theme's
-  // colours, so visitors notice it arrive. Once per page load.
+  // colours, so visitors notice it arrive. Every click bursts again. `burst` is a counter, so a
+  // click during a burst restarts it.
   const [arrived, setArrived] = useState(!intro)
-  const [burst, setBurst] = useState(false)
+  const [entering, setEntering] = useState(false)
+  const [burst, setBurst] = useState(0)
+  const celebrate = () => setBurst((n) => n + 1)
   useEffect(() => {
     if (arrived) return
     const timer = setTimeout(() => {
       setArrived(true)
-      setBurst(true)
+      setEntering(true)
+      celebrate()
     }, INTRO_DELAY)
     return () => clearTimeout(timer)
   }, []) // once, on mount
+  const [bursting, setBursting] = useState(false)
   useEffect(() => {
     if (!burst) return
-    const timer = setTimeout(() => setBurst(false), BURST_TIME)
+    setBursting(true)
+    const timer = setTimeout(() => {
+      setBursting(false)
+      setEntering(false)
+    }, BURST_TIME)
     return () => clearTimeout(timer)
   }, [burst])
   const [settings, setSettings] = useState(() => loadSettings(storageKey))
@@ -240,8 +249,7 @@ function Switcher() {
     // Released without a pointerup reaching us: finish instead of dragging on hover.
     if (!(e.buttons & 1)) return onDragEnd(e)
     if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) < DRAG_THRESHOLD) return
-    // The panel gets out of the way as soon as a press turns into a drag.
-    if (!d.moved) setOpen(false)
+    // An open panel stays open and moves with the button.
     d.moved = true
     d.point = clampToViewport({ left: e.clientX - d.dx, top: e.clientY - d.dy }, viewport)
     setDragPoint(d.point)
@@ -375,6 +383,7 @@ function Switcher() {
               return
             }
             hideHint()
+            celebrate()
             if (open) close()
             else setOpen(true)
           }}
@@ -386,11 +395,11 @@ function Switcher() {
           style={placed ?? undefined}
           className={`theme-switcher fixed z-[60] ${placed ? '' : CORNERS[position]} grid place-items-center w-9 h-9 rounded-full border border-zinc-200 bg-white/90 text-zinc-700 backdrop-blur hover:bg-white hover:text-zinc-900 transition-[color,background-color,box-shadow,scale] select-none ${settings.draggable ? 'touch-none' : ''} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 ${
             dragPoint ? 'scale-110 shadow-xl cursor-grabbing' : 'shadow-md cursor-pointer'
-          } ${burst ? 'theme-arrive' : ''}`}
+          } ${entering ? 'theme-arrive' : ''}`}
         >
           <Palette className="w-4 h-4" aria-hidden="true" />
           <CyclingDot tokens={tokens} animate={settings.animateDot} />
-          {burst && <Burst tokens={tokens} />}
+          {bursting && <Burst key={burst} tokens={tokens} />}
           {/* Hover tooltip. Visual only: screen reader and keyboard users open the panel as usual. */}
           {hint && !open && !dragPoint && (
             <span
@@ -477,7 +486,7 @@ function CyclingDot({ tokens, animate }) {
   )
 }
 
-// The entrance burst: squiggles, dots and dashes in the theme's colours, flung out from the
+// A burst of colour (on the entrance, and on every click): squiggles, dots and dashes in the theme's colours, flung out from the
 // button. Each piece flies to (x, y) px from the centre, turning from r degrees as it goes.
 const BURST_KEYS = ['primary', 'primary-alt', 'data-1', 'data-2', 'data-3', 'data-4', 'warning', 'data-5']
 const BURST_PIECES = Array.from({ length: 12 }, (_, i) => {

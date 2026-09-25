@@ -640,6 +640,9 @@ function PresetGrid() {
   const { toast, reveal } = usePanel()
   const wrapRef = useRef(null)
   const pendingScroll = useRef(false)
+  // Picking a library category brings its themes into view, so the colours are right there.
+  const themesRef = useRef(null)
+  const scrollToThemes = useRef(false)
 
   // Jump to a group when asked (e.g. "Show" on a toast), opening the section and bringing the
   // active card into view once it has rendered.
@@ -654,6 +657,11 @@ function PresetGrid() {
     pendingScroll.current = true
   }, [reveal])
   useEffect(() => {
+    if (scrollToThemes.current && themesRef.current) {
+      scrollToThemes.current = false
+      const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      themesRef.current.scrollIntoView({ block: 'start', behavior: still ? 'auto' : 'smooth' })
+    }
     if (!pendingScroll.current) return
     pendingScroll.current = false
     const root = wrapRef.current
@@ -711,10 +719,11 @@ function PresetGrid() {
   const needsLibrary = settings.showLibrary && (Boolean(q) || !['site', 'picks', 'yours'].includes(category))
   const catInfo = library?.categories.find((c) => c.id === category)
 
-  const choose = (id) => {
+  const choose = (id, { scroll = false } = {}) => {
     setCategory(id)
     setQuery('')
     setLimit(PAGE_SIZE)
+    scrollToThemes.current = scroll
   }
   const pick = (t) => selectTheme(t.id, t)
   const surprise = () => {
@@ -818,7 +827,7 @@ function PresetGrid() {
                   type="button"
                   aria-pressed={on}
                   data-tip={c.description}
-                  onClick={() => choose(c.id)}
+                  onClick={() => choose(c.id, { scroll: true })}
                   className={`flex h-8 min-w-0 items-center gap-1 rounded-lg border px-2 text-xs font-medium cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-1 ${
                     on ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50'
                   }`}
@@ -833,6 +842,8 @@ function PresetGrid() {
         </>
       )}
 
+      {/* scroll-mt keeps a little room above the category's description when it's scrolled to. */}
+      <div ref={themesRef} className="scroll-mt-3" />
       {!q && <p className="text-xs text-zinc-600">{(catInfo ?? chips.find((c) => c.id === category))?.description}</p>}
 
       {needsLibrary && !library ? (
