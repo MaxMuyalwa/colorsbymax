@@ -45,10 +45,32 @@ const hueGap = (a, b) => Math.min(Math.abs(hue(a) - hue(b)), 360 - Math.abs(hue(
 
 /** The bars' colours: the gradient partner and the brand, then the chart colour most unlike both. */
 function barColours(tokens) {
+  return [tokens[ROLES[0]], tokens[ROLES[1]], tokens[thirdBarRole(tokens)]]
+}
+
+/** The chart colour (data-1…8) least like the gradient partner and the brand, for the third bar. */
+function thirdBarRole(tokens) {
   const [a, b] = [tokens[ROLES[0]], tokens[ROLES[1]]]
-  const accents = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => tokens[`data-${n}`])
-  const c = accents.reduce((best, x) => (Math.min(hueGap(x, a), hueGap(x, b)) > Math.min(hueGap(best, a), hueGap(best, b)) ? x : best), tokens[ROLES[2]])
-  return [a, b, c]
+  const apart = (x) => Math.min(hueGap(x, a), hueGap(x, b))
+  let best = ROLES[2]
+  for (let n = 1; n <= 8; n++) if (apart(tokens[`data-${n}`]) > apart(tokens[best])) best = `data-${n}`
+  return best
+}
+
+/**
+ * The logo mark (the three bars) for the page, in the same theme colours as the tab icon. It paints
+ * with the colour variables, so the "Colour the logo" setting applies to it.
+ */
+export function LogoMark({ className = '' }) {
+  const { tokens } = useTheme()
+  const roles = [ROLES[0], ROLES[1], thirdBarRole(tokens)]
+  return (
+    <svg viewBox="0 0 296 163.05" className={className} aria-hidden="true">
+      {BARS.map((d, i) => (
+        <path key={i} d={d} style={{ fill: `var(--color-${roles[i]})` }} />
+      ))}
+    </svg>
+  )
 }
 
 function faviconSvg(tokens) {

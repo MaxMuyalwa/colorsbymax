@@ -3,6 +3,7 @@ import { ArrowUpRight, Menu, X } from 'lucide-react'
 import { MRMAX } from './ui.jsx'
 import { StarButton } from './StarButton.jsx'
 import { FeedbackButton, openFeedback } from './Feedback.jsx'
+import { LogoMark } from './Favicon.jsx'
 
 const LINKS = [
   ['Why', '#why'],
@@ -12,10 +13,18 @@ const LINKS = [
   ['AI agents', '#agents'],
 ]
 
+/**
+ * The colorsbymax logo: mrmaxdesigns' three-bar mark, then the wordmark. As in the mrmaxdesigns logo,
+ * the bars stand on the text's baseline, about two and a half times its lowercase height, and the
+ * text tucks in under the last bar's slant.
+ */
 export function Wordmark({ className = '' }) {
   return (
-    <span className={`font-display font-bold tracking-tight ${className}`}>
-      colors<span className="text-gradient">by</span>max<span className="align-super text-[0.55em] font-medium">™</span>
+    <span className={`inline-flex items-baseline font-display font-bold tracking-tight ${className}`}>
+      <LogoMark className="mr-[-0.28em] h-[1.3em] w-auto shrink-0 self-baseline" />
+      <span>
+        colors<span className="text-gradient">by</span>max<span className="align-super text-[0.55em] font-medium">™</span>
+      </span>
     </span>
   )
 }
