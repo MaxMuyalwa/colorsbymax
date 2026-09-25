@@ -6,6 +6,7 @@ import { Nav } from './site/Nav.jsx'
 import { Support } from './site/Community.jsx'
 import { Footer } from './site/Footer.jsx'
 import { Feedback } from './site/Feedback.jsx'
+import { ThemedFavicon } from './site/Favicon.jsx'
 import './demo.css'
 
 // The support page: ways to thank Max. Same colorsbymax setup as the home page, so the theme a
@@ -21,6 +22,7 @@ createRoot(document.getElementById('root')).render(
         <Footer home={HOME} />
         <Feedback />
       </div>
+      <ThemedFavicon />
       <ThemeSwitcher />
     </ThemeProvider>
   </StrictMode>,

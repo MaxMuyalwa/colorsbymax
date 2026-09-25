@@ -14,6 +14,7 @@ import { Footer } from './site/Footer.jsx'
 import { Feedback } from './site/Feedback.jsx'
 import { config } from './site/config.js'
 import { Community } from './site/Community.jsx'
+import { ThemedFavicon } from './site/Favicon.jsx'
 import './demo.css'
 
 function Site() {
@@ -46,6 +47,7 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ThemeProvider config={config}>
       <Site />
+      <ThemedFavicon />
       <ThemeSwitcher />
     </ThemeProvider>
   </StrictMode>,

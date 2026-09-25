@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 295.97 163.05">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #fd4436;
+      }
+
+      .cls-2 {
+        fill: #873ffb;
+      }
+
+      .cls-3 {
+        fill: #2775fd;
+      }
+    </style>
+  </defs>
+  <g id="Layer_1-2" data-name="Layer 1">
+    <g id="Logo_Mark" data-name="Logo Mark">
+      <path class="cls-3" d="M212.65,163.05h-57.13C183.86,108.7,212.19,54.35,240.53,0h55.44c-27.77,54.35-55.55,108.7-83.32,163.05Z"/>
+      <path class="cls-2" d="M134.89,163.05h-57.13C106.1,108.7,134.43,54.35,162.77,0h55.44c-27.77,54.35-55.55,108.7-83.32,163.05Z"/>
+      <path class="cls-1" d="M57.13,163.05H0C28.34,108.7,56.67,54.35,85.01,0h55.44c-27.77,54.35-55.55,108.7-83.32,163.05Z"/>
+    </g>
+  </g>
+</svg>

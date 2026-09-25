@@ -43,13 +43,13 @@ export function Nav({ home = '' }) {
   }, [open])
 
   return (
-    <div className={`fixed inset-x-0 top-0 z-50 transition-[padding] duration-500 ease-out motion-reduce:transition-none ${scrolled ? 'px-4 pt-4 sm:px-6 min-[1200px]:px-20' : ''}`}>
+    <div className={`fixed inset-x-0 top-0 z-50 transition-[padding] duration-500 ease-out motion-reduce:transition-none ${scrolled ? 'px-4 pt-4 sm:px-6 min-[1200px]:!px-20' : ''}`}>
       <nav
         aria-label="Main"
         className={`mx-auto flex items-center justify-between gap-4 border backdrop-blur-md transition-all duration-500 ease-out motion-reduce:transition-none ${
           scrolled
             ? 'max-w-6xl rounded-[2rem] border-border bg-surface/70 px-4 py-2.5 shadow-xl shadow-shadow/10 sm:px-6'
-            : 'max-w-full rounded-none border-x-transparent border-t-transparent border-b-border/60 bg-surface/25 px-4 py-4 sm:px-8 min-[1200px]:py-6 min-[1200px]:pr-20'
+            : 'max-w-full rounded-none border-x-transparent border-t-transparent border-b-border/60 bg-surface/25 px-4 py-4 sm:px-8 min-[1200px]:py-6 min-[1200px]:!pr-20'
         }`}
       >
         <a href={`${home}#top`} className="text-lg text-primary-dark" data-colorsbymax-logo>

@@ -2,6 +2,11 @@
 
 What changed in each colorsbymax release. Update with `npm install colorsbymax@latest`.
 
+## Unreleased
+
+- **`defaultMode` config option:** the mode first-time visitors start in, `'light'` (the default), `'dark'` or `'system'` to follow their device. Any site can start dark, since every theme has a dark twin, and visitors can still switch. The colorsbymax site now opens in dark mode.
+- The colorsbymax site's browser-tab icon is the mrmaxdesigns logo mark in the current theme's colours, with a version for light tabs and one for dark tabs, each checked to stand out.
+
 ## 0.3.1 (2026-09-25)
 
 - **`colourLogo` config option:** start with "Colour the logo too" on, for sites whose logo is drawn in the theme's colours. It's off by default, so logos keep their own colours, and visitors can still change it in settings. It also applies when the switcher is hidden. The colorsbymax site turns it on for its wordmark.
