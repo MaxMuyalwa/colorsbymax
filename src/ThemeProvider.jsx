@@ -32,6 +32,8 @@ const newId = () => `custom-${Date.now().toString(36)}-${Math.random().toString(
  *   Where each token is used on this site, shown in the editors
  * @property {boolean} [scrollbars]  Colour the page's scrollbars from the theme (default true)
  * @property {() => Promise<any>} [pdf]  Enables PDF uploads: pass `loadPdf` from 'colorsbymax/pdf'
+ * @property {boolean} [intro]  Bring the colour button in with a short pop and burst of the theme's
+ *   colours, a moment after the page loads (default true). Reduced motion fades it in instead.
  * @property {boolean} [hidden]  Hide the colour button and panel; the theme still applies. Use
  *   `hidden: import.meta.env.PROD` to keep it out of production once the colours are chosen.
  * @property {'bottom-right' | 'bottom-left' | 'top-left' | 'top-right'} [position]  Where the colour
@@ -177,6 +179,8 @@ export function ThemeProvider({ config = {}, children }) {
     position: initialConfig.position ?? 'bottom-right',
     /** True when the config hides the switcher (e.g. in production); the theme still applies. */
     hidden: Boolean(initialConfig.hidden),
+    /** Whether the colour button makes an entrance when it first appears. */
+    intro: initialConfig.intro !== false,
     /** True when colorsbymax is swapping the page's own colours (the site isn't wired to tokens). */
     recolouring: Boolean(pageColours),
     /** Turns re-colouring of the site's logo on or off (the switcher's "Colour the logo" setting). */

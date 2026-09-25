@@ -85,6 +85,11 @@ export interface ColorsByMaxConfig {
    * keeps it out of production once the colours are chosen, while it still shows in development.
    */
   hidden?: boolean
+  /**
+   * Bring the colour button in with a short pop and a burst of the theme's colours, a moment after
+   * the page loads (default true). With reduced motion it fades in instead.
+   */
+  intro?: boolean
 }
 
 export interface ThemeProviderProps {
@@ -121,6 +126,8 @@ export interface ThemeApi {
   position: 'bottom-right' | 'bottom-left' | 'top-left' | 'top-right'
   /** True when the config hides the switcher; the theme still applies. */
   hidden: boolean
+  /** Whether the colour button makes an entrance when it first appears. */
+  intro: boolean
   /** True when colorsbymax is swapping the page's own colours (the site isn't using the variables). */
   recolouring: boolean
   /** Turns re-colouring of the site's logo on or off. */

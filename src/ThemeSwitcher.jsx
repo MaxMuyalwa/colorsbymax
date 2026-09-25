@@ -35,6 +35,8 @@ const MIN_PANEL_HEIGHT = 260
 const DRAG_THRESHOLD = 5 // pixels of movement before a press becomes a drag
 const HINT_DELAY = 100 // ms of hovering before the drag tooltip shows; just enough to skip passing sweeps
 const DOT_INTERVAL = 1500 // ms between the colour button dot's colour changes
+const INTRO_DELAY = 900 // ms the colour button waits before making its entrance
+const BURST_TIME = 1100 // ms the entrance burst lasts
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])'
 
@@ -70,9 +72,27 @@ export default function ThemeSwitcher() {
 }
 
 function Switcher() {
-  const { issues, storageKey, tokens, active, themes, selectTheme, position: requested, setLogoColouring } = useTheme()
+  const { issues, storageKey, tokens, active, themes, selectTheme, position: requested, setLogoColouring, intro } = useTheme()
   const position = CORNERS[requested] ? requested : 'bottom-right'
   const [open, setOpen] = useState(false)
+
+  // The entrance: a moment after the page loads, the button pops in with a burst of the theme's
+  // colours, so visitors notice it arrive. Once per page load.
+  const [arrived, setArrived] = useState(!intro)
+  const [burst, setBurst] = useState(false)
+  useEffect(() => {
+    if (arrived) return
+    const timer = setTimeout(() => {
+      setArrived(true)
+      setBurst(true)
+    }, INTRO_DELAY)
+    return () => clearTimeout(timer)
+  }, []) // once, on mount
+  useEffect(() => {
+    if (!burst) return
+    const timer = setTimeout(() => setBurst(false), BURST_TIME)
+    return () => clearTimeout(timer)
+  }, [burst])
   const [settings, setSettings] = useState(() => loadSettings(storageKey))
   useEffect(() => setLogoColouring(settings.colourLogo), [settings.colourLogo, setLogoColouring])
 
@@ -179,7 +199,9 @@ function Switcher() {
   // Native listeners: React builds enter/leave from over/out events, which lose track when the
   // pointer arrives from another React tree across the shadow root boundary.
   useEffect(() => {
+    // No button yet (before its entrance) or at all (hidden on this device).
     const button = buttonRef.current
+    if (!button) return
     const onEnter = (e) => {
       // Mouse and pen only: touch has no hover, and a long press there already drags.
       if (e.pointerType === 'touch' || e.buttons || open || !settings.draggable) return
@@ -197,7 +219,7 @@ function Switcher() {
       button.removeEventListener('pointerenter', onEnter)
       button.removeEventListener('pointerleave', onLeave)
     }
-  }, [open, settings.draggable])
+  }, [open, settings.draggable, arrived, settings.hideButton])
 
   const close = useCallback(() => {
     setOpen(false)
@@ -335,7 +357,7 @@ function Switcher() {
     }
   }, [open, close])
 
-  if (settings.hideButton) return null
+  if (settings.hideButton || !arrived) return null
 
   return (
     <SettingsContext.Provider value={settingsApi}>
@@ -364,10 +386,11 @@ function Switcher() {
           style={placed ?? undefined}
           className={`theme-switcher fixed z-[60] ${placed ? '' : CORNERS[position]} grid place-items-center w-9 h-9 rounded-full border border-zinc-200 bg-white/90 text-zinc-700 backdrop-blur hover:bg-white hover:text-zinc-900 transition-[color,background-color,box-shadow,scale] select-none ${settings.draggable ? 'touch-none' : ''} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 ${
             dragPoint ? 'scale-110 shadow-xl cursor-grabbing' : 'shadow-md cursor-pointer'
-          }`}
+          } ${burst ? 'theme-arrive' : ''}`}
         >
           <Palette className="w-4 h-4" aria-hidden="true" />
           <CyclingDot tokens={tokens} animate={settings.animateDot} />
+          {burst && <Burst tokens={tokens} />}
           {/* Hover tooltip. Visual only: screen reader and keyboard users open the panel as usual. */}
           {hint && !open && !dragPoint && (
             <span
@@ -451,6 +474,42 @@ function CyclingDot({ tokens, animate }) {
       className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm transition-colors duration-700 ease-in-out"
       style={{ backgroundColor: still ? tokens.primary : colours[index % colours.length] }}
     />
+  )
+}
+
+// The entrance burst: squiggles, dots and dashes in the theme's colours, flung out from the
+// button. Each piece flies to (x, y) px from the centre, turning from r degrees as it goes.
+const BURST_KEYS = ['primary', 'primary-alt', 'data-1', 'data-2', 'data-3', 'data-4', 'warning', 'data-5']
+const BURST_PIECES = Array.from({ length: 12 }, (_, i) => {
+  const angle = (i * 30 + (i % 2 ? 9 : -6)) * (Math.PI / 180)
+  const distance = 30 + (i % 3) * 9
+  return {
+    x: Math.round(Math.cos(angle) * distance),
+    y: Math.round(Math.sin(angle) * distance),
+    r: Math.round((angle * 180) / Math.PI),
+    shape: ['squiggle', 'dot', 'dash'][i % 3],
+    delay: (i % 4) * 25,
+  }
+})
+
+function Burst({ tokens }) {
+  return (
+    <span aria-hidden="true" className="theme-burst pointer-events-none absolute inset-0">
+      <span className="theme-burst-ring" style={{ borderColor: tokens.primary }} />
+      {BURST_PIECES.map((p, i) => (
+        <span
+          key={i}
+          className={`theme-burst-piece ${p.shape === 'squiggle' ? '' : `theme-piece-${p.shape}`}`}
+          style={{ '--x': `${p.x}px`, '--y': `${p.y}px`, '--r': `${p.r}deg`, color: tokens[BURST_KEYS[i % BURST_KEYS.length]], animationDelay: `${p.delay}ms` }}
+        >
+          {p.shape === 'squiggle' && (
+            <svg width="16" height="10" viewBox="0 0 16 10" fill="none">
+              <path d="M1 5c1.6-3.6 3.4-3.6 4.6 0s3 3.6 4.6 0 3-3.6 4.4 0" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+            </svg>
+          )}
+        </span>
+      ))}
+    </span>
   )
 }
 
