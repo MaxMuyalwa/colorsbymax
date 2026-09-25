@@ -950,19 +950,38 @@ var lift = (hex, min, max = .78) => {
 	const [h, s, l] = hslOf$2(hex);
 	return hsl$1(h, s, Math.min(max, Math.max(min, l)));
 };
+/**
+* Lightens a colour, keeping its hue and saturation, until it reaches `ratio` against `bg`.
+* Lightness alone doesn't guarantee that: a vivid blue or violet at 60% lightness still reads dark.
+*/
+var readOn = (hex, bg, ratio) => {
+	const [h, s, l] = hslOf$2(hex);
+	let out = hex;
+	for (let x = l; contrastRatio(out, bg) < ratio && x < .96; x += .01) out = hsl$1(h, s, x);
+	return out;
+};
+var TEXT = 4.8;
+var ICON = 3.3;
 /** @param {import('./tokens.js').ThemeTokens} t */
 function darkTokens(t) {
-	const primary = lift(t.primary, .58, .7);
-	const onPrimary = luminance(primary) > .18 ? tone(t.background, .08, .3) : "#ffffff";
+	const background = tone(t.background, .08, .3);
+	const secondary = tone(t.secondary, .2, .45);
+	const areaBg = deriveAppTokens({
+		...t,
+		secondary
+	})["app-background"];
+	const lighterBg = luminance(areaBg) > luminance(background) ? areaBg : background;
+	const primary = readOn(lift(t.primary, .58, .7), lighterBg, TEXT);
+	const onPrimary = [background, "#ffffff"].sort((a, b) => contrastRatio(b, primary) - contrastRatio(a, primary))[0];
 	const tokens = {
 		...t,
 		primary,
 		"on-primary": onPrimary,
 		"primary-dark": tone(t["primary-dark"], .82, .7),
-		"primary-alt": lift(t["primary-alt"], .6),
-		background: tone(t.background, .08, .3),
+		"primary-alt": readOn(lift(t["primary-alt"], .6), lighterBg, ICON),
+		background,
 		surface: tone(t.background, .12, .25),
-		secondary: tone(t.secondary, .2, .45),
+		secondary,
 		"on-secondary": tone(t["on-secondary"], .86, .6),
 		accent: tone(t.accent, .17, .45),
 		"on-accent": tone(t["on-accent"], .86, .6),
@@ -971,12 +990,12 @@ function darkTokens(t) {
 		ink: tone(t.ink, .94, .15),
 		"ink-secondary": tone(t["ink-secondary"], .76, .12),
 		"ink-muted": tone(t["ink-muted"], .7, .12),
-		success: lift(t.success, .6),
-		warning: lift(t.warning, .6),
-		danger: lift(t.danger, .66),
-		info: lift(t.info, .66)
+		success: readOn(lift(t.success, .6), background, ICON),
+		warning: readOn(lift(t.warning, .6), background, ICON),
+		danger: readOn(lift(t.danger, .66), background, ICON),
+		info: readOn(lift(t.info, .66), background, ICON)
 	};
-	for (let n = 1; n <= 8; n++) tokens[`data-${n}`] = lift(t[`data-${n}`], .6);
+	for (let n = 1; n <= 8; n++) tokens[`data-${n}`] = readOn(lift(t[`data-${n}`], .6), background, n <= 2 ? TEXT : ICON);
 	const full = {
 		...tokens,
 		...deriveAppTokens(tokens)
