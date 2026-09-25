@@ -124,6 +124,30 @@ body {
   transform: none;
 }
 
+/* The hero's text comes in from a blur, one line after another (--hero-delay), then the
+   screenshots rise into place. */
+@media (prefers-reduced-motion: no-preference) {
+  .hero-in {
+    animation: hero-in 900ms cubic-bezier(0.2, 0.7, 0.2, 1) var(--hero-delay, 0ms) both;
+  }
+  .hero-rise {
+    animation: hero-rise 900ms cubic-bezier(0.2, 0.7, 0.2, 1) var(--hero-delay, 0ms) both;
+  }
+}
+@keyframes hero-in {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+    transform: translateY(20px);
+  }
+}
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.97);
+  }
+}
+
 /* A pointing finger that nudges towards what it points at, to say "tap this". */
 @media (prefers-reduced-motion: no-preference) {
   .nudge {

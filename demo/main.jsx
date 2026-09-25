@@ -15,6 +15,7 @@ import { Feedback } from './site/Feedback.jsx'
 import { config } from './site/config.js'
 import { Community } from './site/Community.jsx'
 import { ThemedFavicon } from './site/Favicon.jsx'
+import { PREVIEW, previewConfig, setUpPreview } from './site/preview.js'
 import './demo.css'
 
 function Site() {
@@ -43,12 +44,16 @@ function Site() {
   )
 }
 
+const siteConfig = PREVIEW ? previewConfig(config) : config
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <ThemeProvider config={config}>
+    <ThemeProvider config={siteConfig}>
       <Site />
       <ThemedFavicon />
       <ThemeSwitcher />
     </ThemeProvider>
   </StrictMode>,
 )
+
+if (PREVIEW) setUpPreview()
