@@ -33,6 +33,8 @@ const newId = () => `custom-${Date.now().toString(36)}-${Math.random().toString(
  *   Where each token is used on this site, shown in the editors
  * @property {boolean} [scrollbars]  Colour the page's scrollbars from the theme (default true)
  * @property {() => Promise<any>} [pdf]  Enables PDF uploads: pass `loadPdf` from 'colorsbymax/pdf'
+ * @property {'light' | 'dark' | 'system'} [defaultMode]  The mode a first-time visitor starts in
+ *   (default 'light'; 'system' follows their device). Visitors can still change it.
  * @property {boolean} [colourLogo]  Whether themes colour the site's logo for a first-time visitor
  *   (default false: the logo keeps its own colours). Visitors can still change it in settings.
  * @property {boolean} [intro]  Bring the colour button in with a short pop and burst of the theme's
@@ -124,8 +126,15 @@ export function ThemeProvider({ config = {}, children }) {
   // Logo colouring (a visitor setting, off by default): when off, the logo keeps its own colours.
   // Re-coloured sites leave it out of the swap; sites on the colour variables get the site's own
   // variables back on the logo, so it paints as it always did.
-  // The site's starting settings: the defaults, with its own choice for colouring the logo.
-  const settingDefaults = useMemo(() => ({ ...DEFAULT_SETTINGS, colourLogo: Boolean(initialConfig.colourLogo) }), [initialConfig])
+  // The site's starting settings: the defaults, with its own choices for the mode and the logo.
+  const settingDefaults = useMemo(
+    () => ({
+      ...DEFAULT_SETTINGS,
+      colourLogo: Boolean(initialConfig.colourLogo),
+      mode: ['light', 'dark', 'system'].includes(initialConfig.defaultMode) ? initialConfig.defaultMode : DEFAULT_SETTINGS.mode,
+    }),
+    [initialConfig],
+  )
   const [logoColouring, setLogoColouring] = useState(() => loadSettings(storageKey, settingDefaults).colourLogo)
   useLayoutEffect(() => {
     recolourer.current?.setLogoColouring(logoColouring)

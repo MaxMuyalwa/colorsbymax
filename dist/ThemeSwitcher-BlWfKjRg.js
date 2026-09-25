@@ -1912,6 +1912,8 @@ var newId = () => `custom-${Date.now().toString(36)}-${Math.random().toString(36
 *   Where each token is used on this site, shown in the editors
 * @property {boolean} [scrollbars]  Colour the page's scrollbars from the theme (default true)
 * @property {() => Promise<any>} [pdf]  Enables PDF uploads: pass `loadPdf` from 'colorsbymax/pdf'
+* @property {'light' | 'dark' | 'system'} [defaultMode]  The mode a first-time visitor starts in
+*   (default 'light'; 'system' follows their device). Visitors can still change it.
 * @property {boolean} [colourLogo]  Whether themes colour the site's logo for a first-time visitor
 *   (default false: the logo keeps its own colours). Visitors can still change it in settings.
 * @property {boolean} [intro]  Bring the colour button in with a short pop and burst of the theme's
@@ -2017,7 +2019,12 @@ function ThemeProvider({ config = {}, children }) {
 	}, [recolourMode]);
 	const settingDefaults = useMemo(() => ({
 		...DEFAULT_SETTINGS,
-		colourLogo: Boolean(initialConfig.colourLogo)
+		colourLogo: Boolean(initialConfig.colourLogo),
+		mode: [
+			"light",
+			"dark",
+			"system"
+		].includes(initialConfig.defaultMode) ? initialConfig.defaultMode : DEFAULT_SETTINGS.mode
 	}), [initialConfig]);
 	const [logoColouring, setLogoColouring] = useState(() => loadSettings(storageKey, settingDefaults).colourLogo);
 	useLayoutEffect(() => {

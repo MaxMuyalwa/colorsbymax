@@ -95,6 +95,11 @@ export interface ColorsByMaxConfig {
    * its own colours). Visitors can still change it in the panel's settings.
    */
   colourLogo?: boolean
+  /**
+   * The mode a first-time visitor starts in (default 'light'; 'system' follows their device). Any
+   * site can start dark: every theme has a dark twin. Visitors can still change it.
+   */
+  defaultMode?: 'light' | 'dark' | 'system'
 }
 
 export interface ThemeProviderProps {
