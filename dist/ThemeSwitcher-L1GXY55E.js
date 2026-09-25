@@ -1170,7 +1170,7 @@ function inferRoles(colors) {
 	const readable = (c, min) => contrastRatio(c.hex, background) >= min;
 	const ink = (byText.find((c) => readable(c, 4.5)) ?? byText[0])?.hex ?? "#1f2937";
 	const inkSecondary = byText.find((c) => c.hex !== ink && deltaE(c.hex, ink) > 8 && readable(c, 3))?.hex;
-	const accents = colors.map((c) => {
+	const accents = colors.filter((c) => c.hex !== ink && c.hex !== inkSecondary).map((c) => {
 		const [h, s, l] = toHsl(c.hex);
 		const share = c.bg / BG + c.text / TEXT + c.border / BORDER * .5;
 		return {
@@ -2501,6 +2501,26 @@ function themeFromPalette(colours) {
 	};
 }
 //#endregion
+//#region src/finish.js
+/** The production check for Vite projects; other bundlers use NODE_ENV. */
+var VITE_PROD = "import.meta.env.PROD";
+var NODE_PROD = "process.env.NODE_ENV === 'production'";
+var tokenLines = (tokens, indent) => TOKEN_KEYS.map((k) => `${indent}'${k}': '${tokens[k]}',`).join("\n");
+/**
+* Code that makes the chosen colours the site's default and hides the switcher in production.
+* @param {'auto' | 'provider'} kind  the one-line setup (autoMount) or ThemeProvider
+*/
+function keepSnippet(kind, name, tokens, prod = VITE_PROD) {
+	const theme = `defaultTheme: {\n    name: ${JSON.stringify(name)},\n    tokens: {\n${tokenLines(tokens, "      ")}\n    },\n  },\n  // Hides the colour button in production; set to false to bring it back.\n  hidden: ${prod},`;
+	if (kind === "auto") return `// Replace \`import 'colorsbymax/auto'\` with:\nimport { autoMount } from 'colorsbymax/auto'\n\nautoMount({\n  ${theme}\n})`;
+	return `// Add to the config you pass to <ThemeProvider>:\n<ThemeProvider config={{\n  ...config,\n  ${theme}\n}}>`;
+}
+/** The theme as `--color-*` variables on :root. */
+var cssSnippet = (tokens) => `:root {\n${TOKEN_KEYS.map((k) => `  --color-${k}: ${tokens[k]};`).join("\n")}\n}`;
+var keepPrompt = (name, tokens) => `Update my colorsbymax setup so the colours I chose become my site's default and the colour switcher is hidden in production. In the colorsbymax config (the autoMount({...}) call, or the config passed to <ThemeProvider>), set defaultTheme to { name: ${JSON.stringify(name)}, tokens: ${JSON.stringify(tokens)} } and set hidden: ${VITE_PROD} (use ${NODE_PROD} if this isn't a Vite project). If the site uses import 'colorsbymax/auto', replace it with import { autoMount } from 'colorsbymax/auto' and an autoMount({...}) call with that config. Don't change anything else.`;
+/** @param {boolean} recolouring  true when colorsbymax was swapping the site's hard-coded colours */
+var removePrompt = (tokens, recolouring) => recolouring ? `Remove colorsbymax from this project but keep the colours it currently shows. The site's CSS uses hard-coded colours that colorsbymax was swapping at runtime, so update the site's own CSS to use this palette instead (primary is the main brand colour, background the page, ink the text): ${JSON.stringify(tokens)}. Then uninstall the colorsbymax package and delete its import (import 'colorsbymax/auto', autoMount, ThemeProvider or ThemeSwitcher) and any colorsbymax pre-paint script in index.html.` : `Remove colorsbymax from this project but keep my colours: add these CSS variables to my global stylesheet, replacing any existing --color-* values: ${cssSnippet(tokens)} Then uninstall the colorsbymax package and delete its usage (ThemeProvider, ThemeSwitcher, autoMount or import 'colorsbymax/auto') and any colorsbymax pre-paint script in index.html. Keep colorsbymax/tokens.css only if nothing else needs it.`;
+//#endregion
 //#region src/settings.js
 /**
 * @typedef {Object} PanelSettings
@@ -2862,18 +2882,6 @@ function Toast({ toast, onDismiss }) {
 		]
 	});
 }
-var PROD = "import.meta.env.PROD";
-var tokenLines = (tokens, indent) => TOKEN_KEYS.map((k) => `${indent}'${k}': '${tokens[k]}',`).join("\n");
-/** Code that makes the chosen colours the site's default and hides the switcher in production. */
-function keepSnippet(kind, name, tokens) {
-	const theme = `defaultTheme: {\n    name: ${JSON.stringify(name)},\n    tokens: {\n${tokenLines(tokens, "      ")}\n    },\n  },\n  // Hides the colour button in production; set to false to bring it back.\n  hidden: ${PROD},`;
-	if (kind === "auto") return `// Replace \`import 'colorsbymax/auto'\` with:\nimport { autoMount } from 'colorsbymax/auto'\n\nautoMount({\n  ${theme}\n})`;
-	return `// Add to the config you pass to <ThemeProvider>:\n<ThemeProvider config={{\n  ...config,\n  ${theme}\n}}>`;
-}
-var cssSnippet = (tokens) => `:root {\n${TOKEN_KEYS.map((k) => `  --color-${k}: ${tokens[k]};`).join("\n")}\n}`;
-var keepPrompt = (name, tokens) => `Update my colorsbymax setup so the colours I chose become my site's default and the colour switcher is hidden in production. In the colorsbymax config (the autoMount({...}) call, or the config passed to <ThemeProvider>), set defaultTheme to { name: ${JSON.stringify(name)}, tokens: ${JSON.stringify(tokens)} } and set hidden: ${PROD} (use process.env.NODE_ENV === 'production' if this isn't a Vite project). If the site uses import 'colorsbymax/auto', replace it with import { autoMount } from 'colorsbymax/auto' and an autoMount({...}) call with that config. Don't change anything else.`;
-var BRING_BACK_PROMPT = "Show the colorsbymax colour switcher again in production: in its config (the autoMount({...}) call or the config passed to <ThemeProvider>), set hidden to false or remove the hidden line. Don't change anything else.";
-var removePrompt = (tokens, recolouring) => recolouring ? `Remove colorsbymax from this project but keep the colours it currently shows. The site's CSS uses hard-coded colours that colorsbymax was swapping at runtime, so update the site's own CSS to use this palette instead (primary is the main brand colour, background the page, ink the text): ${JSON.stringify(tokens)}. Then uninstall the colorsbymax package and delete its import (import 'colorsbymax/auto', autoMount, ThemeProvider or ThemeSwitcher) and any colorsbymax pre-paint script in index.html.` : `Remove colorsbymax from this project but keep my colours: add these CSS variables to my global stylesheet, replacing any existing --color-* values: ${cssSnippet(tokens)} Then uninstall the colorsbymax package and delete its usage (ThemeProvider, ThemeSwitcher, autoMount or import 'colorsbymax/auto') and any colorsbymax pre-paint script in index.html. Keep colorsbymax/tokens.css only if nothing else needs it.`;
 /** Shows code with a copy button. */
 function CopyBlock({ label, text, copyLabel = "Copy" }) {
 	const { toast } = usePanel();
@@ -3028,7 +3036,7 @@ function FinishView({ onBack }) {
 							" instead of ",
 							/* @__PURE__ */ jsx("code", {
 								className: "font-mono",
-								children: PROD
+								children: "import.meta.env.PROD"
 							}),
 							" (Next.js, webpack)."
 						]
@@ -3053,7 +3061,7 @@ function FinishView({ onBack }) {
 							"."
 						] }), /* @__PURE__ */ jsx(CopyBlock, {
 							label: "Prompt to bring it back",
-							text: BRING_BACK_PROMPT,
+							text: "Show the colorsbymax colour switcher again in production: in its config (the autoMount({...}) call or the config passed to <ThemeProvider>), set hidden to false or remove the hidden line. Don't change anything else.",
 							copyLabel: "Copy prompt"
 						})]
 					})

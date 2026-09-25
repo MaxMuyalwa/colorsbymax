@@ -2,9 +2,10 @@
 
 What changed in each colorsbymax release. Update with `npm install colorsbymax@latest`.
 
-## Unreleased
+## 0.2.2 (2026-09-25)
 
 - **MCP server for AI agents.** [colorsbymax-mcp](mcp/) lets Claude Code, Cursor, VS Code Copilot and other agents set colorsbymax up in a project (with the right edits for Vite, Next.js, Remix, Astro, Nuxt, SvelteKit, plain HTML and more), find themes, build one from brand colours, check contrast and finish. Add it with `claude mcp add colorsbymax -- npx -y colorsbymax-mcp`.
+- **A new README** with colour-coded sections and navigation, and a full guide to using colorsbymax with Claude Code, Cursor, VS Code Copilot, Claude Desktop, Windsurf, Cline and Codex, with or without the MCP server.
 - Fixed: on sites whose body text is a warm or tinted dark (such as dark brown), re-colouring could take the text colour for the brand colour, so brand areas came out far too light or garish. The text colour is no longer a brand candidate.
 
 ## 0.2.1 (2026-09-25)

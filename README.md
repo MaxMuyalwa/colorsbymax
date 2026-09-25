@@ -1,10 +1,31 @@
-# colorsbymax™
+<p align="center">
+  <img src="https://raw.githubusercontent.com/MaxMuyalwa/colorsbymax/main/docs/readme/hero.svg" alt="colorsbymax by mrmaxdesigns: re-colour any website, live." width="880">
+</p>
 
-**by mrmaxdesigns**
+<p align="center">
+  <a href="https://www.npmjs.com/package/colorsbymax"><img src="https://img.shields.io/npm/v/colorsbymax?style=flat-square&color=0d6b84&label=colorsbymax" alt="colorsbymax on npm"></a>
+  <a href="https://www.npmjs.com/package/colorsbymax-mcp"><img src="https://img.shields.io/npm/v/colorsbymax-mcp?style=flat-square&color=7c3aed&label=colorsbymax-mcp" alt="colorsbymax-mcp on npm"></a>
+  <img src="https://img.shields.io/badge/React-18%20%7C%2019-be185d?style=flat-square" alt="React 18 or 19">
+  <img src="https://img.shields.io/badge/types-included-15803d?style=flat-square" alt="TypeScript types included">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-c2410c?style=flat-square" alt="MIT licence"></a>
+</p>
 
 A floating theme switcher for websites. Visitors (or the site's owner) can re-colour the whole site instantly: pick one of the site's own themes, a hand-tuned pick, or one of 715 library themes in 14 categories; build and share custom palettes; or override single colours. Every theme is checked against the Web Content Accessibility Guidelines (WCAG) contrast rules, with one-click fixes.
 
-**At a glance**
+<p align="center">
+  <a href="#at-a-glance"><img src="https://raw.githubusercontent.com/MaxMuyalwa/colorsbymax/main/docs/readme/nav-start.svg" alt="1. Get started" height="36"></a>
+  <a href="#coding-agents-mcp"><img src="https://raw.githubusercontent.com/MaxMuyalwa/colorsbymax/main/docs/readme/nav-agents.svg" alt="2. Coding agents" height="36"></a>
+  <a href="#features"><img src="https://raw.githubusercontent.com/MaxMuyalwa/colorsbymax/main/docs/readme/nav-inside.svg" alt="3. Features" height="36"></a>
+  <a href="#add-it-to-a-site"><img src="https://raw.githubusercontent.com/MaxMuyalwa/colorsbymax/main/docs/readme/nav-control.svg" alt="4. Full control" height="36"></a>
+  <a href="#finished-keep-your-colours-and-hide-the-switcher"><img src="https://raw.githubusercontent.com/MaxMuyalwa/colorsbymax/main/docs/readme/nav-ship.svg" alt="5. Ship it" height="36"></a>
+  <a href="#building-the-package"><img src="https://raw.githubusercontent.com/MaxMuyalwa/colorsbymax/main/docs/readme/nav-hood.svg" alt="6. Under the hood" height="36"></a>
+</p>
+
+<br>
+
+<img src="https://raw.githubusercontent.com/MaxMuyalwa/colorsbymax/main/docs/readme/section-start.svg" alt="01 · Get started: two steps to a live colour switcher" width="100%">
+
+## At a glance
 
 - **Two steps.** `npm install colorsbymax`, then `import 'colorsbymax/auto'` once. The colour button appears and visitors can re-colour the site, even if its colours are hard-coded (see [Quick start](#quick-start)).
 - **React 18 or 19.**
@@ -13,40 +34,6 @@ A floating theme switcher for websites. Visitors (or the site's owner) can re-co
 - **No runtime dependencies** besides React. PDF uploads are opt-in and need `pdfjs-dist` (see [PDF uploads](#pdf-uploads)).
 - **ESM only.** Import it from a bundler or `import()`; `require('colorsbymax')` from CommonJS isn't supported.
 - **The colour tools work on their own too.** `contrastRatio`, `checkTheme`, `suggestFix`, `fixAll`, `themeFromPalette`, `darkTokens` and the rest are plain functions with no UI.
-
-## Features
-
-- **Site themes first.** The panel opens on a group named after the site, holding its own colours. If those fail contrast, an accessible version is generated automatically.
-- **Scan the site.** Press "Scan site" and colorsbymax reads the colours actually painted on the page (ignoring any theme it has applied, and including gradients). It works out the page background, surfaces, text and brand colours, then adds themes named after the site: Scanned (as found), Accessible, Soft, Bold, Complementary, and the closest library matches. Scans run only when asked, and the results are remembered.
-- **Max’s picks and library.** 5 hand-tuned picks, plus 715 library themes (Bright, Fun, Pastel, Earth tones, Summer, Autumn, Winter, Spring, Ocean, Warm, Nature, Moody, Monochrome, Eclectic) with search and "Surprise me". The library loads only when the panel opens.
-- **Custom palettes, single-colour overrides, JSON import/export.**
-- **Palettes from images and PDFs.** In Import / export, upload or drop a mood board, screenshot or photo. colorsbymax picks out its main colours, lets you leave any out, previews the palette it builds around them and saves it as a custom palette. Nothing leaves the browser. PDFs, such as brand guides, work where the site [turns them on](#pdf-uploads); hex codes written in a PDF take priority.
-- **Contrast checks.** Problems show as a badge on the theme; the breakdown offers per-item fixes or "Fix all automatically", which changes lightness only.
-- **No flash on reload.** An inline pre-paint script applies the saved theme before the page draws.
-- **Works on any site.** The panel carries its own stylesheet inside a shadow root, so it needs no Tailwind or other CSS from the site, and the site's CSS can't restyle it.
-- **Movable colour button.** The floating button starts in the corner; visitors can drag it anywhere (mouse or touch; a tooltip says so on hover, and the panel closes while it moves) and it stays there, remembered across reloads. The panel then opens beside it, on whichever side has room. Its dot cycles through the current theme's colours.
-- **Light and dark mode.** Every built-in theme is designed light; dark mode lists a generated dark twin of each (dark surfaces, light text, brand colours lifted to read on dark, then contrast-fixed) and switches the current theme to its twin. The panel turns dark with it. Custom palettes stay as they were made.
-- **Visitor settings.** The gear in the panel header opens settings: theme mode (Light, Dark, Auto), panel size (Compact, Standard, Large), which groups and sections to show, whether the button can be dragged or its dot animates, and moving the button back to its corner. Saved per site.
-- **Resizable panel.** Drag the panel's free edges or corner (the ones away from the colour button) to any size, or pick a size in settings; double-click an edge to reset it. The layout follows the panel's width, so a large panel shows three theme cards a row.
-- **Audit the page.** The **Audit** button in the panel header looks at the page in the chosen colours and pins notes to what won't look right: a logo that disappears against its background (with a one-click "Colour the logo", or tips when it's a picture colorsbymax can't re-colour, plus "Preview inverted"), pictures whose solid background shows as a box, and text or icons too faint to read. The notes stay on the page as you scroll; **Re-check** after a fix (it also re-checks when the colours change) and close it from its bar.
-- **Clear groups and feedback.** The site's own group (globe), Max’s picks (paintbrush) and Yours (person) sit in their own row, apart from the library's categories. Toasts confirm what just happened; saving, importing or building a palette says it went to Yours and offers "Show" to jump straight to it. Tooltips are drawn in the panel's colours.
-- **Themed scrollbars.** The page's scrollbars and the panel's slim one take the selected theme's primary colour. Turn the page's off with `scrollbars: false`.
-- **Accessible panel.** A labelled dialog with focus trap, Escape, the colour button or an outside click to close, keyboard operable, and reduced-motion support.
-
-## How it works
-
-Every colour is one of 35 tokens (`primary`, `surface`, `ink`, `data-1`…), exposed as `--color-<token>` CSS variables. Applying a theme just sets those variables on `<html>`, so anything the site paints with `var(--color-primary)` (directly, or through Tailwind CSS v4 utilities like `bg-primary`) changes instantly. There's no rebuild and no re-render.
-
-The switcher renders into a `<colorsbymax-root>` element on `<body>` with its own shadow root and stylesheet. Only the `--color-*` variables cross into it. With reduced motion, the colour button's dot holds still on the theme's primary colour.
-
-## Try the demo
-
-```bash
-npm install
-npm run dev
-```
-
-This serves `demo/`: colorsbymax's own landing page, built with Tailwind, where every colour is a token (it uses every token group, and a strip shows the live values); `/plain.html`, a plain-CSS bakery site with deliberately careless global styles to show they don't reach the panel; and `/unwired.html`, a coffee shop with only hard-coded colours whose whole setup is `import 'colorsbymax/auto'`.
 
 ## Quick start
 
@@ -75,15 +62,132 @@ That's all. The colour button appears in the bottom-right corner once the page h
 
 Already installed it? Get the newest version with `npm install colorsbymax@latest` (see [Updating](#updating)).
 
-## Set it up with an AI agent (MCP)
+## Try the demo
 
-[colorsbymax-mcp](mcp/) is an MCP server that lets Claude Code, Cursor, VS Code Copilot and other agents use colorsbymax for you. The agent can inspect your project and add colorsbymax the right way for its framework, find themes or build one around your brand colours, check contrast, and, once you have picked your colours, keep them and hide the switcher in production.
+```bash
+npm install
+npm run dev
+```
+
+This serves `demo/`: colorsbymax's own landing page, built with Tailwind, where every colour is a token (it uses every token group, and a strip shows the live values); `/plain.html`, a plain-CSS bakery site with deliberately careless global styles to show they don't reach the panel; and `/unwired.html`, a coffee shop with only hard-coded colours whose whole setup is `import 'colorsbymax/auto'`.
+
+<br>
+
+<img src="https://raw.githubusercontent.com/MaxMuyalwa/colorsbymax/main/docs/readme/section-agents.svg" alt="02 · Coding agents: let Claude, Cursor or Copilot do it" width="100%">
+
+## Coding agents (MCP)
+
+Your coding agent can set colorsbymax up and use it for you. [colorsbymax-mcp](mcp/) is an [MCP](https://modelcontextprotocol.io) server that gives Claude Code, Cursor, VS Code Copilot, Claude Desktop, Windsurf, Codex and other agents colorsbymax's own tools:
+
+| The agent can… | Tool |
+| --- | --- |
+| Look at your project and add colorsbymax the right way for its framework: Vite, Next.js, Remix, Gatsby, Astro, Nuxt, SvelteKit, Vue, Svelte or plain HTML | `setup_plan` |
+| Find themes by mood, category or closeness to your brand colour, in light or dark | `find_themes`, `get_theme` |
+| Build a complete, accessible theme around your brand colours | `theme_from_colours` |
+| Check contrast and suggest the smallest fixes | `check_contrast` |
+| Make your chosen colours the default and hide the switcher in production, or remove colorsbymax and keep them | `finish` |
+| Read these docs and the full TypeScript API | `docs` |
+
+It reads your project but never changes it: the agent makes the edits, so you review them as usual. It runs with `npx`, so there's nothing to install first (Node 18 or later).
+
+### Claude Code
 
 ```bash
 claude mcp add colorsbymax -- npx -y colorsbymax-mcp
 ```
 
-Then ask: *"Add colorsbymax to this project."* The [MCP README](mcp/README.md) has the setup for other editors and the full list of tools.
+That adds it for you in this project. Add `--scope user` to have it in every project, or `--scope project` to share it with your team through a `.mcp.json` file. Check it with `/mcp` inside Claude Code.
+
+### Cursor
+
+Add this to `.cursor/mcp.json` in your project, or to `~/.cursor/mcp.json` for every project:
+
+```json
+{
+  "mcpServers": {
+    "colorsbymax": { "command": "npx", "args": ["-y", "colorsbymax-mcp"] }
+  }
+}
+```
+
+It then shows under **Settings → MCP**, and Cursor's agent uses it when you ask about colours or themes.
+
+### VS Code (GitHub Copilot)
+
+Add this to `.vscode/mcp.json`, then use it from Copilot Chat in **Agent** mode:
+
+```json
+{
+  "servers": {
+    "colorsbymax": { "command": "npx", "args": ["-y", "colorsbymax-mcp"] }
+  }
+}
+```
+
+### Claude Desktop
+
+Open **Settings → Developer → Edit Config**, add the same `mcpServers` entry as Cursor to `claude_desktop_config.json`, and restart Claude Desktop.
+
+### Windsurf, Cline, Codex and others
+
+Most agents take the same `mcpServers` entry as Cursor: Windsurf in `~/.codeium/windsurf/mcp_config.json`, and Cline under **MCP Servers → Configure**. For the Codex CLI, add this to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.colorsbymax]
+command = "npx"
+args = ["-y", "colorsbymax-mcp"]
+```
+
+On Windows, if an editor can't start `npx`, use `"command": "cmd"` with `"args": ["/c", "npx", "-y", "colorsbymax-mcp"]`.
+
+### What to ask
+
+- *"Add colorsbymax to this project."*
+- *"Find me a calm ocean theme that also works in dark mode."*
+- *"Build a theme around our brand colours #e63946 and #1d3557, and check its contrast."*
+- *"Does white text pass on #f59e0b?"*
+- *"I've picked my colours in the panel. Make them the default and hide the switcher in production."* Paste the theme from the panel's **Import / export**, or name the theme.
+
+### Without MCP
+
+Any coding agent can still do it from a prompt. Paste this into Claude, Cursor, Copilot or another agent:
+
+> Install the colorsbymax npm package in this project and add `import 'colorsbymax/auto'` to the app's entry file, so the colorsbymax colour button appears on every page. For Next.js, Remix or other server-rendered apps, load it in the browser only, with `import('colorsbymax/auto')` inside a `useEffect`. Follow https://github.com/MaxMuyalwa/colorsbymax#quick-start and don't change anything else.
+
+When you're done choosing colours, the panel's **I'm done** button gives you ready-made prompts for keeping your colours, hiding the switcher or removing it (see [Finished?](#finished-keep-your-colours-and-hide-the-switcher)).
+
+<br>
+
+<img src="https://raw.githubusercontent.com/MaxMuyalwa/colorsbymax/main/docs/readme/section-inside.svg" alt="03 · What's inside: everything in the panel" width="100%">
+
+## Features
+
+- **Site themes first.** The panel opens on a group named after the site, holding its own colours. If those fail contrast, an accessible version is generated automatically.
+- **Scan the site.** Press "Scan site" and colorsbymax reads the colours actually painted on the page (ignoring any theme it has applied, and including gradients). It works out the page background, surfaces, text and brand colours, then adds themes named after the site: Scanned (as found), Accessible, Soft, Bold, Complementary, and the closest library matches. Scans run only when asked, and the results are remembered.
+- **Max’s picks and library.** 5 hand-tuned picks, plus 715 library themes (Bright, Fun, Pastel, Earth tones, Summer, Autumn, Winter, Spring, Ocean, Warm, Nature, Moody, Monochrome, Eclectic) with search and "Surprise me". The library loads only when the panel opens.
+- **Custom palettes, single-colour overrides, JSON import/export.**
+- **Palettes from images and PDFs.** In Import / export, upload or drop a mood board, screenshot or photo. colorsbymax picks out its main colours, lets you leave any out, previews the palette it builds around them and saves it as a custom palette. Nothing leaves the browser. PDFs, such as brand guides, work where the site [turns them on](#pdf-uploads); hex codes written in a PDF take priority.
+- **Contrast checks.** Problems show as a badge on the theme; the breakdown offers per-item fixes or "Fix all automatically", which changes lightness only.
+- **No flash on reload.** An inline pre-paint script applies the saved theme before the page draws.
+- **Works on any site.** The panel carries its own stylesheet inside a shadow root, so it needs no Tailwind or other CSS from the site, and the site's CSS can't restyle it.
+- **Movable colour button.** The floating button starts in the corner; visitors can drag it anywhere (mouse or touch; a tooltip says so on hover, and the panel closes while it moves) and it stays there, remembered across reloads. The panel then opens beside it, on whichever side has room. Its dot cycles through the current theme's colours.
+- **Light and dark mode.** Every built-in theme is designed light; dark mode lists a generated dark twin of each (dark surfaces, light text, brand colours lifted to read on dark, then contrast-fixed) and switches the current theme to its twin. The panel turns dark with it. Custom palettes stay as they were made.
+- **Visitor settings.** The gear in the panel header opens settings: theme mode (Light, Dark, Auto), panel size (Compact, Standard, Large), which groups and sections to show, whether the button can be dragged or its dot animates, and moving the button back to its corner. Saved per site.
+- **Resizable panel.** Drag the panel's free edges or corner (the ones away from the colour button) to any size, or pick a size in settings; double-click an edge to reset it. The layout follows the panel's width, so a large panel shows three theme cards a row.
+- **Audit the page.** The **Audit** button in the panel header looks at the page in the chosen colours and pins notes to what won't look right: a logo that disappears against its background (with a one-click "Colour the logo", or tips when it's a picture colorsbymax can't re-colour, plus "Preview inverted"), pictures whose solid background shows as a box, and text or icons too faint to read. The notes stay on the page as you scroll; **Re-check** after a fix (it also re-checks when the colours change) and close it from its bar.
+- **Clear groups and feedback.** The site's own group (globe), Max’s picks (paintbrush) and Yours (person) sit in their own row, apart from the library's categories. Toasts confirm what just happened; saving, importing or building a palette says it went to Yours and offers "Show" to jump straight to it. Tooltips are drawn in the panel's colours.
+- **Themed scrollbars.** The page's scrollbars and the panel's slim one take the selected theme's primary colour. Turn the page's off with `scrollbars: false`.
+- **Accessible panel.** A labelled dialog with focus trap, Escape, the colour button or an outside click to close, keyboard operable, and reduced-motion support.
+
+## How it works
+
+Every colour is one of 35 tokens (`primary`, `surface`, `ink`, `data-1`…), exposed as `--color-<token>` CSS variables. Applying a theme just sets those variables on `<html>`, so anything the site paints with `var(--color-primary)` (directly, or through Tailwind CSS v4 utilities like `bg-primary`) changes instantly. There's no rebuild and no re-render.
+
+The switcher renders into a `<colorsbymax-root>` element on `<body>` with its own shadow root and stylesheet. Only the `--color-*` variables cross into it. With reduced motion, the colour button's dot holds still on the theme's primary colour.
+
+<br>
+
+<img src="https://raw.githubusercontent.com/MaxMuyalwa/colorsbymax/main/docs/readme/section-control.svg" alt="04 · Full control: paint with colour tokens" width="100%">
 
 ## Add it to a site
 
@@ -167,6 +271,10 @@ PDF.js still downloads only when a visitor picks a PDF. Sites that don't opt in 
 
 `examples/tsungi.config.js` is a complete example for tsungi.online, the first site to use colorsbymax.
 
+<br>
+
+<img src="https://raw.githubusercontent.com/MaxMuyalwa/colorsbymax/main/docs/readme/section-ship.svg" alt="05 · Ship it: keep your colours and go live" width="100%">
+
 ## Finished? Keep your colours and hide the switcher
 
 The colours you pick in the panel are saved only in your own browser. When you're happy with them, press **I'm done** at the bottom of the panel. It shows your colours and three ways to finish, each with code to copy and a prompt you can paste into Claude, Cursor, Copilot or any AI editor. **Cancel, keep using colorsbymax** takes you back without changing anything.
@@ -219,12 +327,24 @@ npm install colorsbymax@latest --prefer-online
 
 What changed in each release, and anything you need to do when upgrading, is in [CHANGELOG.md](CHANGELOG.md).
 
+<br>
+
+<img src="https://raw.githubusercontent.com/MaxMuyalwa/colorsbymax/main/docs/readme/section-hood.svg" alt="06 · Under the hood: build, regenerate, contribute" width="100%">
+
 ## Building the package
 
 `src/` is the source; `dist/` is what sites install: plain JavaScript with the JSX compiled away. `types/` holds the hand-written TypeScript declarations; `npm run typecheck` compiles `types/check.tsx` against them and checks they match the built exports. The panel's icons are copied from Lucide into `src/icons.jsx` by `npm run icons`. `dist/` is committed so installs straight from GitHub work even when npm skips install scripts, so rebuild it before committing changes to `src/`. `npm publish` also rebuilds it first:
 
 ```bash
 npm run build
+```
+
+## README artwork
+
+The hero, the section banners and the navigation chips are SVGs in `docs/readme/`, drawn by `scripts/make-readme-art.mjs` from colorsbymax's own themes:
+
+```bash
+node scripts/make-readme-art.mjs
 ```
 
 ## Panel styles

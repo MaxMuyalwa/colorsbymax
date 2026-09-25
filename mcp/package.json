@@ -1,6 +1,6 @@
 {
   "name": "colorsbymax-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server for colorsbymax: lets AI agents set up the theme switcher, find and build themes, check contrast and finish a site's colours.",
   "keywords": [
     "mcp",

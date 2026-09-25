@@ -266,13 +266,15 @@ server.registerTool(
 
 // ---------------------------------------------------------------- docs
 
+/** The README without its artwork and badges (HTML lines), which mean nothing to an agent. */
+const README_TEXT = README.split('\n').filter((line) => !/^\s*<\/?(p|img|a|br)\b/.test(line)).join('\n').replace(/\n{3,}/g, '\n\n').trim()
 /** README sections by their ## heading. */
 const SECTIONS = Object.fromEntries(
-  README.split(/\n(?=## )/).map((part, i) => [i === 0 ? 'intro' : part.match(/^## (.+)/)[1].toLowerCase(), part.trim()]),
+  README_TEXT.split(/\n(?=## )/).map((part, i) => [i === 0 ? 'intro' : part.match(/^## (.+)/)[1].toLowerCase(), part.trim()]),
 )
 const section = (...names) => names.map((n) => SECTIONS[n]).filter(Boolean).join('\n\n')
 const TOPICS = {
-  overview: () => section('intro', 'features', 'how it works'),
+  overview: () => section('intro', 'at a glance', 'features', 'how it works'),
   'quick-start': () => section('quick start'),
   'full-setup': () => section('add it to a site'),
   finish: () => section('finished? keep your colours and hide the switcher'),
@@ -280,7 +282,7 @@ const TOPICS = {
   tokens: () =>
     `# The 35 colour tokens\n\nEach is a CSS variable, --color-<key>. A site that paints with them is themed directly.\n\n${TOKEN_GROUPS.map((g) => `## ${g.group}\n\n${g.tokens.map((t) => `- \`${t.key}\` (${t.label}): ${t.usage}`).join('\n')}`).join('\n\n')}`,
   api: () => `# colorsbymax TypeScript API\n\n${code('ts', TYPES)}`,
-  readme: () => README,
+  readme: () => README_TEXT,
 }
 
 server.registerTool(

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="120" viewBox="0 0 880 120" role="img" aria-label="Ship it: Keep your colours and go live"><title>Ship it: Keep your colours and go live</title>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9a3412"/><stop offset="1" stop-color="#c2410c"/></linearGradient>
+    <clipPath id="c"><rect width="880" height="120" rx="20"/></clipPath>
+  </defs>
+  <g clip-path="url(#c)">
+    <rect width="880" height="120" fill="url(#g)"/>
+    <circle cx="860" cy="-20" r="120" fill="#ffffff" opacity="0.07"/>
+    <circle cx="610" cy="150" r="90" fill="#ffffff" opacity="0.05"/>
+  </g>
+  <text x="36" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="2.4" fill="#ffffff">05 · SHIP IT</text>
+  <text x="36" y="72" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="27" font-weight="700" fill="#ffffff">Keep your colours and go live</text>
+  <text x="36" y="98" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="15" fill="#ffffff">Make your pick the default, hide the switcher, stay up to date.</text>
+  <circle cx="676" cy="60" r="28" fill="#ac3a0b" stroke="#ffffff" stroke-opacity="0.85" stroke-width="3"/><circle cx="714" cy="60" r="28" fill="#ea580c" stroke="#ffffff" stroke-opacity="0.85" stroke-width="3"/><circle cx="752" cy="60" r="28" fill="#fdba74" stroke="#ffffff" stroke-opacity="0.85" stroke-width="3"/><circle cx="790" cy="60" r="28" fill="#fde8dc" stroke="#ffffff" stroke-opacity="0.85" stroke-width="3"/><circle cx="828" cy="60" r="28" fill="#2a1a12" stroke="#ffffff" stroke-opacity="0.85" stroke-width="3"/></svg>
