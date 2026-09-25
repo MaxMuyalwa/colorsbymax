@@ -326,6 +326,8 @@ Without a `siteName`, the site group is named from the page's `og:site_name`, it
   position: 'bottom-right',         // where the button starts: bottom-right (default), bottom-left,
                                     // top-left, or top-right (just under a floating nav bar)
   hidden: import.meta.env.PROD,     // hide the button (the theme still applies), e.g. in production
+  colourLogo: false,                // themes colour the logo too, for first-time visitors (default
+                                    // false: it keeps its own colours); visitors can change it
   intro: true,                      // the button pops in with a burst of the theme's colours a moment
                                     // after the page loads (default); reduced motion fades it in
 }

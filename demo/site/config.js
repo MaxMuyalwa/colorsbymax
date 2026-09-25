@@ -8,6 +8,8 @@ export const config = {
   pdf: loadPdf,
   // The button sits just under this page's floating nav bar.
   position: 'top-right',
+  // The colorsbymax wordmark is drawn in the theme's own colours, so themes colour it too.
+  colourLogo: true,
   defaultTheme: {
     name: 'colorsbymax Violet',
     // Checked with colorsbymax's own contrast rules: every pairing passes, in light and in dark.

@@ -90,6 +90,11 @@ export interface ColorsByMaxConfig {
    * the page loads (default true). With reduced motion it fades in instead.
    */
   intro?: boolean
+  /**
+   * Whether themes colour the site's logo for a first-time visitor (default false: the logo keeps
+   * its own colours). Visitors can still change it in the panel's settings.
+   */
+  colourLogo?: boolean
 }
 
 export interface ThemeProviderProps {

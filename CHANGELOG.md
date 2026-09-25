@@ -2,6 +2,10 @@
 
 What changed in each colorsbymax release. Update with `npm install colorsbymax@latest`.
 
+## Unreleased
+
+- **`colourLogo` config option:** start with "Colour the logo too" on, for sites whose logo is drawn in the theme's colours. It's off by default, so logos keep their own colours, and visitors can still change it in settings. It also applies when the switcher is hidden. The colorsbymax site turns it on for its wordmark.
+
 ## 0.3.0 (2026-09-25)
 
 - **Dark mode for every site, on every load.** The mode now lives in the theme provider: a saved Dark (or Auto on a dark device) turns the whole site dark as soon as it loads, not only when the mode is changed, and it keeps working when the switcher is hidden. Before, the panel could go dark while the site stayed light. Sites without a dark mode of their own get one: every theme's dark twin re-colours the page, contrast-checked.

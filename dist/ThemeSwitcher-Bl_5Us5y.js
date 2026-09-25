@@ -1709,24 +1709,28 @@ var PANEL_PRESETS = [
 		height: "full"
 	}
 ];
-/** @returns {PanelSettings} */
-function loadSettings(storageKey) {
+/**
+* @param {string} storageKey
+* @param {PanelSettings} [defaults]  the site's starting settings (see the config's colourLogo)
+* @returns {PanelSettings}
+*/
+function loadSettings(storageKey, defaults = DEFAULT_SETTINGS) {
 	try {
 		const saved = JSON.parse(window.localStorage.getItem(`${storageKey}:settings`) || "null");
-		if (!saved || typeof saved !== "object") return DEFAULT_SETTINGS;
-		const out = { ...DEFAULT_SETTINGS };
-		for (const [key, fallback] of Object.entries(DEFAULT_SETTINGS)) if (typeof saved[key] === typeof fallback) out[key] = saved[key];
+		if (!saved || typeof saved !== "object") return defaults;
+		const out = { ...defaults };
+		for (const [key, fallback] of Object.entries(defaults)) if (typeof saved[key] === typeof fallback) out[key] = saved[key];
 		if (![
 			"light",
 			"dark",
 			"system"
-		].includes(out.mode)) out.mode = DEFAULT_SETTINGS.mode;
+		].includes(out.mode)) out.mode = defaults.mode;
 		const size = (v) => typeof v === "number" && v > 0 && v < 1e4;
 		out.panelWidth = size(saved.panelWidth) ? saved.panelWidth : null;
 		out.panelHeight = size(saved.panelHeight) || saved.panelHeight === "full" ? saved.panelHeight : null;
 		return out;
 	} catch {
-		return DEFAULT_SETTINGS;
+		return defaults;
 	}
 }
 function saveSettings(storageKey, settings) {
@@ -1908,6 +1912,8 @@ var newId = () => `custom-${Date.now().toString(36)}-${Math.random().toString(36
 *   Where each token is used on this site, shown in the editors
 * @property {boolean} [scrollbars]  Colour the page's scrollbars from the theme (default true)
 * @property {() => Promise<any>} [pdf]  Enables PDF uploads: pass `loadPdf` from 'colorsbymax/pdf'
+* @property {boolean} [colourLogo]  Whether themes colour the site's logo for a first-time visitor
+*   (default false: the logo keeps its own colours). Visitors can still change it in settings.
 * @property {boolean} [intro]  Bring the colour button in with a short pop and burst of the theme's
 *   colours, a moment after the page loads (default true). Reduced motion fades it in instead.
 * @property {boolean} [hidden]  Hide the colour button and panel; the theme still applies. Use
@@ -2009,7 +2015,11 @@ function ThemeProvider({ config = {}, children }) {
 			recolourer.current = null;
 		};
 	}, [recolourMode]);
-	const [logoColouring, setLogoColouring] = useState(false);
+	const settingDefaults = useMemo(() => ({
+		...DEFAULT_SETTINGS,
+		colourLogo: Boolean(initialConfig.colourLogo)
+	}), [initialConfig]);
+	const [logoColouring, setLogoColouring] = useState(() => loadSettings(storageKey, settingDefaults).colourLogo);
 	useLayoutEffect(() => {
 		recolourer.current?.setLogoColouring(logoColouring);
 	}, [logoColouring, pageColours]);
@@ -2077,7 +2087,7 @@ function ThemeProvider({ config = {}, children }) {
 			tokens: theme.tokens
 		} : s.snapshot
 	})), []);
-	const [modeSetting, setModeSetting] = useState(() => loadSettings(storageKey).mode);
+	const [modeSetting, setModeSetting] = useState(() => loadSettings(storageKey, settingDefaults).mode);
 	const prefersDark = usePrefersDark();
 	const mode = modeSetting === "system" ? prefersDark ? "dark" : "light" : modeSetting;
 	const modeRef = useRef(mode);
@@ -2090,10 +2100,10 @@ function ThemeProvider({ config = {}, children }) {
 		].includes(next)) return;
 		setModeSetting(next);
 		saveSettings(storageKey, {
-			...loadSettings(storageKey),
+			...loadSettings(storageKey, settingDefaults),
 			mode: next
 		});
-	}, [storageKey]);
+	}, [storageKey, settingDefaults]);
 	useLayoutEffect(() => {
 		if (base.custom) return;
 		if (mode === "dark" && !isDarkTheme(base.tokens)) {
@@ -2135,6 +2145,8 @@ function ThemeProvider({ config = {}, children }) {
 	}, [setMode]);
 	const api = {
 		state,
+		/** The switcher's starting settings for this site. */
+		settingDefaults,
 		/** The mode in effect ('light' or 'dark'), the visitor's setting ('system' follows the device), and a setter. */
 		mode,
 		modeSetting,
@@ -5711,7 +5723,7 @@ function ThemeSwitcher() {
 	return mount && createPortal(/* @__PURE__ */ jsx(Switcher, {}), mount);
 }
 function Switcher() {
-	const { issues, storageKey, tokens, position: requested, setLogoColouring, intro, mode, modeSetting, setMode } = useTheme();
+	const { issues, storageKey, tokens, position: requested, setLogoColouring, intro, mode, modeSetting, setMode, settingDefaults } = useTheme();
 	const position = CORNERS[requested] ? requested : "bottom-right";
 	const [open, setOpen] = useState(false);
 	const [arrived, setArrived] = useState(!intro);
@@ -5737,7 +5749,7 @@ function Switcher() {
 		}, BURST_TIME);
 		return () => clearTimeout(timer);
 	}, [burst]);
-	const [settings, setSettings] = useState(() => loadSettings(storageKey));
+	const [settings, setSettings] = useState(() => loadSettings(storageKey, settingDefaults));
 	useEffect(() => setLogoColouring(settings.colourLogo), [settings.colourLogo, setLogoColouring]);
 	const [auditOn, setAuditOn] = useState(false);
 	const [findings, setFindings] = useState([]);
@@ -5913,7 +5925,7 @@ function Switcher() {
 	const storeSettings = (next) => {
 		saveSettings(storageKey, {
 			...next,
-			mode: loadSettings(storageKey).mode
+			mode: loadSettings(storageKey, settingDefaults).mode
 		});
 		return next;
 	};
@@ -5944,8 +5956,8 @@ function Switcher() {
 			}));
 		},
 		reset: () => {
-			setMode(DEFAULT_SETTINGS.mode);
-			setSettings(storeSettings(DEFAULT_SETTINGS));
+			setMode(settingDefaults.mode);
+			setSettings(storeSettings(settingDefaults));
 		},
 		resetButton: saved ? resetPosition : null
 	};

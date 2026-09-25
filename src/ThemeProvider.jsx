@@ -4,7 +4,7 @@ import { loadLibrary } from './library.js'
 import { DARK_SUFFIX, isDarkTheme, toDark } from './modes.js'
 import { LOGO_SELECTOR, createRecolourer, usesColourTokens } from './recolour.js'
 import { collectColors, detectSiteName, inferRoles, suggestThemes } from './scan.js'
-import { loadSettings, saveSettings, usePrefersDark } from './settings.js'
+import { DEFAULT_SETTINGS, loadSettings, saveSettings, usePrefersDark } from './settings.js'
 import { DEFAULT_STORAGE_KEY, loadState, sanitizeTokens, saveState } from './storage.js'
 import { BASE_TOKENS, PRESETS, TOKEN_KEYS, completeTokens } from './tokens.js'
 
@@ -33,6 +33,8 @@ const newId = () => `custom-${Date.now().toString(36)}-${Math.random().toString(
  *   Where each token is used on this site, shown in the editors
  * @property {boolean} [scrollbars]  Colour the page's scrollbars from the theme (default true)
  * @property {() => Promise<any>} [pdf]  Enables PDF uploads: pass `loadPdf` from 'colorsbymax/pdf'
+ * @property {boolean} [colourLogo]  Whether themes colour the site's logo for a first-time visitor
+ *   (default false: the logo keeps its own colours). Visitors can still change it in settings.
  * @property {boolean} [intro]  Bring the colour button in with a short pop and burst of the theme's
  *   colours, a moment after the page loads (default true). Reduced motion fades it in instead.
  * @property {boolean} [hidden]  Hide the colour button and panel; the theme still applies. Use
@@ -122,7 +124,9 @@ export function ThemeProvider({ config = {}, children }) {
   // Logo colouring (a visitor setting, off by default): when off, the logo keeps its own colours.
   // Re-coloured sites leave it out of the swap; sites on the colour variables get the site's own
   // variables back on the logo, so it paints as it always did.
-  const [logoColouring, setLogoColouring] = useState(false)
+  // The site's starting settings: the defaults, with its own choice for colouring the logo.
+  const settingDefaults = useMemo(() => ({ ...DEFAULT_SETTINGS, colourLogo: Boolean(initialConfig.colourLogo) }), [initialConfig])
+  const [logoColouring, setLogoColouring] = useState(() => loadSettings(storageKey, settingDefaults).colourLogo)
   useLayoutEffect(() => {
     recolourer.current?.setLogoColouring(logoColouring)
   }, [logoColouring, pageColours])
@@ -189,7 +193,7 @@ export function ThemeProvider({ config = {}, children }) {
   // than in the switcher, so it works on every page load and even when the switcher is hidden.
   // Every built-in theme has a dark twin, so any site can go dark, with or without a dark mode of
   // its own.
-  const [modeSetting, setModeSetting] = useState(() => loadSettings(storageKey).mode)
+  const [modeSetting, setModeSetting] = useState(() => loadSettings(storageKey, settingDefaults).mode)
   const prefersDark = usePrefersDark()
   const mode = modeSetting === 'system' ? (prefersDark ? 'dark' : 'light') : modeSetting
   const modeRef = useRef(mode)
@@ -198,9 +202,9 @@ export function ThemeProvider({ config = {}, children }) {
     (next) => {
       if (!['light', 'dark', 'system'].includes(next)) return
       setModeSetting(next)
-      saveSettings(storageKey, { ...loadSettings(storageKey), mode: next })
+      saveSettings(storageKey, { ...loadSettings(storageKey, settingDefaults), mode: next })
     },
-    [storageKey],
+    [storageKey, settingDefaults],
   )
 
   // Show the version of the current theme that matches the mode: on load, and whenever either
@@ -253,6 +257,8 @@ export function ThemeProvider({ config = {}, children }) {
 
   const api = {
     state,
+    /** The switcher's starting settings for this site. */
+    settingDefaults,
     /** The mode in effect ('light' or 'dark'), the visitor's setting ('system' follows the device), and a setter. */
     mode,
     modeSetting,

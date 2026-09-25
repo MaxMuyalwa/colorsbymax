@@ -5,7 +5,7 @@ import ThemePanel from './ThemePanel.jsx'
 import AuditLayer from './AuditLayer.jsx'
 import { runAudit } from './audit.js'
 import { useTheme } from './ThemeProvider.jsx'
-import { DEFAULT_SETTINGS, SettingsContext, loadSettings, saveSettings } from './settings.js'
+import { SettingsContext, loadSettings, saveSettings } from './settings.js'
 import { loadButtonPosition, saveButtonPosition } from './storage.js'
 import panelCss from './panel-css.generated.js'
 
@@ -70,7 +70,7 @@ export default function ThemeSwitcher() {
 }
 
 function Switcher() {
-  const { issues, storageKey, tokens, position: requested, setLogoColouring, intro, mode, modeSetting, setMode } = useTheme()
+  const { issues, storageKey, tokens, position: requested, setLogoColouring, intro, mode, modeSetting, setMode, settingDefaults } = useTheme()
   const position = CORNERS[requested] ? requested : 'bottom-right'
   const [open, setOpen] = useState(false)
 
@@ -100,7 +100,7 @@ function Switcher() {
     }, BURST_TIME)
     return () => clearTimeout(timer)
   }, [burst])
-  const [settings, setSettings] = useState(() => loadSettings(storageKey))
+  const [settings, setSettings] = useState(() => loadSettings(storageKey, settingDefaults))
   useEffect(() => setLogoColouring(settings.colourLogo), [settings.colourLogo, setLogoColouring])
 
   // The page audit (the panel's Audit button): findings pinned to the page until it's closed.
@@ -269,7 +269,7 @@ function Switcher() {
 
   // The mode is saved by the theme provider; other settings saves keep whatever it saved.
   const storeSettings = (next) => {
-    saveSettings(storageKey, { ...next, mode: loadSettings(storageKey).mode })
+    saveSettings(storageKey, { ...next, mode: loadSettings(storageKey, settingDefaults).mode })
     return next
   }
   const settingsApi = {
@@ -292,8 +292,8 @@ function Switcher() {
       if (Object.keys(patch).length) setSettings((s) => storeSettings({ ...s, ...patch, mode: nextMode ?? modeSetting }))
     },
     reset: () => {
-      setMode(DEFAULT_SETTINGS.mode)
-      setSettings(storeSettings(DEFAULT_SETTINGS))
+      setMode(settingDefaults.mode)
+      setSettings(storeSettings(settingDefaults))
     },
     resetButton: saved ? resetPosition : null,
   }

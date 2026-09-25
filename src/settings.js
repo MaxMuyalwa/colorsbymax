@@ -44,22 +44,26 @@ export const PANEL_PRESETS = [
   { id: 'large', label: 'Large', width: 560, height: 'full' },
 ]
 
-/** @returns {PanelSettings} */
-export function loadSettings(storageKey) {
+/**
+ * @param {string} storageKey
+ * @param {PanelSettings} [defaults]  the site's starting settings (see the config's colourLogo)
+ * @returns {PanelSettings}
+ */
+export function loadSettings(storageKey, defaults = DEFAULT_SETTINGS) {
   try {
     const saved = JSON.parse(window.localStorage.getItem(`${storageKey}:settings`) || 'null')
-    if (!saved || typeof saved !== 'object') return DEFAULT_SETTINGS
-    const out = { ...DEFAULT_SETTINGS }
-    for (const [key, fallback] of Object.entries(DEFAULT_SETTINGS)) {
+    if (!saved || typeof saved !== 'object') return defaults
+    const out = { ...defaults }
+    for (const [key, fallback] of Object.entries(defaults)) {
       if (typeof saved[key] === typeof fallback) out[key] = saved[key]
     }
-    if (!['light', 'dark', 'system'].includes(out.mode)) out.mode = DEFAULT_SETTINGS.mode
+    if (!['light', 'dark', 'system'].includes(out.mode)) out.mode = defaults.mode
     const size = (v) => typeof v === 'number' && v > 0 && v < 10000
     out.panelWidth = size(saved.panelWidth) ? saved.panelWidth : null
     out.panelHeight = size(saved.panelHeight) || saved.panelHeight === 'full' ? saved.panelHeight : null
     return out
   } catch {
-    return DEFAULT_SETTINGS
+    return defaults
   }
 }
 
