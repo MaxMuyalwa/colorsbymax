@@ -7,15 +7,28 @@
 // stylesheet: every original colour is swapped for its counterpart in the theme. Greys slide
 // between the theme's background and text; brand colours take the nearest brand colour of the
 // theme, keeping their relative lightness. Text and icons are then checked against what they sit
-// on: if the swap leaves them hard to read (dark on dark, light on light), they switch to a
-// readable shade. New or changed content is tagged as it appears.
+// on, but only to undo harm the swap did: a pair is left alone if it reads as well as the site's
+// original did, and a fix keeps the design's intent (light on dark stays light on dark) using the
+// nearest theme colour that works. New or changed content is tagged as it appears.
 
-import { contrastRatio, deltaE, hexToRgb, hslToRgb, mix, rgbToHex, rgbToHsl } from './color.js'
+import { contrastRatio, deltaE, hexToRgb, hslToRgb, luminance, mix, rgbToHex, rgbToHsl } from './color.js'
 import { collectColors, COLOR_IN_GRADIENT, inferRoles, themeFromRoles, withoutAppliedTheme } from './scan.js'
 
 const ATTR = 'data-cbm'
 /** Elements the engine never touches: the switcher itself. */
 const SKIP = 'colorsbymax-root'
+
+/**
+ * How colorsbymax finds a site's logo, to keep it in its own colours: an explicit
+ * data-colorsbymax-logo, "logo" in a class, id or label (but not "logout"), or common brand classes.
+ */
+export const LOGO_SELECTOR = [
+  '[data-colorsbymax-logo]',
+  '[class~="logo" i]', '[class*="logo-" i]:not([class*="logout" i])', '[class*="-logo" i]', '[class*="_logo" i]', '[class*="Logo"]:not([class*="Logout"])',
+  '[id*="logo" i]:not([id*="logout" i])',
+  '[aria-label*="logo" i]',
+  '.brand', '.navbar-brand', '.site-title', '.site-brand',
+].join(', ')
 /** Below this HSL saturation a colour counts as a grey and follows the background→text scale. */
 const NEUTRAL_SATURATION = 0.12
 /** Colours within this many degrees of a brand hue are shades of it and follow the theme's version. */
@@ -26,7 +39,10 @@ const STATUS_HUE = 25
 /** Everything else coloured (categories, illustrations) maps to the nearest of these. */
 const CATEGORIES = [...STATUS, 'data-1', 'data-2', 'data-3', 'data-4', 'data-5', 'data-6', 'data-7', 'data-8']
 const SIDES = ['top', 'right', 'bottom', 'left']
-/** Contrast text and icons must keep against their background after a swap (WCAG AA). */
+/**
+ * Contrast a swapped pair aims for (WCAG AA): 4.5:1 for text, 3:1 for icons. Never more than the
+ * site's own original pair had, so deliberately soft text and icons stay soft.
+ */
 const MIN_TEXT_CONTRAST = 4.5
 const MIN_ICON_CONTRAST = 3
 /** Painted colours that sit on a background, so are checked against it. */
@@ -35,6 +51,15 @@ const FOREGROUND = new Set(['color', 'fill', 'stroke'])
 const HAS_COLOUR = new RegExp(COLOR_IN_GRADIENT.source, 'i')
 
 const clamp = (n, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, n))
+/** Whether an element has text of its own, rather than only icons or child elements. */
+const hasOwnText = (el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())
+/**
+ * Whether a background image covers the element, so it counts as what's behind the element's
+ * content. Decorative strips (e.g. an animated underline sized "0% 2px") don't.
+ */
+const fillsElement = (cs) =>
+  Boolean(cs.backgroundImage && cs.backgroundImage !== 'none') &&
+  cs.backgroundSize.split(',').some((size) => /^(auto|cover|contain|100% 100%|auto auto|100%)$/.test(size.trim()))
 const hueDist = (a, b) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b))
 /** How far hue `a` is from `b`, signed, in -180..180. */
 const signedHue = (a, b) => ((a - b + 540) % 360) - 180
@@ -82,13 +107,15 @@ export function createRecolourer() {
   const entries = new Map()
   let theme = null
 
-  const idFor = (prop, value, kind, backdrop = null) => {
-    const key = `${prop}|${value}|${backdrop ?? ''}`
+  const idFor = (prop, value, kind, backdrop = null, role = null) => {
+    const key = `${prop}|${value}|${backdrop ?? ''}|${role ?? ''}`
     let entry = entries.get(key)
     if (!entry) {
-      entry = { id: `c${entries.size.toString(36)}`, prop, value, kind, backdrop }
+      entry = { id: `c${entries.size.toString(36)}`, prop, value, kind, backdrop, role }
       entries.set(key, entry)
-      if (theme) sheet.textContent += rule(entry)
+      // Added once the read is over: changing the sheet's text mid-read would build a fresh sheet,
+      // which starts enabled, so later reads would see themed colours as the site's own.
+      if (theme) pendingRules += rule(entry)
     }
     return entry.id
   }
@@ -103,19 +130,22 @@ export function createRecolourer() {
     const own = parse(cs.backgroundColor)
     let value
     if (own && own.alpha >= 0.5) value = cs.backgroundColor
-    else if (cs.backgroundImage && cs.backgroundImage !== 'none' && HAS_COLOUR.test(cs.backgroundImage)) {
-      value = cs.backgroundImage.match(HAS_COLOUR)[0] // a gradient: judge by its first colour
+    else if (fillsElement(cs) && HAS_COLOUR.test(cs.backgroundImage)) {
+      value = cs.backgroundImage.match(HAS_COLOUR)[0] // a gradient behind it: judge by its first colour
     } else value = el === document.documentElement ? 'rgb(255, 255, 255)' : backdropOf(el.parentElement)
     backdrops.set(el, value)
     return value
   }
 
-  // The painted colours of one element, as entry ids.
+  // The painted colours of one element, as entry ids. Foreground colours note what they sit on,
+  // and whether they draw text or only icons (an icon-only button's colour is an icon's).
   const read = (el) => {
     const cs = getComputedStyle(el)
     const ids = []
+    const role = el instanceof SVGElement || !hasOwnText(el) ? 'icon' : 'text'
     const colour = (prop, css, kind) => {
-      if (parse(css)) ids.push(idFor(prop, css, kind, FOREGROUND.has(prop) ? backdropOf(el) : null))
+      if (!parse(css)) return
+      ids.push(FOREGROUND.has(prop) ? idFor(prop, css, kind, backdropOf(el), prop === 'color' ? role : 'icon') : idFor(prop, css, kind))
     }
     colour('background-color', cs.backgroundColor, 'bg')
     colour('color', cs.color, 'text')
@@ -137,20 +167,29 @@ export function createRecolourer() {
   }
 
   /** Tags `elements` (and optionally their descendants) with the colours they paint. */
+  let pendingRules = ''
   const tag = (roots, deep) => {
     backdrops = new WeakMap()
     withoutAppliedTheme(() => {
       for (const root of roots) {
-        if (!(root instanceof Element) || root.closest(SKIP)) continue
+        if (!(root instanceof Element) || root.closest(skip)) continue
         const all = deep ? [root, ...root.querySelectorAll('*')] : [root]
         for (const el of all) {
           if (el.localName === SKIP) continue
+          if (el.closest(skip)) {
+            el.removeAttribute(ATTR)
+            continue
+          }
           const ids = read(el)
           if (ids.length) el.setAttribute(ATTR, ids.join(' '))
           else el.removeAttribute(ATTR)
         }
       }
     })
+    if (pendingRules) {
+      sheet.textContent += pendingRules
+      pendingRules = ''
+    }
   }
 
   // Swaps one site colour for the theme's counterpart: { hex, alpha }, or null if it isn't a colour.
@@ -214,23 +253,22 @@ export function createRecolourer() {
     return mapped ? format(mapped) : css
   }
 
-  // If a swapped text or icon colour is hard to read on its swapped background, the theme colour
-  // (background, text, on-primary, surface) that reads best on it, or else white or black.
-  const readable = (fg, bg, min) => {
-    let best = fg
-    let bestRatio = contrastRatio(fg, bg)
-    if (bestRatio >= min) return fg
-    for (const candidate of [theme.background, theme.ink, theme['on-primary'], theme.surface]) {
-      const ratio = contrastRatio(candidate, bg)
-      if (ratio > bestRatio) [best, bestRatio] = [candidate, ratio]
-    }
-    if (bestRatio < min) {
-      for (const candidate of ['#ffffff', '#000000']) {
-        const ratio = contrastRatio(candidate, bg)
-        if (ratio > bestRatio) [best, bestRatio] = [candidate, ratio]
-      }
-    }
-    return best
+  // A swapped text or icon colour that reads on its swapped background. It changes only if the
+  // swap made the pair harder to read than the original (up to the WCAG target), and then keeps
+  // the design's polarity: light on dark stays light, using the nearest theme colour that works.
+  // It flips only when nothing on the same side can reach 3:1.
+  const readable = (fg, bg, target, lighter) => {
+    const ratio = (c) => contrastRatio(c, bg)
+    if (ratio(fg) >= target - 0.05) return fg
+    const pool = [fg, theme.background, theme.surface, theme.ink, theme['on-primary'], theme['on-secondary'], '#ffffff', '#000000']
+    const sameSide = pool.filter((c) => luminance(c) > luminance(bg) === lighter)
+    const nearest = (list) => list.reduce((a, c) => (deltaE(c, fg) < deltaE(a, fg) ? c : a))
+    const strongest = (list) => list.reduce((a, c) => (ratio(c) > ratio(a) ? c : a))
+    const passing = sameSide.filter((c) => ratio(c) >= target)
+    if (passing.length) return nearest(passing)
+    if (sameSide.length && ratio(strongest(sameSide)) >= Math.min(target, MIN_ICON_CONTRAST)) return strongest(sameSide)
+    const flipped = pool.filter((c) => ratio(c) >= target)
+    return flipped.length ? nearest(flipped) : strongest(pool)
   }
 
   const rule = (entry) => {
@@ -240,10 +278,19 @@ export function createRecolourer() {
     } else if (entry.backdrop) {
       const fg = mapHex(entry.value, entry.kind)
       const bg = mapHex(entry.backdrop, 'bg')
-      value = fg && bg ? format({ ...fg, hex: readable(fg.hex, bg.hex, entry.prop === 'color' ? MIN_TEXT_CONTRAST : MIN_ICON_CONTRAST) }) : mapColour(entry.value, entry.kind)
+      const original = { fg: parse(entry.value)?.hex, bg: parse(entry.backdrop)?.hex }
+      if (fg && bg && original.fg && original.bg) {
+        const aim = entry.role === 'text' ? MIN_TEXT_CONTRAST : MIN_ICON_CONTRAST
+        const target = Math.min(aim, contrastRatio(original.fg, original.bg))
+        const lighter = luminance(original.fg) > luminance(original.bg)
+        value = format({ ...fg, hex: readable(fg.hex, bg.hex, target, lighter) })
+      } else value = mapColour(entry.value, entry.kind)
     } else value = mapColour(entry.value, entry.kind)
     return `[${ATTR}~="${entry.id}"]{${entry.prop}:${value}!important}`
   }
+
+  // What tagging skips: the switcher, and the logo unless it's being coloured too.
+  let skip = `${SKIP}, ${LOGO_SELECTOR}`
 
   tag([document.body], true)
 
@@ -268,6 +315,13 @@ export function createRecolourer() {
     apply(tokens) {
       theme = tokens
       sheet.textContent = tokens ? [...entries.values()].map(rule).join('') : ''
+    },
+    /** Whether the logo is re-coloured with the rest (off keeps it in its own colours). */
+    setLogoColouring(on) {
+      const next = on ? SKIP : `${SKIP}, ${LOGO_SELECTOR}`
+      if (next === skip) return
+      skip = next
+      tag([document.body], true)
     },
     stop() {
       observer.disconnect()

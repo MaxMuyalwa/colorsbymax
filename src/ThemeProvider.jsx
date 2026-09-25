@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRe
 import { checkTheme, fixAll, suggestFix } from './contrast.js'
 import { loadLibrary } from './library.js'
 import { DARK_SUFFIX, toDark } from './modes.js'
-import { createRecolourer, usesColourTokens } from './recolour.js'
+import { LOGO_SELECTOR, createRecolourer, usesColourTokens } from './recolour.js'
 import { collectColors, detectSiteName, inferRoles, suggestThemes } from './scan.js'
 import { DEFAULT_STORAGE_KEY, loadState, sanitizeTokens, saveState } from './storage.js'
 import { BASE_TOKENS, PRESETS, TOKEN_KEYS, completeTokens } from './tokens.js'
@@ -111,6 +111,22 @@ export function ThemeProvider({ config = {}, children }) {
       recolourer.current = null
     }
   }, [recolourMode])
+  // Logo colouring (a visitor setting, off by default): when off, the logo keeps its own colours.
+  // Re-coloured sites leave it out of the swap; sites on the colour variables get the site's own
+  // variables back on the logo, so it paints as it always did.
+  const [logoColouring, setLogoColouring] = useState(false)
+  useLayoutEffect(() => {
+    recolourer.current?.setLogoColouring(logoColouring)
+  }, [logoColouring, pageColours])
+  useLayoutEffect(() => {
+    if (logoColouring || pageColours) return
+    const style = document.createElement('style')
+    style.dataset.colorsbymax = 'logo'
+    style.textContent = `:is(${LOGO_SELECTOR}){${TOKEN_KEYS.map((k) => `--color-${k}:${defaultTheme.tokens[k]}`).join(';')}}`
+    document.head.append(style)
+    return () => style.remove()
+  }, [logoColouring, pageColours, defaultTheme])
+
   // The site's own theme with no overrides is its original look, so nothing is swapped.
   const original = base.id === defaultTheme.id && !Object.keys(state.overrides).length
   useLayoutEffect(() => {
@@ -154,6 +170,8 @@ export function ThemeProvider({ config = {}, children }) {
     position: initialConfig.position ?? 'bottom-right',
     /** True when colorsbymax is swapping the page's own colours (the site isn't wired to tokens). */
     recolouring: Boolean(pageColours),
+    /** Turns re-colouring of the site's logo on or off (the switcher's "Colour the logo" setting). */
+    setLogoColouring,
     siteThemes,
     defaultTheme,
     presets: PRESETS,

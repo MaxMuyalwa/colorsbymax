@@ -69,6 +69,7 @@ That's all. The colour button appears in the bottom-right corner once the page h
   autoMount({ siteName: 'My site', storageKey: 'my-site-theme' })
   ```
 
+- **Logos keep their own colours** unless a visitor turns on "Colour the logo too" in settings. Mark your logo with `data-colorsbymax-logo` if colorsbymax doesn't find it (it looks for "logo" in a class, id or label).
 - **Where automatic re-colouring falls short:** images keep their colours, hover and focus colours keep the site's own, and colours drawn by `::before`/`::after` aren't swapped. For full control, use the colour variables below; colorsbymax then applies themes to them directly, with no page reading at all.
 
 Already installed it? Get the newest version with `npm install colorsbymax@latest` (see [Updating](#updating)).

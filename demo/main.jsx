@@ -69,7 +69,7 @@ function Demo() {
     <div className="min-h-screen">
       <div className="sticky top-4 z-50 px-6">
         <nav className="mx-auto flex max-w-5xl items-center justify-between rounded-full border border-border bg-surface/80 px-6 py-3 shadow-lg shadow-shadow/5 backdrop-blur">
-          <a href="#top" className="font-bold text-primary-dark">
+          <a href="#top" className="font-bold text-primary-dark" data-colorsbymax-logo>
             colorsbymax<span className="align-super text-[10px] font-medium">™</span>
           </a>
           <div className="hidden gap-6 text-sm text-ink-secondary md:flex">

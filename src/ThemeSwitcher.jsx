@@ -62,10 +62,11 @@ export default function ThemeSwitcher() {
 }
 
 function Switcher() {
-  const { issues, storageKey, tokens, active, themes, selectTheme, position: requested } = useTheme()
+  const { issues, storageKey, tokens, active, themes, selectTheme, position: requested, setLogoColouring } = useTheme()
   const position = CORNERS[requested] ? requested : 'bottom-right'
   const [open, setOpen] = useState(false)
   const [settings, setSettings] = useState(() => loadSettings(storageKey))
+  useEffect(() => setLogoColouring(settings.colourLogo), [settings.colourLogo, setLogoColouring])
   const prefersDark = usePrefersDark()
   const mode = settings.mode === 'system' ? (prefersDark ? 'dark' : 'light') : settings.mode
   const buttonRef = useRef(null)

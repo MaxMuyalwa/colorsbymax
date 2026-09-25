@@ -284,6 +284,16 @@ function SettingsView({ onBack }) {
       </fieldset>
 
       <fieldset className="space-y-1">
+        <legend className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-600">Page</legend>
+        <Toggle
+          checked={settings.colourLogo}
+          onChange={(v) => update({ colourLogo: v })}
+          label="Colour the logo too"
+          note="Off keeps the site’s logo in its own colours whatever the theme"
+        />
+      </fieldset>
+
+      <fieldset className="space-y-1">
         <legend className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-600">Colour button</legend>
         <Toggle checked={settings.draggable} onChange={(v) => update({ draggable: v })} label="Drag to move" note="Hold and drag the button anywhere on the screen" />
         <Toggle checked={settings.animateDot} onChange={(v) => update({ animateDot: v })} label="Cycle the dot’s colours" note="Shows the current theme’s colours in turn" />

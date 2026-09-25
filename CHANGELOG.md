@@ -4,7 +4,10 @@ What changed in each colorsbymax release. Update with `npm install colorsbymax@l
 
 ## 0.2.1 (unreleased)
 
-- **Readable text and icons when re-colouring.** After swapping a site's colours, colorsbymax now checks every text colour and icon against the background it actually sits on. If the swap leaves them hard to read (for example dark icons on a dark active tab), they switch to a light shade, or a dark one on light backgrounds, meeting WCAG contrast (4.5:1 for text, 3:1 for icons). In testing, 10 of 48 library themes had unreadable text on a hard-coded site before this; none do now.
+- **Smarter colours when re-colouring a site.** After swapping, text and icons are only adjusted to undo harm the swap did: a pair that reads as well as the site's original design did is left alone (so deliberately soft icons stay soft), and a fix keeps the design's intent, so white icons on a coloured pill stay white, using the nearest theme colour that works. Icon-only buttons are judged as icons (3:1), not text (4.5:1). Across 59 themes on a test site, nothing reads worse than the original design.
+- **"Colour the logo too" setting**, off by default: the site's logo keeps its own colours whatever the theme. It works on re-coloured sites and on sites using the colour variables. colorsbymax finds logos by `data-colorsbymax-logo`, or "logo" in a class, id or label, or common brand classes.
+- Fixed: content that appeared while a theme was showing could be re-coloured from the theme's colours instead of the site's, giving the wrong colour (for example buttons turning blue).
+- Fixed: decorative gradient strips, like animated underlines, were treated as the background behind text and icons.
 - When an element changes class (a nav item becoming active), its contents are re-checked too.
 
 ## 0.2.0 (2026-09-25)

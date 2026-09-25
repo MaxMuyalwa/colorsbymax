@@ -1290,6 +1290,24 @@ function suggestThemes(scan, siteName, library = []) {
 var ATTR = "data-cbm";
 /** Elements the engine never touches: the switcher itself. */
 var SKIP = "colorsbymax-root";
+/**
+* How colorsbymax finds a site's logo, to keep it in its own colours: an explicit
+* data-colorsbymax-logo, "logo" in a class, id or label (but not "logout"), or common brand classes.
+*/
+var LOGO_SELECTOR = [
+	"[data-colorsbymax-logo]",
+	"[class~=\"logo\" i]",
+	"[class*=\"logo-\" i]:not([class*=\"logout\" i])",
+	"[class*=\"-logo\" i]",
+	"[class*=\"_logo\" i]",
+	"[class*=\"Logo\"]:not([class*=\"Logout\"])",
+	"[id*=\"logo\" i]:not([id*=\"logout\" i])",
+	"[aria-label*=\"logo\" i]",
+	".brand",
+	".navbar-brand",
+	".site-title",
+	".site-brand"
+].join(", ");
 /** Below this HSL saturation a colour counts as a grey and follows the background→text scale. */
 var NEUTRAL_SATURATION = .12;
 /** Colours within this many degrees of a brand hue are shades of it and follow the theme's version. */
@@ -1320,7 +1338,10 @@ var SIDES = [
 	"bottom",
 	"left"
 ];
-/** Contrast text and icons must keep against their background after a swap (WCAG AA). */
+/**
+* Contrast a swapped pair aims for (WCAG AA): 4.5:1 for text, 3:1 for icons. Never more than the
+* site's own original pair had, so deliberately soft text and icons stay soft.
+*/
 var MIN_TEXT_CONTRAST = 4.5;
 var MIN_ICON_CONTRAST = 3;
 /** Painted colours that sit on a background, so are checked against it. */
@@ -1332,6 +1353,13 @@ var FOREGROUND = /* @__PURE__ */ new Set([
 /** Whether a background-image has any colours in it (gradients), rather than just images. */
 var HAS_COLOUR = new RegExp(COLOR_IN_GRADIENT.source, "i");
 var clamp$1 = (n, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, n));
+/** Whether an element has text of its own, rather than only icons or child elements. */
+var hasOwnText = (el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+/**
+* Whether a background image covers the element, so it counts as what's behind the element's
+* content. Decorative strips (e.g. an animated underline sized "0% 2px") don't.
+*/
+var fillsElement = (cs) => Boolean(cs.backgroundImage && cs.backgroundImage !== "none") && cs.backgroundSize.split(",").some((size) => /^(auto|cover|contain|100% 100%|auto auto|100%)$/.test(size.trim()));
 var hueDist = (a, b) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b));
 /** How far hue `a` is from `b`, signed, in -180..180. */
 var signedHue = (a, b) => (a - b + 540) % 360 - 180;
@@ -1381,8 +1409,8 @@ function createRecolourer() {
 	/** Each distinct painted value, keyed "prop|value", plus the background under text and icons. */
 	const entries = /* @__PURE__ */ new Map();
 	let theme = null;
-	const idFor = (prop, value, kind, backdrop = null) => {
-		const key = `${prop}|${value}|${backdrop ?? ""}`;
+	const idFor = (prop, value, kind, backdrop = null, role = null) => {
+		const key = `${prop}|${value}|${backdrop ?? ""}|${role ?? ""}`;
 		let entry = entries.get(key);
 		if (!entry) {
 			entry = {
@@ -1390,10 +1418,11 @@ function createRecolourer() {
 				prop,
 				value,
 				kind,
-				backdrop
+				backdrop,
+				role
 			};
 			entries.set(key, entry);
-			if (theme) sheet.textContent += rule(entry);
+			if (theme) pendingRules += rule(entry);
 		}
 		return entry.id;
 	};
@@ -1405,7 +1434,7 @@ function createRecolourer() {
 		const own = parse(cs.backgroundColor);
 		let value;
 		if (own && own.alpha >= .5) value = cs.backgroundColor;
-		else if (cs.backgroundImage && cs.backgroundImage !== "none" && HAS_COLOUR.test(cs.backgroundImage)) value = cs.backgroundImage.match(HAS_COLOUR)[0];
+		else if (fillsElement(cs) && HAS_COLOUR.test(cs.backgroundImage)) value = cs.backgroundImage.match(HAS_COLOUR)[0];
 		else value = el === document.documentElement ? "rgb(255, 255, 255)" : backdropOf(el.parentElement);
 		backdrops.set(el, value);
 		return value;
@@ -1413,8 +1442,10 @@ function createRecolourer() {
 	const read = (el) => {
 		const cs = getComputedStyle(el);
 		const ids = [];
+		const role = el instanceof SVGElement || !hasOwnText(el) ? "icon" : "text";
 		const colour = (prop, css, kind) => {
-			if (parse(css)) ids.push(idFor(prop, css, kind, FOREGROUND.has(prop) ? backdropOf(el) : null));
+			if (!parse(css)) return;
+			ids.push(FOREGROUND.has(prop) ? idFor(prop, css, kind, backdropOf(el), prop === "color" ? role : "icon") : idFor(prop, css, kind));
 		};
 		colour("background-color", cs.backgroundColor, "bg");
 		colour("color", cs.color, "text");
@@ -1431,20 +1462,29 @@ function createRecolourer() {
 		return ids;
 	};
 	/** Tags `elements` (and optionally their descendants) with the colours they paint. */
+	let pendingRules = "";
 	const tag = (roots, deep) => {
 		backdrops = /* @__PURE__ */ new WeakMap();
 		withoutAppliedTheme(() => {
 			for (const root of roots) {
-				if (!(root instanceof Element) || root.closest(SKIP)) continue;
+				if (!(root instanceof Element) || root.closest(skip)) continue;
 				const all = deep ? [root, ...root.querySelectorAll("*")] : [root];
 				for (const el of all) {
 					if (el.localName === SKIP) continue;
+					if (el.closest(skip)) {
+						el.removeAttribute(ATTR);
+						continue;
+					}
 					const ids = read(el);
 					if (ids.length) el.setAttribute(ATTR, ids.join(" "));
 					else el.removeAttribute(ATTR);
 				}
 			}
 		});
+		if (pendingRules) {
+			sheet.textContent += pendingRules;
+			pendingRules = "";
+		}
 	};
 	const mapHex = (css, kind) => {
 		const c = parse(css);
@@ -1500,24 +1540,27 @@ function createRecolourer() {
 		const mapped = mapHex(css, kind);
 		return mapped ? format(mapped) : css;
 	};
-	const readable = (fg, bg, min) => {
-		let best = fg;
-		let bestRatio = contrastRatio(fg, bg);
-		if (bestRatio >= min) return fg;
-		for (const candidate of [
+	const readable = (fg, bg, target, lighter) => {
+		const ratio = (c) => contrastRatio(c, bg);
+		if (ratio(fg) >= target - .05) return fg;
+		const pool = [
+			fg,
 			theme.background,
+			theme.surface,
 			theme.ink,
 			theme["on-primary"],
-			theme.surface
-		]) {
-			const ratio = contrastRatio(candidate, bg);
-			if (ratio > bestRatio) [best, bestRatio] = [candidate, ratio];
-		}
-		if (bestRatio < min) for (const candidate of ["#ffffff", "#000000"]) {
-			const ratio = contrastRatio(candidate, bg);
-			if (ratio > bestRatio) [best, bestRatio] = [candidate, ratio];
-		}
-		return best;
+			theme["on-secondary"],
+			"#ffffff",
+			"#000000"
+		];
+		const sameSide = pool.filter((c) => luminance(c) > luminance(bg) === lighter);
+		const nearest = (list) => list.reduce((a, c) => deltaE(c, fg) < deltaE(a, fg) ? c : a);
+		const strongest = (list) => list.reduce((a, c) => ratio(c) > ratio(a) ? c : a);
+		const passing = sameSide.filter((c) => ratio(c) >= target);
+		if (passing.length) return nearest(passing);
+		if (sameSide.length && ratio(strongest(sameSide)) >= Math.min(target, MIN_ICON_CONTRAST)) return strongest(sameSide);
+		const flipped = pool.filter((c) => ratio(c) >= target);
+		return flipped.length ? nearest(flipped) : strongest(pool);
 	};
 	const rule = (entry) => {
 		let value;
@@ -1525,13 +1568,23 @@ function createRecolourer() {
 		else if (entry.backdrop) {
 			const fg = mapHex(entry.value, entry.kind);
 			const bg = mapHex(entry.backdrop, "bg");
-			value = fg && bg ? format({
-				...fg,
-				hex: readable(fg.hex, bg.hex, entry.prop === "color" ? MIN_TEXT_CONTRAST : MIN_ICON_CONTRAST)
-			}) : mapColour(entry.value, entry.kind);
+			const original = {
+				fg: parse(entry.value)?.hex,
+				bg: parse(entry.backdrop)?.hex
+			};
+			if (fg && bg && original.fg && original.bg) {
+				const aim = entry.role === "text" ? MIN_TEXT_CONTRAST : MIN_ICON_CONTRAST;
+				const target = Math.min(aim, contrastRatio(original.fg, original.bg));
+				const lighter = luminance(original.fg) > luminance(original.bg);
+				value = format({
+					...fg,
+					hex: readable(fg.hex, bg.hex, target, lighter)
+				});
+			} else value = mapColour(entry.value, entry.kind);
 		} else value = mapColour(entry.value, entry.kind);
 		return `[${ATTR}~="${entry.id}"]{${entry.prop}:${value}!important}`;
 	};
+	let skip = `${SKIP}, ${LOGO_SELECTOR}`;
 	tag([document.body], true);
 	const observer = new MutationObserver((records) => {
 		const added = [];
@@ -1557,6 +1610,13 @@ function createRecolourer() {
 		apply(tokens) {
 			theme = tokens;
 			sheet.textContent = tokens ? [...entries.values()].map(rule).join("") : "";
+		},
+		/** Whether the logo is re-coloured with the rest (off keeps it in its own colours). */
+		setLogoColouring(on) {
+			const next = on ? SKIP : `${SKIP}, ${LOGO_SELECTOR}`;
+			if (next === skip) return;
+			skip = next;
+			tag([document.body], true);
 		},
 		stop() {
 			observer.disconnect();
@@ -1801,6 +1861,22 @@ function ThemeProvider({ config = {}, children }) {
 			recolourer.current = null;
 		};
 	}, [recolourMode]);
+	const [logoColouring, setLogoColouring] = useState(false);
+	useLayoutEffect(() => {
+		recolourer.current?.setLogoColouring(logoColouring);
+	}, [logoColouring, pageColours]);
+	useLayoutEffect(() => {
+		if (logoColouring || pageColours) return;
+		const style = document.createElement("style");
+		style.dataset.colorsbymax = "logo";
+		style.textContent = `:is(${LOGO_SELECTOR}){${TOKEN_KEYS.map((k) => `--color-${k}:${defaultTheme.tokens[k]}`).join(";")}}`;
+		document.head.append(style);
+		return () => style.remove();
+	}, [
+		logoColouring,
+		pageColours,
+		defaultTheme
+	]);
 	const original = base.id === defaultTheme.id && !Object.keys(state.overrides).length;
 	useLayoutEffect(() => {
 		recolourer.current?.apply(original ? null : tokens);
@@ -1852,6 +1928,8 @@ function ThemeProvider({ config = {}, children }) {
 		position: initialConfig.position ?? "bottom-right",
 		/** True when colorsbymax is swapping the page's own colours (the site isn't wired to tokens). */
 		recolouring: Boolean(pageColours),
+		/** Turns re-colouring of the site's logo on or off (the switcher's "Colour the logo" setting). */
+		setLogoColouring,
 		siteThemes,
 		defaultTheme,
 		presets: PRESETS,
@@ -2408,6 +2486,7 @@ function themeFromPalette(colours) {
 * @property {number | null} panelWidth           Pixels; null is the standard width
 * @property {number | 'full' | null} panelHeight  Pixels, 'full' for all the room there is, or null to fit the content
 * @property {boolean} libraryCollapsed  Whether the library's category chips are folded away
+* @property {boolean} colourLogo  Whether themes re-colour the site's logo too (off keeps its own colours)
 */
 /** @type {PanelSettings} */
 var DEFAULT_SETTINGS = {
@@ -2421,7 +2500,8 @@ var DEFAULT_SETTINGS = {
 	animateDot: true,
 	panelWidth: null,
 	panelHeight: null,
-	libraryCollapsed: false
+	libraryCollapsed: false,
+	colourLogo: false
 };
 /** Size presets offered in settings; dragging an edge gives a custom size instead. */
 var PANEL_PRESETS = [
@@ -2872,6 +2952,18 @@ function SettingsView({ onBack }) {
 						label: "Import / export"
 					})
 				]
+			}),
+			/* @__PURE__ */ jsxs("fieldset", {
+				className: "space-y-1",
+				children: [/* @__PURE__ */ jsx("legend", {
+					className: "mb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-600",
+					children: "Page"
+				}), /* @__PURE__ */ jsx(Toggle, {
+					checked: settings.colourLogo,
+					onChange: (v) => update({ colourLogo: v }),
+					label: "Colour the logo too",
+					note: "Off keeps the site’s logo in its own colours whatever the theme"
+				})]
 			}),
 			/* @__PURE__ */ jsxs("fieldset", {
 				className: "space-y-1",
@@ -4175,10 +4267,11 @@ function ThemeSwitcher() {
 	return mount && createPortal(/* @__PURE__ */ jsx(Switcher, {}), mount);
 }
 function Switcher() {
-	const { issues, storageKey, tokens, active, themes, selectTheme, position: requested } = useTheme();
+	const { issues, storageKey, tokens, active, themes, selectTheme, position: requested, setLogoColouring } = useTheme();
 	const position = CORNERS[requested] ? requested : "bottom-right";
 	const [open, setOpen] = useState(false);
 	const [settings, setSettings] = useState(() => loadSettings(storageKey));
+	useEffect(() => setLogoColouring(settings.colourLogo), [settings.colourLogo, setLogoColouring]);
 	const prefersDark = usePrefersDark();
 	const mode = settings.mode === "system" ? prefersDark ? "dark" : "light" : settings.mode;
 	const buttonRef = useRef(null);

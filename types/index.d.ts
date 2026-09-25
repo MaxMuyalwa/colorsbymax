@@ -116,6 +116,8 @@ export interface ThemeApi {
   position: 'bottom-right' | 'bottom-left' | 'top-left' | 'top-right'
   /** True when colorsbymax is swapping the page's own colours (the site isn't using the variables). */
   recolouring: boolean
+  /** Turns re-colouring of the site's logo on or off. */
+  setLogoColouring(on: boolean): void
   /** The site's own themes, then any scan suggestions. */
   siteThemes: Theme[]
   defaultTheme: Theme
@@ -184,6 +186,8 @@ export interface PanelSettings {
   panelWidth: number | null
   panelHeight: number | 'full' | null
   libraryCollapsed: boolean
+  /** Whether themes re-colour the site's logo too. Off (the default) keeps its own colours. */
+  colourLogo: boolean
 }
 /** The visitor settings the panel starts with. */
 export const DEFAULT_SETTINGS: PanelSettings
