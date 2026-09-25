@@ -2,7 +2,7 @@
 
 What changed in each colorsbymax release. Update with `npm install colorsbymax@latest`.
 
-## Unreleased
+## 0.3.1 (2026-09-25)
 
 - **`colourLogo` config option:** start with "Colour the logo too" on, for sites whose logo is drawn in the theme's colours. It's off by default, so logos keep their own colours, and visitors can still change it in settings. It also applies when the switcher is hidden. The colorsbymax site turns it on for its wordmark.
 
