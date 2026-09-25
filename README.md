@@ -162,6 +162,12 @@ npm install colorsbymax@latest
 
 This moves you to the newest release and records it in your `package.json`. `npm update` alone isn't enough while colorsbymax is below 1.0: with the usual `^0.1.0` range, npm treats 0.2.0 as a breaking change and stays on 0.1.x. Check which version you have with `npm ls colorsbymax`.
 
+If it still installs the old version right after a release, npm is using its cached list of versions; add `--prefer-online` to check the registry:
+
+```bash
+npm install colorsbymax@latest --prefer-online
+```
+
 What changed in each release, and anything you need to do when upgrading, is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Building the package
