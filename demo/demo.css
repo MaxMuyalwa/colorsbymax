@@ -156,18 +156,6 @@ body {
   }
 }
 
-/* Gentle bobbing for the hero's floating role tags. */
-@media (prefers-reduced-motion: no-preference) {
-  .float {
-    animation: float 6s ease-in-out infinite;
-    animation-delay: var(--float-delay, 0s);
-  }
-}
-@keyframes float {
-  50% {
-    transform: translateY(-10px);
-  }
-}
 
 /* A sheen that sweeps across a button on hover. */
 .shine {

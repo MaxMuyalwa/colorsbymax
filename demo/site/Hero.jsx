@@ -2,14 +2,6 @@ import { ArrowDown, Palette, Sparkles } from 'lucide-react'
 import { CopyButton, panelToggle } from './ui.jsx'
 import { Specimen } from './Specimen.jsx'
 
-// Role tags that float around the specimen, pointing out what each colour does.
-const TAGS = [
-  { role: 'primary', text: 'primary: buttons and links', className: 'right-[calc(100%-2.5rem)] top-[46%]', delay: '0s' },
-  { role: 'surface', text: 'surface: cards', className: 'left-[calc(100%-2.5rem)] top-[20%]', delay: '1.2s' },
-  { role: 'ink', text: 'ink: headings', className: 'right-[calc(100%-3rem)] top-[10%]', delay: '0.6s' },
-  { role: 'data-3', text: 'data-1…8: charts', className: 'left-[calc(100%-3rem)] bottom-[14%]', delay: '1.8s' },
-]
-
 export function Hero() {
   return (
     <header id="top" className="relative isolate overflow-hidden px-6 pt-32 pb-24 md:pt-40">
@@ -64,17 +56,6 @@ export function Hero() {
       <div className="relative mx-auto mt-16 max-w-4xl">
         <div className="brand-ring absolute -inset-3 -z-10 rounded-[2rem] opacity-40 blur-2xl" aria-hidden="true" />
         <Specimen />
-        {TAGS.map((t) => (
-          <span
-            key={t.role}
-            aria-hidden="true"
-            className={`float absolute hidden items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 font-mono text-xs text-ink shadow-lg shadow-shadow/10 whitespace-nowrap xl:inline-flex ${t.className}`}
-            style={{ '--float-delay': t.delay }}
-          >
-            <span className="h-3 w-3 rounded-full ring-2 ring-surface" style={{ background: `var(--color-${t.role})`, boxShadow: '0 0 0 1px var(--color-border)' }} />
-            {t.text}
-          </span>
-        ))}
       </div>
     </header>
   )
