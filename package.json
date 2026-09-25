@@ -79,6 +79,7 @@
     "typecheck": "tsc -p types && node scripts/check-types.mjs",
     "prepublishOnly": "npm run build && npm run typecheck",
     "build:demo": "vite build",
+    "build:site": "vite build --mode site",
     "build:mcp": "vite build --config mcp/vite.config.js",
     "css": "node scripts/build-css.mjs",
     "icons": "node scripts/build-icons.mjs",
