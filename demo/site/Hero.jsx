@@ -1,5 +1,5 @@
 import { ArrowDown, Palette, Sparkles } from 'lucide-react'
-import { CopyButton, openPanel } from './ui.jsx'
+import { CopyButton, panelToggle } from './ui.jsx'
 import { Specimen } from './Specimen.jsx'
 
 // Role tags that float around the specimen, pointing out what each colour does.
@@ -13,8 +13,8 @@ const TAGS = [
 export function Hero() {
   return (
     <header id="top" className="relative isolate overflow-hidden px-6 pt-32 pb-24 md:pt-40">
-      {/* Backdrop: drifting colour blobs over a faint dot grid. */}
-      <div className="absolute inset-0 -z-10" aria-hidden="true">
+      {/* Backdrop: drifting colour blobs over a faint dot grid, fading out towards the next section. */}
+      <div className="hero-backdrop absolute inset-0 -z-10" aria-hidden="true">
         <div className="dot-grid absolute inset-0" />
         <div className="blob top-[-10%] left-[-8%] h-[28rem] w-[28rem] bg-primary" />
         <div className="blob blob-slow top-[5%] right-[-10%] h-[26rem] w-[26rem] bg-primary-alt" />
@@ -40,7 +40,7 @@ export function Hero() {
         <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
           <button
             type="button"
-            onClick={openPanel}
+            {...panelToggle}
             className="shine group inline-flex cursor-pointer items-center gap-2 rounded-full bg-primary px-6 py-3 font-semibold text-on-primary shadow-xl shadow-primary/30 transition hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-primary/40 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
           >
             <Palette className="h-5 w-5 transition-transform duration-500 group-hover:rotate-[20deg] group-hover:scale-110" aria-hidden="true" />

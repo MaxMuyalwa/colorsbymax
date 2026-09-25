@@ -7,6 +7,8 @@ What changed in each colorsbymax release. Update with `npm install colorsbymax@l
 - **Dark mode for every site, on every load.** The mode now lives in the theme provider: a saved Dark (or Auto on a dark device) turns the whole site dark as soon as it loads, not only when the mode is changed, and it keeps working when the switcher is hidden. Before, the panel could go dark while the site stayed light. Sites without a dark mode of their own get one: every theme's dark twin re-colours the page, contrast-checked.
 - **A light and dark switch for your site:** mark any element with `data-colorsbymax-mode="toggle"` (or `light`, `dark`, `system`) and colorsbymax wires it up and remembers the choice. `<html>` gets `data-colorsbymax-scheme` with the current mode, and `useTheme()` has `mode`, `modeSetting` and `setMode`.
 - **Light, Dark and Auto in the panel's header**, next to Audit, so they're one click away.
+- **"Add to site": a light and dark switch for your site.** Next to the mode buttons, it previews a working switch in your page's top bar (until reload) and gives the code (HTML or React, plus styles) and a prompt for Claude, Cursor or Copilot to add it for good.
+- **Plain sites show off a theme.** On a site with no brand colour of its own (greys and text), grey icons and plain text links now take the theme's brand colour, contrast-checked, so a theme visibly changes the page.
 - **A burst of colour on every click** of the colour button, not only when it first appears.
 - **The panel stays open while you drag the button**, and moves with it.
 - **Picking a library category scrolls to its themes**, so the colours are in view straight away.

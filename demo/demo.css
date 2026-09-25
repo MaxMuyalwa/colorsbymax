@@ -49,6 +49,12 @@ body {
   mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%);
 }
 
+/* The hero's backdrop fades out over its lower part, so its glow blends into the page instead of
+   ending in a hard edge where the section does. */
+.hero-backdrop {
+  mask-image: linear-gradient(to bottom, #000 45%, transparent 96%);
+}
+
 /* Soft blurred colour blobs that drift slowly behind a section. */
 .blob {
   position: absolute;

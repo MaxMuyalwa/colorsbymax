@@ -70,7 +70,7 @@ const STATS = [
 
 export function Stats() {
   return (
-    <section aria-label="colorsbymax in numbers" className="px-6">
+    <section aria-label="colorsbymax in numbers" className="px-6 pt-10 md:pt-16">
       <dl className="mx-auto grid max-w-6xl grid-cols-2 gap-4 lg:grid-cols-4">
         {STATS.map(([value, label], i) => (
           <Reveal key={label} delay={i * 90} className="group rounded-3xl border border-border bg-surface p-6 text-center transition hover:-translate-y-1 hover:border-primary">

@@ -11,15 +11,40 @@ export const MRMAX = 'https://mrmaxdesigns.com'
 /** The support page (buy Max a coffee), next to the home page. */
 export const SUPPORT = `${import.meta.env.BASE_URL}support.html`
 
-/** Opens the switcher from a button on the page (the switcher lives in its own shadow root). */
+/** The colour button, inside the switcher's shadow root (null until it has made its entrance). */
+const colourButton = () => document.querySelector('colorsbymax-root')?.shadowRoot?.querySelector('button')
+
+/** Opens the switcher from a button on the page. */
 export function openPanel() {
-  const button = document.querySelector('colorsbymax-root')?.shadowRoot?.querySelector('button')
+  const button = colourButton()
   if (!button) {
     // The colour button makes its entrance a moment after the page loads.
     setTimeout(openPanel, 300)
     return
   }
   if (button.getAttribute('aria-expanded') !== 'true') button.click()
+}
+
+// Whether the panel was open when a page button was pressed. The press itself counts as a click
+// outside the panel, which closes it before the click arrives, so it's noted on pointer down.
+let openAtPress = null
+
+/**
+ * Props for a page button that opens and closes the switcher, like the colour button does:
+ * <button {...panelToggle}>.
+ */
+export const panelToggle = {
+  onPointerDown: () => {
+    openAtPress = colourButton()?.getAttribute('aria-expanded') === 'true'
+  },
+  onClick: () => {
+    // Keyboard presses have no pointer down: read the panel's state now.
+    const wasOpen = openAtPress ?? colourButton()?.getAttribute('aria-expanded') === 'true'
+    openAtPress = null
+    if (!wasOpen) return openPanel()
+    const button = colourButton()
+    if (button?.getAttribute('aria-expanded') === 'true') button.click()
+  },
 }
 
 /** Rises into view the first time it scrolls on screen. */
