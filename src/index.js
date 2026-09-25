@@ -16,4 +16,7 @@ export {
   MIN_RAMP_STEP_DELTA_E,
 } from './contrast.js'
 export { contrastRatio, normalizeHex } from './color.js'
+export { coloursFromFile, dominantColours, rolesFromPalette, themeFromPalette } from './extract.js'
+export { toDark, darkTokens, isDarkTheme } from './modes.js'
+export { DEFAULT_SETTINGS } from './settings.js'
 export { collectColors, inferRoles, suggestThemes, themeFromRoles, detectSiteName } from './scan.js'

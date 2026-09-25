@@ -9,13 +9,17 @@ import { buildPanelCss } from './scripts/build-css.mjs'
 const demo = fileURLToPath(new URL('./demo', import.meta.url))
 
 // Keeps src/panel-css.generated.js in step with the panel while developing.
-const PANEL_SOURCES = /[\/]src[\/](ThemePanel\.jsx|ThemeSwitcher\.jsx|panel\.css)$/
+const PANEL_SOURCES = /[\\/]src[\\/](ThemePanel\.jsx|ThemeSwitcher\.jsx|panel\.css)$/
 function panelCss() {
   return {
     name: 'colorsbymax-panel-css',
     buildStart: () => void buildPanelCss(),
-    watchChange(id) {
-      if (PANEL_SOURCES.test(id)) buildPanelCss()
+    configureServer(server) {
+      // Nothing imports panel.css, so Vite wouldn't otherwise watch it.
+      server.watcher.add(fileURLToPath(new URL('./src/panel.css', import.meta.url)))
+      server.watcher.on('change', (file) => {
+        if (PANEL_SOURCES.test(file)) buildPanelCss()
+      })
     },
   }
 }
@@ -25,6 +29,8 @@ export default defineConfig({
   plugins: [panelCss(), react(), tailwindcss()],
   server: { port: Number(process.env.PORT) || 5174 },
   build: {
+    // PDF.js's reader is ~1.2 MB but loads only when someone uploads a PDF.
+    chunkSizeWarningLimit: 1300,
     rollupOptions: {
       input: { main: `${demo}/index.html`, plain: `${demo}/plain.html` },
     },

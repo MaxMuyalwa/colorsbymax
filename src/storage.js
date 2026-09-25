@@ -89,6 +89,30 @@ export function saveState(storageKey, state, resolved) {
 }
 
 /**
+ * Where the visitor dragged the colour button, as fractions (0–1) of the space it can move in,
+ * so it keeps its relative spot when the window resizes. Null means the default corner.
+ * @returns {{ rx: number, ry: number } | null}
+ */
+export function loadButtonPosition(storageKey) {
+  try {
+    const p = JSON.parse(window.localStorage.getItem(`${storageKey}:button`) || 'null')
+    const ok = (n) => typeof n === 'number' && n >= 0 && n <= 1
+    return p && ok(p.rx) && ok(p.ry) ? { rx: p.rx, ry: p.ry } : null
+  } catch {
+    return null
+  }
+}
+
+export function saveButtonPosition(storageKey, position) {
+  try {
+    if (position) window.localStorage.setItem(`${storageKey}:button`, JSON.stringify(position))
+    else window.localStorage.removeItem(`${storageKey}:button`)
+  } catch {
+    // Storage unavailable: the button stays put for this page view.
+  }
+}
+
+/**
  * Inline script for the document <head> that applies the saved theme before first paint,
  * avoiding a flash of the default. Embed it as a classic (non-module) <script>.
  */

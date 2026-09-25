@@ -34,7 +34,8 @@ export function compilePanelCss() {
 
 function adaptForShadowRoot(css) {
   return css
-    .replace(/(\d*\.?\d+)rem\b/g, (_, n) => `${+(n * 16).toFixed(3)}px`)
+    // Values only: escaped class names such as .w-\[5\.5rem\] must keep their "rem".
+    .replace(/(?<![\\\w.])(\d*\.?\d+)rem\b/g, (_, n) => `${+(n * 16).toFixed(3)}px`)
     .replace(/@property\s+[\w-]+\s*\{[^}]*\}/g, '')
     .replace(/(@layer properties\s*\{\s*@supports\s*)[^{]+/, '$1(display:block)')
 }

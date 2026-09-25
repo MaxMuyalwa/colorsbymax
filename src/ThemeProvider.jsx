@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useState } from 'react'
 import { checkTheme, fixAll, suggestFix } from './contrast.js'
 import { loadLibrary } from './library.js'
+import { DARK_SUFFIX, toDark } from './modes.js'
 import { collectColors, detectSiteName, inferRoles, suggestThemes } from './scan.js'
 import { DEFAULT_STORAGE_KEY, loadState, sanitizeTokens, saveState } from './storage.js'
 import { BASE_TOKENS, PRESETS, TOKEN_KEYS, completeTokens } from './tokens.js'
@@ -12,6 +13,9 @@ export function applyTokens(tokens) {
   const style = document.documentElement.style
   for (const key of TOKEN_KEYS) style.setProperty(`--color-${key}`, tokens[key])
 }
+
+/** Scrollbar thumb: the theme's primary, softened towards its page background. */
+export const SCROLLBAR_THUMB = 'color-mix(in srgb, var(--color-primary) 55%, var(--color-background))'
 
 const newId = () => `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`
 
@@ -25,6 +29,7 @@ const newId = () => `custom-${Date.now().toString(36)}-${Math.random().toString(
  *   Extra themes made for this site
  * @property {Partial<Record<import('./tokens.js').TokenKey, string>>} [usage]
  *   Where each token is used on this site, shown in the editors
+ * @property {boolean} [scrollbars]  Colour the page's scrollbars from the theme (default true)
  */
 
 /** Resolves a config into the site theme group. The shipped default always comes first. */
@@ -61,8 +66,12 @@ export function ThemeProvider({ config = {}, children }) {
   const siteThemes = useMemo(() => [...site.siteThemes, ...(state.scanned?.themes ?? [])], [site.siteThemes, state.scanned])
 
   const allThemes = useMemo(() => [...siteThemes, ...PRESETS, ...state.customs], [siteThemes, state.customs])
+  const find = (id) => allThemes.find((t) => t.id === id)
+  // A dark twin is rebuilt from its light theme, so it follows edits to that theme.
+  const lightOfTwin = state.activeId.endsWith(DARK_SUFFIX) ? find(state.activeId.slice(0, -DARK_SUFFIX.length)) : null
   const base =
-    allThemes.find((t) => t.id === state.activeId) ??
+    find(state.activeId) ??
+    (lightOfTwin ? toDark(lightOfTwin) : null) ??
     (state.snapshot?.id === state.activeId ? state.snapshot : null) ??
     defaultTheme
   const tokens = useMemo(() => ({ ...base.tokens, ...state.overrides }), [base, state.overrides])
@@ -72,6 +81,18 @@ export function ThemeProvider({ config = {}, children }) {
     applyTokens(tokens)
     saveState(storageKey, { ...state, activeId: base.id }, tokens)
   }, [tokens, state, base.id, storageKey])
+
+  // Scrollbars in the theme's colours. The rule reads the token variables, so it follows every
+  // theme change by itself, and :where() keeps it weaker than any scrollbar styling the site has.
+  const themeScrollbars = config.scrollbars !== false
+  useLayoutEffect(() => {
+    if (!themeScrollbars) return
+    const style = document.createElement('style')
+    style.dataset.colorsbymax = 'scrollbars'
+    style.textContent = `:where(html){scrollbar-color:${SCROLLBAR_THUMB} var(--color-background)}`
+    document.head.append(style)
+    return () => style.remove()
+  }, [themeScrollbars])
 
   const updateCustom = (id, fn) => (s) => ({ ...s, customs: s.customs.map((c) => (c.id === id ? fn(c) : c)) })
 
@@ -91,9 +112,11 @@ export function ThemeProvider({ config = {}, children }) {
 
   const api = {
     state,
+    storageKey,
     siteName,
     usage: config.usage ?? {},
     siteThemes,
+    defaultTheme,
     presets: PRESETS,
     customs: state.customs,
     themes: allThemes,
@@ -101,12 +124,14 @@ export function ThemeProvider({ config = {}, children }) {
     tokens,
     issues,
 
-    /** Selects a theme by id; pass the theme itself for library themes. */
+    /** Selects a theme by id; pass the theme itself for library themes and dark twins. */
     selectTheme: (id, theme) =>
       setState((s) => ({
         ...s,
         activeId: id,
-        snapshot: theme?.library ? { id: theme.id, name: theme.name, tokens: theme.tokens } : s.snapshot,
+        // Kept so the theme resolves on reload without the library (a twin's saved copy
+        // loses its library flag, so twins are always kept).
+        snapshot: theme?.library || theme?.derived ? { id: theme.id, name: theme.name, tokens: theme.tokens } : s.snapshot,
       })),
 
     createCustom: (name) => {
@@ -179,15 +204,21 @@ export function ThemeProvider({ config = {}, children }) {
       }
       const clean = sanitizeTokens(data?.tokens)
       if (!Object.keys(clean).length) return 'No recognised colour tokens found. Expected { "name": …, "tokens": { "primary": "#…" } }.'
+      api.addPalette(typeof data.name === 'string' ? data.name : '', clean)
+      return null
+    },
+
+    /** Adds tokens as a new custom palette (missing ones filled from the site) and applies it. */
+    addPalette: (name, partialTokens) => {
       const id = newId()
-      const name = typeof data.name === 'string' && data.name.trim() ? data.name.trim().slice(0, 60) : 'Imported palette'
+      const clean = sanitizeTokens(partialTokens)
       setState((s) => ({
         ...s,
         activeId: id,
         overrides: {},
-        customs: [...s.customs, { id, name, custom: true, tokens: completeTokens(clean, defaultTheme.tokens) }],
+        customs: [...s.customs, { id, name: name.trim().slice(0, 60) || 'Imported palette', custom: true, tokens: completeTokens(clean, defaultTheme.tokens) }],
       }))
-      return null
+      return id
     },
   }
 

@@ -8,18 +8,25 @@ A floating theme switcher for websites. Visitors (or the site's owner) can re-co
 
 - **Site themes first.** The panel opens on a group named after the site, holding its own colours. If those fail contrast, an accessible version is generated automatically.
 - **Scan the site.** Press "Scan site" and colorsbymax reads the colours actually painted on the page (ignoring any theme it has applied, and including gradients). It works out the page background, surfaces, text and brand colours, then adds themes named after the site: Scanned (as found), Accessible, Soft, Bold, Complementary, and the closest library matches. Scans run only when asked, and the results are remembered.
-- **Picks and library.** 5 hand-tuned picks, plus 715 library themes (Bright, Fun, Pastel, Earth tones, Summer, Autumn, Winter, Spring, Ocean, Warm, Nature, Moody, Monochrome, Eclectic) with search and "Surprise me". The library loads only when the panel opens.
+- **Max’s picks and library.** 5 hand-tuned picks, plus 715 library themes (Bright, Fun, Pastel, Earth tones, Summer, Autumn, Winter, Spring, Ocean, Warm, Nature, Moody, Monochrome, Eclectic) with search and "Surprise me". The library loads only when the panel opens.
 - **Custom palettes, single-colour overrides, JSON import/export.**
+- **Palettes from images and PDFs.** In Import / export, upload or drop a mood board, screenshot, photo or brand guide. colorsbymax picks out its main colours (hex codes written in a PDF take priority), lets you leave any out, previews the palette it builds around them and saves it as a custom palette. Nothing leaves the browser; PDFs are read with [PDF.js](https://mozilla.github.io/pdf.js/), downloaded only when a PDF is picked.
 - **Contrast checks.** Problems show as a badge on the theme; the breakdown offers per-item fixes or "Fix all automatically", which changes lightness only.
 - **No flash on reload.** An inline pre-paint script applies the saved theme before the page draws.
 - **Works on any site.** The panel carries its own stylesheet inside a shadow root, so it needs no Tailwind or other CSS from the site, and the site's CSS can't restyle it.
-- **Accessible panel.** A labelled dialog with focus trap, Escape and outside-click to close, keyboard operable, and reduced-motion support.
+- **Movable colour button.** The floating button starts in the corner; visitors can drag it anywhere (mouse or touch; a tooltip says so on hover, and the panel closes while it moves) and it stays there, remembered across reloads. The panel then opens beside it, on whichever side has room. Its dot cycles through the current theme's colours.
+- **Light and dark mode.** Every built-in theme is designed light; dark mode lists a generated dark twin of each (dark surfaces, light text, brand colours lifted to read on dark, then contrast-fixed) and switches the current theme to its twin. The panel turns dark with it. Custom palettes stay as they were made.
+- **Visitor settings.** The gear in the panel header opens settings: theme mode (Light, Dark, Auto), panel size (Compact, Standard, Large), which groups and sections to show, whether the button can be dragged or its dot animates, and moving the button back to its corner. Saved per site.
+- **Resizable panel.** Drag the panel's free edges or corner (the ones away from the colour button) to any size, or pick a size in settings; double-click an edge to reset it. The layout follows the panel's width, so a large panel shows three theme cards a row.
+- **Clear groups and feedback.** The site's own group (globe), Max’s picks (paintbrush) and Yours (person) sit in their own row, apart from the library's categories. Toasts confirm what just happened; saving, importing or building a palette says it went to Yours and offers "Show" to jump straight to it. Tooltips are drawn in the panel's colours.
+- **Themed scrollbars.** The page's scrollbars and the panel's slim one take the selected theme's primary colour. Turn the page's off with `scrollbars: false`.
+- **Accessible panel.** A labelled dialog with focus trap, Escape, the colour button or an outside click to close, keyboard operable, and reduced-motion support.
 
 ## How it works
 
 Every colour is one of 35 tokens (`primary`, `surface`, `ink`, `data-1`…), exposed as `--color-<token>` CSS variables. Applying a theme just sets those variables on `<html>`, so anything the site paints with `var(--color-primary)` (directly, or through Tailwind CSS v4 utilities like `bg-primary`) changes instantly. There's no rebuild and no re-render.
 
-The switcher renders into a `<colorsbymax-root>` element on `<body>` with its own shadow root and stylesheet. Only the `--color-*` variables cross into it, for the live colour swatch.
+The switcher renders into a `<colorsbymax-root>` element on `<body>` with its own shadow root and stylesheet. Only the `--color-*` variables cross into it. With reduced motion, the colour button's dot holds still on the theme's primary colour.
 
 ## Try the demo
 
@@ -82,6 +89,7 @@ Without a `siteName`, the site group is named from the page's `og:site_name`, it
   defaultTheme: { name, tokens },   // the site's own colours; missing tokens are filled in
   themes: [{ id, name, tokens }],   // optional extra themes made for the site
   usage: { primary: 'Buttons…' },   // optional notes shown in the colour editors
+  scrollbars: true,                 // colour the page's scrollbars from the theme (default)
 }
 ```
 
@@ -106,6 +114,8 @@ npm run presets
 ## Notices
 
 The library palettes come from [nice-color-palettes](https://github.com/Jam3/nice-color-palettes) (MIT). Its licence notice is in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and must ship with every copy.
+
+PDF reading uses [pdfjs-dist](https://github.com/mozilla/pdf.js) (Apache-2.0), installed as a dependency rather than bundled into colorsbymax.
 
 ## Licence
 
