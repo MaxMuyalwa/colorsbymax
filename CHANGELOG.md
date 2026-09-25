@@ -2,6 +2,11 @@
 
 What changed in each colorsbymax release. Update with `npm install colorsbymax@latest`.
 
+## 0.2.1 (unreleased)
+
+- **Readable text and icons when re-colouring.** After swapping a site's colours, colorsbymax now checks every text colour and icon against the background it actually sits on. If the swap leaves them hard to read (for example dark icons on a dark active tab), they switch to a light shade, or a dark one on light backgrounds, meeting WCAG contrast (4.5:1 for text, 3:1 for icons). In testing, 10 of 48 library themes had unreadable text on a hard-coded site before this; none do now.
+- When an element changes class (a nav item becoming active), its contents are re-checked too.
+
 ## 0.2.0 (2026-09-25)
 
 **Upgrading from 0.1.x:** the colour button moves to the bottom-right corner; add `position: 'top-right'` to keep it where it was. If your site doesn't use colorsbymax's `--color-*` variables, themes now re-colour it automatically; to keep the old behaviour (themes set only the variables), pass `recolour: false` in the config.

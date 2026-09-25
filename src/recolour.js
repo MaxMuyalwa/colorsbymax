@@ -6,9 +6,11 @@
 // colours it uses, and keeps one stylesheet of overrides. Applying a theme rewrites only that
 // stylesheet: every original colour is swapped for its counterpart in the theme. Greys slide
 // between the theme's background and text; brand colours take the nearest brand colour of the
-// theme, keeping their relative lightness. New or changed content is tagged as it appears.
+// theme, keeping their relative lightness. Text and icons are then checked against what they sit
+// on: if the swap leaves them hard to read (dark on dark, light on light), they switch to a
+// readable shade. New or changed content is tagged as it appears.
 
-import { deltaE, hexToRgb, hslToRgb, mix, rgbToHex, rgbToHsl } from './color.js'
+import { contrastRatio, deltaE, hexToRgb, hslToRgb, mix, rgbToHex, rgbToHsl } from './color.js'
 import { collectColors, COLOR_IN_GRADIENT, inferRoles, themeFromRoles, withoutAppliedTheme } from './scan.js'
 
 const ATTR = 'data-cbm'
@@ -24,6 +26,11 @@ const STATUS_HUE = 25
 /** Everything else coloured (categories, illustrations) maps to the nearest of these. */
 const CATEGORIES = [...STATUS, 'data-1', 'data-2', 'data-3', 'data-4', 'data-5', 'data-6', 'data-7', 'data-8']
 const SIDES = ['top', 'right', 'bottom', 'left']
+/** Contrast text and icons must keep against their background after a swap (WCAG AA). */
+const MIN_TEXT_CONTRAST = 4.5
+const MIN_ICON_CONTRAST = 3
+/** Painted colours that sit on a background, so are checked against it. */
+const FOREGROUND = new Set(['color', 'fill', 'stroke'])
 /** Whether a background-image has any colours in it (gradients), rather than just images. */
 const HAS_COLOUR = new RegExp(COLOR_IN_GRADIENT.source, 'i')
 
@@ -71,19 +78,36 @@ export function createRecolourer() {
   const siteBgL = hslOf(site.background)[2]
   const siteInkL = hslOf(site.ink)[2]
 
-  /** Each distinct painted value, keyed "prop|value". */
+  /** Each distinct painted value, keyed "prop|value", plus the background under text and icons. */
   const entries = new Map()
   let theme = null
 
-  const idFor = (prop, value, kind) => {
-    const key = `${prop}|${value}`
+  const idFor = (prop, value, kind, backdrop = null) => {
+    const key = `${prop}|${value}|${backdrop ?? ''}`
     let entry = entries.get(key)
     if (!entry) {
-      entry = { id: `c${entries.size.toString(36)}`, prop, value, kind }
+      entry = { id: `c${entries.size.toString(36)}`, prop, value, kind, backdrop }
       entries.set(key, entry)
       if (theme) sheet.textContent += rule(entry)
     }
     return entry.id
+  }
+
+  // The (original) background colour showing behind an element: its own if it paints one, else
+  // its nearest ancestor's. Cached per tagging pass, since parents are read before children.
+  let backdrops = new WeakMap()
+  const backdropOf = (el) => {
+    if (!el || el.nodeType !== 1) return 'rgb(255, 255, 255)'
+    if (backdrops.has(el)) return backdrops.get(el)
+    const cs = getComputedStyle(el)
+    const own = parse(cs.backgroundColor)
+    let value
+    if (own && own.alpha >= 0.5) value = cs.backgroundColor
+    else if (cs.backgroundImage && cs.backgroundImage !== 'none' && HAS_COLOUR.test(cs.backgroundImage)) {
+      value = cs.backgroundImage.match(HAS_COLOUR)[0] // a gradient: judge by its first colour
+    } else value = el === document.documentElement ? 'rgb(255, 255, 255)' : backdropOf(el.parentElement)
+    backdrops.set(el, value)
+    return value
   }
 
   // The painted colours of one element, as entry ids.
@@ -91,7 +115,7 @@ export function createRecolourer() {
     const cs = getComputedStyle(el)
     const ids = []
     const colour = (prop, css, kind) => {
-      if (parse(css)) ids.push(idFor(prop, css, kind))
+      if (parse(css)) ids.push(idFor(prop, css, kind, FOREGROUND.has(prop) ? backdropOf(el) : null))
     }
     colour('background-color', cs.backgroundColor, 'bg')
     colour('color', cs.color, 'text')
@@ -114,6 +138,7 @@ export function createRecolourer() {
 
   /** Tags `elements` (and optionally their descendants) with the colours they paint. */
   const tag = (roots, deep) => {
+    backdrops = new WeakMap()
     withoutAppliedTheme(() => {
       for (const root of roots) {
         if (!(root instanceof Element) || root.closest(SKIP)) continue
@@ -128,10 +153,10 @@ export function createRecolourer() {
     })
   }
 
-  // Swaps one site colour for the theme's counterpart, keeping its alpha.
-  const mapColour = (css, kind) => {
+  // Swaps one site colour for the theme's counterpart: { hex, alpha }, or null if it isn't a colour.
+  const mapHex = (css, kind) => {
     const c = parse(css)
-    if (!c) return css
+    if (!c) return null
     const [, s, l] = hslOf(c.hex)
     let hex
     if (s < NEUTRAL_SATURATION) {
@@ -176,16 +201,47 @@ export function createRecolourer() {
       const saturation = ts * (s / Math.max(ss, 0.05))
       hex = rgbToHex(hslToRgb([(th + signedHue(hue, sh) + 360) % 360, clamp(saturation), clamp(lightness)]))
     }
-    if (c.alpha >= 1) return hex
+    return { hex, alpha: c.alpha }
+  }
+
+  const format = ({ hex, alpha }) => {
+    if (alpha >= 1) return hex
     const [r, g, b] = hexToRgb(hex)
-    return `rgba(${r}, ${g}, ${b}, ${c.alpha})`
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`
+  }
+  const mapColour = (css, kind) => {
+    const mapped = mapHex(css, kind)
+    return mapped ? format(mapped) : css
+  }
+
+  // If a swapped text or icon colour is hard to read on its swapped background, the theme colour
+  // (background, text, on-primary, surface) that reads best on it, or else white or black.
+  const readable = (fg, bg, min) => {
+    let best = fg
+    let bestRatio = contrastRatio(fg, bg)
+    if (bestRatio >= min) return fg
+    for (const candidate of [theme.background, theme.ink, theme['on-primary'], theme.surface]) {
+      const ratio = contrastRatio(candidate, bg)
+      if (ratio > bestRatio) [best, bestRatio] = [candidate, ratio]
+    }
+    if (bestRatio < min) {
+      for (const candidate of ['#ffffff', '#000000']) {
+        const ratio = contrastRatio(candidate, bg)
+        if (ratio > bestRatio) [best, bestRatio] = [candidate, ratio]
+      }
+    }
+    return best
   }
 
   const rule = (entry) => {
-    const value =
-      entry.prop === 'background-image'
-        ? entry.value.replace(COLOR_IN_GRADIENT, (stop) => mapColour(stop, entry.kind))
-        : mapColour(entry.value, entry.kind)
+    let value
+    if (entry.prop === 'background-image') {
+      value = entry.value.replace(COLOR_IN_GRADIENT, (stop) => mapColour(stop, entry.kind))
+    } else if (entry.backdrop) {
+      const fg = mapHex(entry.value, entry.kind)
+      const bg = mapHex(entry.backdrop, 'bg')
+      value = fg && bg ? format({ ...fg, hex: readable(fg.hex, bg.hex, entry.prop === 'color' ? MIN_TEXT_CONTRAST : MIN_ICON_CONTRAST) }) : mapColour(entry.value, entry.kind)
+    } else value = mapColour(entry.value, entry.kind)
     return `[${ATTR}~="${entry.id}"]{${entry.prop}:${value}!important}`
   }
 
@@ -201,7 +257,8 @@ export function createRecolourer() {
       if (r.type === 'attributes') changed.add(r.target)
     }
     if (added.length) tag(added, true)
-    if (changed.size) tag([...changed], false)
+    // Deep: an element changing class (a nav item becoming active) changes what its children sit on.
+    if (changed.size) tag([...changed], true)
   })
   observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style'] })
 
