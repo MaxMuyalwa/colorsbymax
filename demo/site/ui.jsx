@@ -8,6 +8,8 @@ export const REPO = 'https://github.com/MaxMuyalwa/colorsbymax'
 export const NPM = 'https://www.npmjs.com/package/colorsbymax'
 export const MCP_NPM = 'https://www.npmjs.com/package/colorsbymax-mcp'
 export const MRMAX = 'https://mrmaxdesigns.com'
+/** The support page (buy Max a coffee), next to the home page. */
+export const SUPPORT = `${import.meta.env.BASE_URL}support.html`
 
 /** Opens the switcher from a button on the page (the switcher lives in its own shadow root). */
 export function openPanel() {

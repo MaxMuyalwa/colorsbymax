@@ -1,5 +1,5 @@
 import { ArrowUpRight } from 'lucide-react'
-import { GitHubIcon, MCP_NPM, MRMAX, NPM, REPO } from './ui.jsx'
+import { GitHubIcon, MCP_NPM, MRMAX, NPM, REPO, SUPPORT } from './ui.jsx'
 import { Wordmark } from './Nav.jsx'
 import { openFeedback } from './Feedback.jsx'
 
@@ -37,6 +37,7 @@ const COLUMNS = [
       ['Projects', `${MRMAX}/projects`],
       ['Contact', `${MRMAX}/contact`],
       ['Follow on GitHub', 'https://github.com/MaxMuyalwa'],
+      ['Buy Max a coffee', SUPPORT],
     ],
   },
 ]
@@ -63,7 +64,8 @@ function Waves() {
   )
 }
 
-export function Footer() {
+/** @param {{ home?: string }} props  prefix for in-page links, for pages other than the home page */
+export function Footer({ home = '' }) {
   return (
     <footer className="relative mt-16">
       <Waves />
@@ -71,7 +73,7 @@ export function Footer() {
         <div className="mx-auto max-w-6xl">
           <div className="grid grid-cols-2 gap-10 md:grid-cols-[1.4fr_repeat(4,1fr)]">
             <div className="col-span-2 md:col-span-1">
-              <a href="#top" className="text-2xl" data-colorsbymax-logo>
+              <a href={`${home}#top`} className="text-2xl" data-colorsbymax-logo>
                 <Wordmark />
               </a>
               <p className="mt-3 max-w-xs text-sm leading-relaxed">
@@ -88,7 +90,7 @@ export function Footer() {
                 <ul className="space-y-2 text-sm">
                   {col.links.map(([label, href]) => (
                     <li key={label}>
-                      <a href={href} className="group inline-flex items-center gap-1 underline-offset-4 opacity-90 transition hover:underline hover:opacity-100">
+                      <a href={href.startsWith('#') ? home + href : href} className="group inline-flex items-center gap-1 underline-offset-4 opacity-90 transition hover:underline hover:opacity-100">
                         {label}
                         {external(href) && <ArrowUpRight className="h-3 w-3 opacity-60 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true" />}
                       </a>

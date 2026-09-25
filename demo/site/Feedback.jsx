@@ -22,8 +22,8 @@ const MAX_SHOT_BYTES = 12 * 1024 * 1024
 const MAX_SHOT_SIDE = 2400 // larger screenshots are scaled down to keep reports light
 const OPEN_EVENT = 'colorsbymax:feedback'
 
-/** Opens the feedback form from anywhere on the page. */
-export const openFeedback = () => window.dispatchEvent(new Event(OPEN_EVENT))
+/** Opens the feedback form from anywhere on the page, optionally set to a kind (bug, idea, praise, question). */
+export const openFeedback = (kind) => window.dispatchEvent(new CustomEvent(OPEN_EVENT, { detail: typeof kind === 'string' ? kind : null }))
 
 // `send` is the submit button's text: short and friendly, since every report helps.
 const KINDS = [
@@ -404,8 +404,9 @@ export function Feedback() {
 
   // Opened from the top bar, the menu or the footer.
   useEffect(() => {
-    const onOpen = () => {
+    const onOpen = (e) => {
       openerRef.current = document.activeElement
+      if (KINDS.some((k) => k.id === e.detail)) setForm((f) => ({ ...f, kind: e.detail }))
       setStatus('editing')
       setOpen(true)
     }

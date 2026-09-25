@@ -25,7 +25,8 @@ export function Wordmark({ className = '' }) {
  * behind it: a straight full-width bar at the very top, a floating glass pill once scrolled. From
  * 1200px wide the colour button sits at the top right, beside the bar, so both leave room for it.
  */
-export function Nav() {
+/** @param {{ home?: string }} props  prefix for in-page links, for pages other than the home page */
+export function Nav({ home = '' }) {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   useEffect(() => {
@@ -51,12 +52,12 @@ export function Nav() {
             : 'max-w-full rounded-none border-x-transparent border-t-transparent border-b-border/60 bg-surface/25 px-4 py-4 sm:px-8 min-[1200px]:py-6 min-[1200px]:pr-20'
         }`}
       >
-        <a href="#top" className="text-lg text-primary-dark" data-colorsbymax-logo>
+        <a href={`${home}#top`} className="text-lg text-primary-dark" data-colorsbymax-logo>
           <Wordmark />
         </a>
         <div className="hidden items-center gap-1 text-sm font-medium whitespace-nowrap text-ink-secondary xl:flex">
           {LINKS.map(([label, href]) => (
-            <a key={href} href={href} className="rounded-full px-3 py-1.5 transition hover:bg-accent hover:text-on-accent">
+            <a key={href} href={home + href} className="rounded-full px-3 py-1.5 transition hover:bg-accent hover:text-on-accent">
               {label}
             </a>
           ))}
@@ -72,7 +73,7 @@ export function Nav() {
             <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true" />
           </a>
           <a
-            href="#setup"
+            href={`${home}#setup`}
             className="shine hidden rounded-full bg-primary px-4 py-1.5 whitespace-nowrap text-sm font-semibold text-on-primary shadow-md shadow-primary/25 transition hover:-translate-y-px hover:shadow-lg sm:inline-flex"
           >
             Get started
@@ -92,7 +93,7 @@ export function Nav() {
       {open && (
         <div id="mobile-menu" className="mx-4 mt-2 max-w-6xl sm:mx-auto animate-[tab-in_250ms_ease-out] rounded-3xl border border-border bg-surface p-3 shadow-xl shadow-shadow/10 xl:hidden">
           {LINKS.map(([label, href]) => (
-            <a key={href} href={href} onClick={() => setOpen(false)} className="block rounded-2xl px-4 py-3 font-medium text-ink hover:bg-accent hover:text-on-accent">
+            <a key={href} href={home + href} onClick={() => setOpen(false)} className="block rounded-2xl px-4 py-3 font-medium text-ink hover:bg-accent hover:text-on-accent">
               {label}
             </a>
           ))}

@@ -1,4 +1,4 @@
-import { ArrowRight, Code, Globe, Layers, MousePointerClick, Package, Rocket, Zap } from 'lucide-react'
+import { ArrowRight, Code, Globe, Layers, Moon, MousePointerClick, Package, Rocket, Zap } from 'lucide-react'
 import { CodeBlock, Reveal, REPO, SectionHeading, Tabs } from './ui.jsx'
 
 const FLOW = [
@@ -117,6 +117,36 @@ export default function ColorsByMax() {
 </script>`}
           />
           <Note>Plain HTML sites load colorsbymax and React from a CDN. Put it before {'</body>'} on each page that should have the button.</Note>
+        </Step>
+      </ol>
+    ),
+  },
+  {
+    label: 'Dark mode',
+    icon: Moon,
+    content: (
+      <ol className="space-y-6">
+        <Step n={1} title="Every site gets a dark mode">
+          <Note>
+            Every theme has a dark twin, so switching to Dark in the panel turns the whole site dark, even if it never had a dark mode. Text,
+            buttons and icons are re-checked for contrast on the dark background.
+          </Note>
+        </Step>
+        <Step n={2} title="Give visitors a light and dark switch">
+          <CodeBlock title="your nav bar" code={'<button data-colorsbymax-mode="toggle">Light / dark</button>'} />
+          <Note>
+            Put it wherever you like and style it your way: colorsbymax wires it up and remembers each visitor’s choice. It keeps working when
+            the switcher is hidden in production. Use "light", "dark" or "system" instead of "toggle" for buttons that set one mode.
+          </Note>
+        </Step>
+        <Step n={3} title="Fine-tune dark mode in your CSS (optional)">
+          <CodeBlock
+            title="app.css"
+            code={`html[data-colorsbymax-scheme="dark"] .hero-photo {
+  filter: brightness(0.9);
+}`}
+          />
+          <Note>The page is marked with the current mode, so anything colorsbymax can’t re-colour, like photos, can be adjusted.</Note>
         </Step>
       </ol>
     ),
