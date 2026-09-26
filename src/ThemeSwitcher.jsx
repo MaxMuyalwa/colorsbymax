@@ -70,7 +70,7 @@ export default function ThemeSwitcher() {
 }
 
 function Switcher() {
-  const { issues, storageKey, tokens, position: requested, setLogoColouring, setColourStyle, setPaletteDefault, intro, mode, modeSetting, setMode, settingDefaults } = useTheme()
+  const { issues, storageKey, tokens, position: requested, setLogoColouring, setColourStyle, setPaletteDefault, features, intro, mode, modeSetting, setMode, settingDefaults } = useTheme()
   const position = CORNERS[requested] ? requested : 'bottom-right'
   const [open, setOpen] = useState(false)
 
@@ -281,7 +281,17 @@ function Switcher() {
     return next
   }
   const settingsApi = {
-    settings: { ...settings, mode: modeSetting },
+    // Parts the site switched off stay off, whatever the visitor's own settings say.
+    settings: {
+      ...settings,
+      mode: modeSetting,
+      showPicks: settings.showPicks && features.picks,
+      showLibrary: settings.showLibrary && features.library,
+      showCustom: settings.showCustom && features.custom,
+      showOverrides: settings.showOverrides && features.overrides,
+      showImportExport: settings.showImportExport && features.importExport,
+      colourStyle: features.colourStyle ? settings.colourStyle : 'colourful',
+    },
     mode,
     audit: {
       on: auditOn,

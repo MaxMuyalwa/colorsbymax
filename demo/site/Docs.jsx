@@ -10,8 +10,7 @@ import { ArrowLeft, ArrowUpRight, BookOpen, Inbox as InboxIcon, ChevronDown, Eye
 import readmeCopy from '../../README.md?raw'
 import changelogCopy from '../../CHANGELOG.md?raw'
 import { REPO } from './ui.jsx'
-import { Modal, avatarOf, useAdmin } from './Admin.jsx'
-import { Inbox, useInbox } from './Inbox.jsx'
+import { ADMIN_PAGE, Modal, avatarOf, useAdmin } from './Admin.jsx'
 
 const RAW = 'https://raw.githubusercontent.com/MaxMuyalwa/colorsbymax/main/'
 const BLOB = `${REPO}/blob/main/`
@@ -30,10 +29,10 @@ const slug = (text) =>
     .replace(/[^\p{L}\p{N}\s-]/gu, '')
     .replace(/\s/g, '-')
 const slugFor = (title) => slug(title).replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || `entry-${Date.now().toString(36)}`
-const niceDate = (d) => (d ? new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : '')
+export const niceDate = (d) => (d ? new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : '')
 
 /** Markdown to safe HTML: headings get GitHub's anchors, relative links and images point at the repo. */
-function render(markdown) {
+export function render(markdown) {
   const html = DOMPurify.sanitize(marked.parse(markdown || '', { gfm: true }), { ADD_ATTR: ['target', 'align'] })
   const box = document.createElement('div')
   box.innerHTML = html
@@ -77,7 +76,7 @@ function useGuides() {
 }
 
 /** Posts and testimonials from the content API (none on the dev server, which has no API). */
-function useContent() {
+export function useContent() {
   const [content, setContent] = useState({ posts: [], testimonials: [], loading: !import.meta.env.DEV })
   const load = useCallback((fresh = false) => {
     if (import.meta.env.DEV) return
@@ -97,11 +96,12 @@ const routeOf = (hash) => {
   if (first === 'post' && second) return { type: 'post', slug: second }
   if (first === 'posts') return { type: 'posts' }
   if (first === 'testimonials') return { type: 'testimonials' }
-  if (first === 'admin') return { type: 'admin' }
   return null
 }
 
 export function Docs({ home }) {
+  // The dashboard used to live at #admin here; it has its own page now.
+  if (location.hash === '#admin') location.replace(ADMIN_PAGE)
   const [route, setRoute] = useState(() => routeOf(location.hash) ?? { type: 'guide', id: 'readme' })
   const [menuOpen, setMenuOpen] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -167,7 +167,7 @@ export function Docs({ home }) {
       </ol>
     )
   const current =
-    guide ?? (route.type === 'admin' ? { title: 'Dashboard', Icon: LayoutDashboard } : route.type === 'testimonials' ? { title: 'Testimonials', Icon: MessageSquareQuote } : route.type === 'post' ? { title: post?.title ?? 'Post', Icon: Newspaper } : { title: 'Posts', Icon: Newspaper })
+    guide ?? (route.type === 'testimonials' ? { title: 'Testimonials', Icon: MessageSquareQuote } : route.type === 'post' ? { title: post?.title ?? 'Post', Icon: Newspaper } : { title: 'Posts', Icon: Newspaper })
 
   return (
     <main id="main" className="relative isolate px-4 pt-28 pb-10 sm:px-6 md:pt-32">
@@ -218,14 +218,6 @@ export function Docs({ home }) {
               </span>
             </button>
             <div className={`${menuOpen ? 'block' : 'hidden'} mt-2 max-h-[calc(100vh-9rem)] space-y-2 overflow-y-auto rounded-3xl border border-border bg-surface p-3 lg:mt-0 lg:block`}>
-              {admin && (
-                <div>
-                  <p className="px-3 pt-2 pb-1 text-[11px] font-bold tracking-wider text-ink-muted uppercase">Admin</p>
-                  <Item href="#admin" on={route.type === 'admin'} Icon={LayoutDashboard}>
-                    Dashboard
-                  </Item>
-                </div>
-              )}
               {GUIDES.map((g) => (
                 <div key={g.id}>
                   <p className="px-3 pt-2 pb-1 text-[11px] font-bold tracking-wider text-ink-muted uppercase">{g.group}</p>
@@ -269,13 +261,6 @@ export function Docs({ home }) {
                 <div className="doc-prose" dangerouslySetInnerHTML={{ __html: html }} />
               </>
             )}
-
-            {route.type === 'admin' &&
-              (admin ? (
-                <Dashboard content={content} login={login} onNew={(kind) => setEditing({ kind })} onEdit={(kind, entry) => setEditing({ kind, entry })} onDeleted={saved} />
-              ) : (
-                <Empty Icon={ShieldCheck} text="Authorised access only." />
-              ))}
 
             {route.type === 'posts' && (
               <>
@@ -358,8 +343,8 @@ function AdminStrip({ login, signOut, onNew }) {
         </span>
       </p>
       <div className="flex flex-wrap gap-2">
-        <a href="#admin" className={`${btn} bg-background text-ink hover:opacity-90`}>
-          <LayoutDashboard className="h-4 w-4" aria-hidden="true" /> Dashboard
+        <a href={ADMIN_PAGE} className={`${btn} bg-background text-ink hover:opacity-90`}>
+          <LayoutDashboard className="h-4 w-4" aria-hidden="true" /> Admin
         </a>
         <button type="button" onClick={() => onNew('post')} className={`${btn} bg-primary text-on-primary hover:opacity-90`}>
           <Plus className="h-4 w-4" aria-hidden="true" /> New post
@@ -372,81 +357,6 @@ function AdminStrip({ login, signOut, onNew }) {
         </button>
       </div>
     </div>
-  )
-}
-
-/** The admin's overview: counts, and every post and testimonial to view, edit or delete. */
-function Dashboard({ content, login, onNew, onEdit, onDeleted }) {
-  const [inbox, reloadInbox, setInbox] = useInbox(true)
-  const fresh = inbox.reports.filter((r) => r.status === 'new').length
-  const stat = (label, n, Icon) => (
-    <div className="rounded-2xl border border-border bg-background p-4">
-      <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-ink-muted uppercase">
-        <Icon className="h-4 w-4" aria-hidden="true" /> {label}
-      </p>
-      <p className="mt-2 font-display text-3xl font-extrabold text-ink tabular-nums">{content.loading ? '…' : n}</p>
-    </div>
-  )
-  const list = (kind, items, empty) => (
-    <section className="mt-8">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="font-display text-lg font-bold text-ink">{kind === 'post' ? 'Posts' : 'Testimonials'}</h3>
-        <button type="button" onClick={() => onNew(kind)} className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-semibold text-on-primary transition hover:-translate-y-px">
-          <Plus className="h-4 w-4" aria-hidden="true" /> {kind === 'post' ? 'New post' : 'Add testimonial'}
-        </button>
-      </div>
-      {content.loading ? (
-        <Loading />
-      ) : items.length ? (
-        <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border">
-          {items.map((e) => (
-            <li key={e.slug} className="flex flex-wrap items-center justify-between gap-3 bg-background px-4 py-3">
-              <div className="min-w-0">
-                <p className="truncate font-semibold text-ink">{kind === 'post' ? e.title : e.name}</p>
-                <p className="text-xs text-ink-muted">{[niceDate(e.date), kind === 'post' ? e.summary : e.role].filter(Boolean).join(' · ')}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <a href={kind === 'post' ? `#post/${e.slug}` : '#testimonials'} className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-surface px-3 text-xs font-semibold text-ink transition hover:border-primary">
-                  <Eye className="h-3.5 w-3.5" aria-hidden="true" /> View
-                </a>
-                <EntryTools kind={kind} entry={e} onEdit={() => onEdit(kind, e)} onDeleted={() => onDeleted(`Deleted “${e.title || e.name}”.`)} inline />
-              </div>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="rounded-2xl border border-dashed border-border px-4 py-6 text-center text-sm text-ink-secondary">{empty}</p>
-      )}
-    </section>
-  )
-  return (
-    <>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-5">
-        <div>
-          <p className="inline-flex items-center gap-1.5 rounded-full bg-ink px-2.5 py-0.5 text-[11px] font-bold tracking-wider text-background uppercase">
-            <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" /> Admin
-          </p>
-          <p className="mt-2 flex items-center gap-2 font-display text-2xl font-bold text-ink">
-            <LayoutDashboard className="h-6 w-6 text-primary" aria-hidden="true" /> Dashboard
-          </p>
-          <p className="mt-1 text-sm text-ink-secondary">Write and manage what the docs page shows. Signed in as {login}.</p>
-        </div>
-        <a href={`${REPO}/tree/content/content`} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-semibold text-ink-secondary transition hover:border-primary hover:text-ink">
-          <GitBranch className="h-3.5 w-3.5" aria-hidden="true" /> Saved on GitHub <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-        </a>
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        {stat('New feedback', inbox.loading ? '…' : fresh, InboxIcon)}
-        {stat('Posts', content.posts.length, Newspaper)}
-        {stat('Testimonials', content.testimonials.length, MessageSquareQuote)}
-      </div>
-      <p className="mt-3 text-xs text-ink-muted">
-        Posts and testimonials are commits on the repo’s <code className="font-mono">content</code> branch, so everything has history; changes show within a minute. Feedback is kept in a private repo.
-      </p>
-      <Inbox inbox={inbox} reload={reloadInbox} setInbox={setInbox} />
-      {list('post', content.posts, 'No posts yet. Your first one will show under Blog on the docs page.')}
-      {list('testimonial', content.testimonials, 'No testimonials yet.')}
-    </>
   )
 }
 
@@ -464,13 +374,13 @@ function PageHead({ Icon, title, blurb, children }) {
   )
 }
 
-const Loading = () => (
+export const Loading = () => (
   <p className="flex items-center justify-center gap-2 py-12 text-sm text-ink-secondary" role="status">
     <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Loading…
   </p>
 )
 
-function Empty({ Icon, text, admin, onAdd, addLabel }) {
+export function Empty({ Icon, text, admin, onAdd, addLabel }) {
   return (
     <div className="flex flex-col items-center rounded-3xl border border-dashed border-border px-6 py-14 text-center">
       <Icon className="h-8 w-8 text-ink-muted" aria-hidden="true" />
@@ -486,7 +396,7 @@ function Empty({ Icon, text, admin, onAdd, addLabel }) {
 }
 
 /** Edit and delete, for the admin. Delete asks first. */
-function EntryTools({ kind, entry, onEdit, onDeleted, inline = false }) {
+export function EntryTools({ kind, entry, onEdit, onDeleted, inline = false }) {
   const [confirm, setConfirm] = useState(false)
   const [busy, setBusy] = useState(false)
   const remove = async () => {
@@ -518,7 +428,7 @@ function EntryTools({ kind, entry, onEdit, onDeleted, inline = false }) {
 const today = () => new Date().toISOString().slice(0, 10)
 
 /** Writing a post or testimonial: its fields, the text in Markdown, and a preview. */
-function Editor({ kind, entry, onClose, onSaved }) {
+export function Editor({ kind, entry, onClose, onSaved }) {
   const isPost = kind === 'post'
   const [fields, setFields] = useState(() => (isPost ? { title: entry?.title ?? '', date: entry?.date ?? today(), summary: entry?.summary ?? '' } : { name: entry?.name ?? '', role: entry?.role ?? '', date: entry?.date ?? today() }))
   const [body, setBody] = useState(entry?.body ?? '')

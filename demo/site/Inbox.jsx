@@ -3,7 +3,7 @@
 // see its screenshots, reply by email, and mark it done.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Bug, CheckCircle2, Circle, Heart, ImageIcon, Lightbulb, Loader2, Mail, MessageCircleQuestion, Star } from 'lucide-react'
+import { Bug, CheckCircle2, Circle, CornerDownRight, Heart, ImageIcon, Lightbulb, Loader2, Mail, MessageCircleQuestion, Send, Star } from 'lucide-react'
 import { Modal } from './Admin.jsx'
 
 const API = `${import.meta.env.BASE_URL}api/admin/feedback`
@@ -133,12 +133,69 @@ export function Inbox({ inbox, reload, setInbox }) {
       ) : (
         <p className="rounded-2xl border border-dashed border-border px-4 py-6 text-center text-sm text-ink-secondary">{inbox.reports.length ? 'Nothing here with these filters.' : 'No feedback yet. Reports people send appear here as well as in your email.'}</p>
       )}
-      {open && <Report report={open} onClose={() => setOpen(null)} onStatus={(next) => setReportStatus(open, next)} />}
+      {open && (
+        <Report
+          report={open}
+          onClose={() => setOpen(null)}
+          onStatus={(next) => setReportStatus(open, next)}
+          onReplied={(updated) => {
+            setInbox((s) => ({ ...s, reports: s.reports.map((r) => (r.id === updated.id ? updated : r)) }))
+            setOpen(updated)
+          }}
+        />
+      )}
     </section>
   )
 }
 
-function Report({ report: r, onClose, onStatus }) {
+/** Writing back to the person who sent a report: by email, kept on the report's thread. */
+function ReplyBox({ report, onReplied }) {
+  const [message, setMessage] = useState('')
+  const [status, setStatus] = useState(null)
+  const send = async (e) => {
+    e.preventDefault()
+    setStatus('sending')
+    if (import.meta.env.DEV) {
+      onReplied({ ...report, status: 'done', replies: [...(report.replies ?? []), { at: new Date().toISOString(), by: 'preview', message }] })
+      setMessage('')
+      return setStatus('Sent (preview only: nothing was emailed).')
+    }
+    const res = await fetch(`${import.meta.env.BASE_URL}api/admin/reply`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: report.id, message }) }).catch(() => null)
+    const body = await res?.json().catch(() => null)
+    if (res?.ok && body?.report) {
+      onReplied(body.report)
+      setMessage('')
+      return setStatus(`Sent to ${report.email}.`)
+    }
+    setStatus(body?.error ?? 'Couldn’t send it just now. Your reply is still here.')
+  }
+  return (
+    <form onSubmit={send} className="mt-5 rounded-2xl border border-border bg-background p-4">
+      <label htmlFor={`reply-${report.id}`} className="text-xs font-bold tracking-wide text-ink-muted uppercase">
+        Reply to {report.name || report.email}
+      </label>
+      <textarea
+        id={`reply-${report.id}`}
+        required
+        rows={4}
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        placeholder={`Hi ${report.name?.split(' ')[0] || 'there'}, thanks for this…`}
+        className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm leading-relaxed text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+      />
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <p role="status" className="text-xs text-ink-secondary">
+          {status === 'sending' ? 'Sending…' : (status ?? `Emailed to ${report.email}; their answer comes to your inbox.`)}
+        </p>
+        <button type="submit" disabled={status === 'sending' || !message.trim()} className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-on-primary transition hover:-translate-y-px disabled:opacity-50">
+          {status === 'sending' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Send className="h-4 w-4" aria-hidden="true" />} Send reply
+        </button>
+      </div>
+    </form>
+  )
+}
+
+function Report({ report: r, onClose, onStatus, onReplied }) {
   const k = kindOf(r.kind)
   const block = (title, text) =>
     text?.trim() && (
@@ -205,10 +262,28 @@ function Report({ report: r, onClose, onStatus }) {
         </details>
       )}
 
+      {r.replies?.length > 0 && (
+        <div className="mt-5">
+          <p className="text-xs font-bold tracking-wide text-ink-muted uppercase">Your replies</p>
+          <ol className="mt-2 space-y-2">
+            {r.replies.map((rep, i) => (
+              <li key={i} className="flex gap-2 rounded-2xl bg-secondary px-4 py-3 text-sm text-on-secondary">
+                <CornerDownRight className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="min-w-0">
+                  <span className="block text-xs opacity-80">{when(rep.at)}</span>
+                  <span className="block whitespace-pre-wrap">{rep.message}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+      {r.email ? <ReplyBox report={r} onReplied={onReplied} /> : <p className="mt-5 text-sm text-ink-muted">They didn’t leave an email address, so there’s no way to reply.</p>}
+
       <div className="mt-6 flex flex-wrap justify-end gap-2">
         {reply && (
           <a href={reply} className="inline-flex h-10 items-center gap-2 rounded-full border border-border px-4 text-sm font-semibold text-ink transition hover:border-primary">
-            <Mail className="h-4 w-4" aria-hidden="true" /> Reply by email
+            <Mail className="h-4 w-4" aria-hidden="true" /> Open in email app
           </a>
         )}
         {r.status === 'new' ? (

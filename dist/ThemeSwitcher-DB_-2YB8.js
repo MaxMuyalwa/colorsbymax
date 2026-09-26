@@ -2438,6 +2438,9 @@ var newId = () => `custom-${Date.now().toString(36)}-${Math.random().toString(36
 *   first-time visitor. 'colourful' (default) paints the page's parts by role, as a designer would:
 *   header, hero, alternating sections, cards, buttons, links, headings and footer. 'subtle' only
 *   swaps the colours the site already has. Visitors can switch in the panel.
+* @property {Partial<Record<keyof typeof FEATURES, boolean>>} [features]  Parts of the panel to switch off
+*   for everyone, e.g. { scan: false, audit: false } (all on by default). Unlike the rest of the
+*   config it's read live, so a site can change it after loading (from its own settings).
 * @property {boolean | 'auto'} [recolour]  Re-colour a site that doesn't paint with the --color-*
 *   variables, by swapping the colours actually on the page. 'auto' (default) does it only when
 *   the site doesn't define --color-primary itself.
@@ -2488,9 +2491,28 @@ function resolveSite(config, pageColours) {
 	};
 }
 /** @param {{ config?: ColorsByMaxConfig, children: import('react').ReactNode }} props */
+/** Parts of the panel a site can switch off for everyone (config `features`). All on by default. */
+var FEATURES = {
+	picks: true,
+	library: true,
+	search: true,
+	surprise: true,
+	scan: true,
+	custom: true,
+	overrides: true,
+	importExport: true,
+	audit: true,
+	addToSite: true,
+	colourStyle: true,
+	colourCount: true
+};
 function ThemeProvider({ config = {}, children }) {
 	const storageKey = config.storageKey || "colorsbymax";
 	const [initialConfig] = useState(config);
+	const features = useMemo(() => ({
+		...FEATURES,
+		...Object.fromEntries(Object.entries(config.features ?? {}).filter(([k, v]) => k in FEATURES && typeof v === "boolean"))
+	}), [config.features]);
 	const [pageColours, setPageColours] = useState(null);
 	const site = useMemo(() => resolveSite(initialConfig, pageColours), [initialConfig, pageColours]);
 	const { siteName, defaultTheme } = site;
@@ -2709,6 +2731,8 @@ function ThemeProvider({ config = {}, children }) {
 		setLogoColouring,
 		/** Sets how boldly a re-coloured site takes the theme: 'colourful' or 'subtle'. */
 		setColourStyle,
+		/** Which parts of the panel are on (config `features`). */
+		features,
 		/** How many colours a theme uses (5 to 10): its own count, or the visitor's default. */
 		coloursOf,
 		/** Sets one theme's colour count (light and dark share it). */
@@ -3867,7 +3891,7 @@ function ThemePanel({ open = true }) {
 									}, id);
 								})
 							}),
-							/* @__PURE__ */ jsxs("button", {
+							theme.features.addToSite && /* @__PURE__ */ jsxs("button", {
 								type: "button",
 								onClick: (e) => view === "mode-toggle" ? setView("main") : showView("mode-toggle", e.currentTarget),
 								className: `${btn} shrink-0 whitespace-nowrap px-1.5 @min-[500px]:px-2 ${view === "mode-toggle" ? "border-zinc-900 bg-zinc-100" : "border-transparent"}`,
@@ -3882,7 +3906,7 @@ function ThemePanel({ open = true }) {
 									children: "Add to site"
 								})]
 							}),
-							/* @__PURE__ */ jsxs("button", {
+							theme.features.audit && /* @__PURE__ */ jsxs("button", {
 								type: "button",
 								onClick: audit.toggle,
 								className: `${btn} px-2 ${audit.on ? "border-zinc-900 bg-zinc-100" : "border-transparent"}`,
@@ -4467,7 +4491,7 @@ var MODES = [
 /** The visitor's preferences for the panel and colour button. */
 function SettingsView({ onBack }) {
 	const { settings, update, reset, resetButton } = useSettings();
-	const { active } = useTheme();
+	const { active, features } = useTheme();
 	const { toast } = usePanel();
 	const headingRef = useRef(null);
 	useEffect(() => headingRef.current?.focus(), []);
@@ -4524,7 +4548,7 @@ function SettingsView({ onBack }) {
 					})
 				]
 			}),
-			/* @__PURE__ */ jsxs("fieldset", {
+			features.colourCount && /* @__PURE__ */ jsxs("fieldset", {
 				className: "space-y-1.5",
 				children: [
 					/* @__PURE__ */ jsx("legend", {
@@ -4600,29 +4624,29 @@ function SettingsView({ onBack }) {
 						className: "mb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-600",
 						children: "Show"
 					}),
-					/* @__PURE__ */ jsx(Toggle, {
+					features.picks && /* @__PURE__ */ jsx(Toggle, {
 						checked: settings.showPicks,
 						onChange: (v) => update({ showPicks: v }),
 						label: "Max’s picks",
 						note: "Hand-tuned colorsbymax themes"
 					}),
-					/* @__PURE__ */ jsx(Toggle, {
+					features.library && /* @__PURE__ */ jsx(Toggle, {
 						checked: settings.showLibrary,
 						onChange: (v) => update({ showLibrary: v }),
 						label: "Theme library",
 						note: "Hundreds of themes in categories, with search"
 					}),
-					/* @__PURE__ */ jsx(Toggle, {
+					features.custom && /* @__PURE__ */ jsx(Toggle, {
 						checked: settings.showCustom,
 						onChange: (v) => update({ showCustom: v }),
 						label: "Custom palettes"
 					}),
-					/* @__PURE__ */ jsx(Toggle, {
+					features.overrides && /* @__PURE__ */ jsx(Toggle, {
 						checked: settings.showOverrides,
 						onChange: (v) => update({ showOverrides: v }),
 						label: "Override a single colour"
 					}),
-					/* @__PURE__ */ jsx(Toggle, {
+					features.importExport && /* @__PURE__ */ jsx(Toggle, {
 						checked: settings.showImportExport,
 						onChange: (v) => update({ showImportExport: v }),
 						label: "Import / export"
@@ -4910,7 +4934,7 @@ var COLOUR_STYLES = [{
 	Icon: Paintbrush
 }];
 function PresetGrid() {
-	const { siteName, siteThemes, presets: allPresets, customs, active, selectTheme, state, clearOverrides, tokens, recolouring } = useTheme();
+	const { siteName, siteThemes, presets: allPresets, customs, active, selectTheme, state, clearOverrides, tokens, recolouring, features } = useTheme();
 	const surpriseBurst = useBurst();
 	const { settings, mode, update } = useSettings();
 	const categoriesId = useId();
@@ -5057,7 +5081,7 @@ function PresetGrid() {
 		ref: wrapRef,
 		className: "space-y-3",
 		children: [
-			/* @__PURE__ */ jsx(ScanCard, {}),
+			features.scan && /* @__PURE__ */ jsx(ScanCard, {}),
 			/* @__PURE__ */ jsxs("p", {
 				className: "text-xs text-zinc-600",
 				children: ["Current theme: ", /* @__PURE__ */ jsx("strong", {
@@ -5065,7 +5089,7 @@ function PresetGrid() {
 					children: active.name
 				})]
 			}),
-			/* @__PURE__ */ jsxs("div", {
+			features.colourStyle && /* @__PURE__ */ jsxs("div", {
 				className: "rounded-xl border border-zinc-200 p-2.5",
 				children: [/* @__PURE__ */ jsx("div", {
 					role: "radiogroup",
@@ -5108,46 +5132,42 @@ function PresetGrid() {
 					})
 				]
 			}),
-			/* @__PURE__ */ jsxs("div", {
+			(features.search || features.surprise) && /* @__PURE__ */ jsxs("div", {
 				className: "flex gap-2",
-				children: [
-					/* @__PURE__ */ jsx("label", {
-						htmlFor: searchId,
-						className: "sr-only",
-						children: "Search themes"
-					}),
-					/* @__PURE__ */ jsx("input", {
-						id: searchId,
-						type: "search",
-						className: field,
-						placeholder: `Search ${roughCount} themes…`,
-						value: query,
-						onChange: (e) => {
-							setQuery(e.target.value);
-							setLimit(PAGE_SIZE);
-						}
-					}),
-					/* @__PURE__ */ jsxs("button", {
-						type: "button",
-						className: `${btn} relative shrink-0`,
-						onClick: surprise,
-						disabled: !library && needsLibrary,
-						children: [
-							/* @__PURE__ */ jsx(Shuffle, {
-								className: "w-3.5 h-3.5",
-								"aria-hidden": "true"
-							}),
-							/* @__PURE__ */ jsxs("span", { children: ["Surprise", /* @__PURE__ */ jsx("span", {
-								className: "hidden @min-[400px]:inline",
-								children: " me"
-							})] }),
-							surpriseBurst.bursting && /* @__PURE__ */ jsx(Burst, {
-								tokens,
-								spread: 1.7
-							}, surpriseBurst.burst)
-						]
-					})
-				]
+				children: [features.search && /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsx("label", {
+					htmlFor: searchId,
+					className: "sr-only",
+					children: "Search themes"
+				}), /* @__PURE__ */ jsx("input", {
+					id: searchId,
+					type: "search",
+					className: field,
+					placeholder: `Search ${roughCount} themes…`,
+					value: query,
+					onChange: (e) => {
+						setQuery(e.target.value);
+						setLimit(PAGE_SIZE);
+					}
+				})] }), features.surprise && /* @__PURE__ */ jsxs("button", {
+					type: "button",
+					className: `${btn} relative shrink-0 ${features.search ? "" : "flex-1"}`,
+					onClick: surprise,
+					disabled: !library && needsLibrary,
+					children: [
+						/* @__PURE__ */ jsx(Shuffle, {
+							className: "w-3.5 h-3.5",
+							"aria-hidden": "true"
+						}),
+						/* @__PURE__ */ jsxs("span", { children: ["Surprise", /* @__PURE__ */ jsx("span", {
+							className: "hidden @min-[400px]:inline",
+							children: " me"
+						})] }),
+						surpriseBurst.bursting && /* @__PURE__ */ jsx(Burst, {
+							tokens,
+							spread: 1.7
+						}, surpriseBurst.burst)
+					]
+				})]
 			}),
 			suggestions.length > 0 && /* @__PURE__ */ jsxs("div", {
 				role: "group",
@@ -5435,7 +5455,7 @@ function ScanCard() {
 	});
 }
 function ThemeCard({ theme: t, isActive, onSelect }) {
-	const { issues, coloursOf, setThemeColours } = useTheme();
+	const { issues, coloursOf, setThemeColours, features } = useTheme();
 	const colours = coloursOf(t.id);
 	const showContrast = useContext(ContrastNav);
 	const stored = useMemo(() => t.library && !t.derived ? 0 : checkTheme(t.tokens).length, [t]);
@@ -5493,7 +5513,7 @@ function ThemeCard({ theme: t, isActive, onSelect }) {
 					"aria-hidden": "true"
 				}), count]
 			}),
-			isActive && /* @__PURE__ */ jsx("span", {
+			isActive && features.colourCount && /* @__PURE__ */ jsx("span", {
 				className: "absolute right-2 bottom-2",
 				children: /* @__PURE__ */ jsx(ColourStepper, {
 					value: colours,
@@ -6796,7 +6816,7 @@ function ThemeSwitcher() {
 	return mount && createPortal(/* @__PURE__ */ jsx(Switcher, {}), mount);
 }
 function Switcher() {
-	const { issues, storageKey, tokens, position: requested, setLogoColouring, setColourStyle, setPaletteDefault, intro, mode, modeSetting, setMode, settingDefaults } = useTheme();
+	const { issues, storageKey, tokens, position: requested, setLogoColouring, setColourStyle, setPaletteDefault, features, intro, mode, modeSetting, setMode, settingDefaults } = useTheme();
 	const position = CORNERS[requested] ? requested : "bottom-right";
 	const [open, setOpen] = useState(false);
 	const [arrived, setArrived] = useState(!intro);
@@ -7011,7 +7031,13 @@ function Switcher() {
 	const settingsApi = {
 		settings: {
 			...settings,
-			mode: modeSetting
+			mode: modeSetting,
+			showPicks: settings.showPicks && features.picks,
+			showLibrary: settings.showLibrary && features.library,
+			showCustom: settings.showCustom && features.custom,
+			showOverrides: settings.showOverrides && features.overrides,
+			showImportExport: settings.showImportExport && features.importExport,
+			colourStyle: features.colourStyle ? settings.colourStyle : "colourful"
 		},
 		mode,
 		audit: {

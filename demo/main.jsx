@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ThemeProvider, ThemeSwitcher } from '../src/index.js'
+import { ThemeSwitcher } from '../src/index.js'
+import { SiteThemeProvider } from './site/siteSettings.jsx'
 import { Nav } from './site/Nav.jsx'
 import { Hero } from './site/Hero.jsx'
 import { Stats, Why } from './site/Why.jsx'
@@ -48,11 +49,11 @@ const siteConfig = PREVIEW ? previewConfig(config) : config
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <ThemeProvider config={siteConfig}>
+    <SiteThemeProvider config={siteConfig}>
       <Site />
       <ThemedFavicon />
       <ThemeSwitcher />
-    </ThemeProvider>
+    </SiteThemeProvider>
   </StrictMode>,
 )
 

@@ -78,6 +78,22 @@ export async function readShot(id, file) {
   return { bytes: await res.arrayBuffer(), type }
 }
 
+/** One report, or null. */
+export async function readReport(id) {
+  if (!/^[\w-]+$/.test(id)) return null
+  return (await readJson(`${DIR}/${id}/report.json`))?.data ?? null
+}
+
+/** Adds a reply to a report's thread, and marks it done. */
+export async function addReply(id, reply) {
+  const path = `${DIR}/${id}/report.json`
+  const current = await readJson(path)
+  if (!current) throw new Error('no such report')
+  const next = { ...current.data, status: 'done', replies: [...(current.data.replies ?? []), reply] }
+  await put(path, JSON.stringify(next, null, 2), `Feedback ${id}: replied`, current.sha)
+  return next
+}
+
 /** Marks a report new or done. */
 export async function setStatus(id, status) {
   if (!/^[\w-]+$/.test(id) || !['new', 'done'].includes(status)) throw new Error('bad report')

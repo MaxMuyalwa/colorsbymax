@@ -40,7 +40,9 @@ export function useAdmin() {
   return { ...state, signOut, refresh }
 }
 
-export const DASHBOARD = `${import.meta.env.BASE_URL}docs.html#admin`
+/** The admin space: its own page. */
+export const ADMIN_PAGE = `${import.meta.env.BASE_URL}admin.html`
+export const DASHBOARD = ADMIN_PAGE
 /** The admin's GitHub picture (a placeholder on the dev server's preview). */
 export const avatarOf = (login) => (login && login !== 'preview' ? `https://github.com/${login}.png?size=64` : null)
 

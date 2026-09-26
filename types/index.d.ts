@@ -103,6 +103,11 @@ export interface ColorsByMaxConfig {
    */
   colourStyle?: 'colourful' | 'subtle'
   /**
+   * Parts of the panel to switch off for everyone, e.g. `{ scan: false, audit: false }`. All are on
+   * by default. Unlike the rest of the config it's read live, so a site can change it after loading.
+   */
+  features?: Partial<Record<'picks' | 'library' | 'search' | 'surprise' | 'scan' | 'custom' | 'overrides' | 'importExport' | 'audit' | 'addToSite' | 'colourStyle' | 'colourCount', boolean>>
+  /**
    * The mode a first-time visitor starts in (default 'light'; 'system' follows their device). Any
    * site can start dark: every theme has a dark twin. Visitors can still change it.
    */

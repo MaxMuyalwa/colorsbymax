@@ -3,6 +3,7 @@ import { ArrowDown, Moon, Palette, Sparkles, Sun } from 'lucide-react'
 import { useTheme } from '../../src/index.js'
 import { CopyButton, panelToggle } from './ui.jsx'
 import { PREVIEW } from './preview.js'
+import { EDITABLE_TEXT, useSiteText } from './siteSettings.jsx'
 import THEMES from '../assets/hero/themes.json'
 import violetDesktop from '../assets/hero/violet-desktop.webp'
 import violetPhone from '../assets/hero/violet-phone.webp'
@@ -126,6 +127,9 @@ function Phone({ index, version }) {
 
 export function Hero() {
   const { tokens } = useTheme()
+  // Text the admin can change in the admin space; the defaults are in siteSettings.jsx.
+  const t = useSiteText()
+  const defaultBadge = t('hero.badge') === EDITABLE_TEXT[0].default
   const [index, setIndex] = useState(LIVE)
   // A new theme or mode for the page brings the window back to it, so it always matches.
   const siteColours = Object.values(tokens).join()
@@ -181,15 +185,20 @@ export function Hero() {
           <div className="flex flex-col items-center px-5 pt-10 pb-4 text-center sm:px-8 md:pt-14">
             <p className="hero-in inline-flex items-center gap-2 rounded-full border border-border bg-surface/80 px-3 py-1 text-xs font-medium text-ink-secondary shadow-sm transition-colors duration-700 sm:text-sm" style={{ '--hero-delay': '150ms' }}>
               <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />
-              <span className="hidden sm:inline">A live theme switcher · </span>700+ palettes · contrast checked
+              {defaultBadge ? (
+                <>
+                  <span className="hidden sm:inline">A live theme switcher · </span>700+ palettes · contrast checked
+                </>
+              ) : (
+                t('hero.badge')
+              )}
             </p>
             <h1 className="hero-in mt-5 font-display text-4xl leading-[1.05] font-extrabold tracking-tight text-ink transition-colors duration-700 sm:text-5xl lg:text-6xl" style={{ '--hero-delay': '250ms' }}>
-              Colour your whole site <br className="hidden sm:block" />
-              <span className="text-gradient">like a designer would.</span>
+              {t('hero.title')} <br className="hidden sm:block" />
+              <span className="text-gradient">{t('hero.highlight')}</span>
             </h1>
             <p className="hero-in mx-auto mt-5 max-w-2xl text-base leading-relaxed text-ink-secondary transition-colors duration-700 md:text-lg" style={{ '--hero-delay': '350ms' }}>
-              colorsbymax adds a colour button to your website. Try hundreds of professionally built palettes on your real pages, live, with every colour in the right role and
-              every pairing checked so text stays readable.
+              {t('hero.subtitle')}
             </p>
             <div className="hero-in mt-7 flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row" style={{ '--hero-delay': '450ms' }}>
               <button
@@ -198,13 +207,13 @@ export function Hero() {
                 className="shine group inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 font-semibold text-on-primary shadow-xl shadow-primary/30 transition hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-primary/40 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none sm:w-auto"
               >
                 <Palette className="h-5 w-5 transition-transform duration-500 group-hover:rotate-[20deg] group-hover:scale-110" aria-hidden="true" />
-                Try it on this page
+                {t('hero.primary')}
               </button>
               <a
                 href="#setup"
                 className="group inline-flex w-full items-center justify-center gap-2 rounded-full border border-border bg-surface px-6 py-3 font-semibold text-ink shadow-sm transition hover:-translate-y-0.5 hover:border-primary hover:shadow-md sm:w-auto"
               >
-                Add it to your site
+                {t('hero.secondary')}
                 <ArrowDown className="h-4 w-4 transition-transform group-hover:translate-y-0.5" aria-hidden="true" />
               </a>
             </div>

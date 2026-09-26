@@ -171,3 +171,30 @@ export async function deleteEntry(kind, slug, login) {
   })
   if (!res.ok) throw new Error(`GitHub said ${res.status} deleting ${path}`)
 }
+
+// ------------------------------------------------------------------ site settings
+
+/** The site's editable settings (landing page text, colour panel features): one JSON file. */
+const SETTINGS = 'content/site.json'
+
+export async function readSettings() {
+  const res = await api(`/contents/${SETTINGS}?ref=${BRANCH}`)
+  if (res.status === 404) return {}
+  if (!res.ok) throw new Error(`GitHub said ${res.status} reading ${SETTINGS}`)
+  return JSON.parse(Buffer.from((await res.json()).content, 'base64').toString('utf8'))
+}
+
+export async function saveSettings(settings, login) {
+  await ensureBranch()
+  const sha = await shaOf(SETTINGS)
+  const res = await api(`/contents/${SETTINGS}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      message: `Update site settings (admin: ${login})`,
+      content: Buffer.from(JSON.stringify(settings, null, 2) + '\n').toString('base64'),
+      branch: BRANCH,
+      ...(sha ? { sha } : {}),
+    }),
+  })
+  if (!res.ok) throw new Error(`GitHub said ${res.status} saving ${SETTINGS}`)
+}

@@ -48,6 +48,9 @@ const newId = () => `custom-${Date.now().toString(36)}-${Math.random().toString(
  *   first-time visitor. 'colourful' (default) paints the page's parts by role, as a designer would:
  *   header, hero, alternating sections, cards, buttons, links, headings and footer. 'subtle' only
  *   swaps the colours the site already has. Visitors can switch in the panel.
+ * @property {Partial<Record<keyof typeof FEATURES, boolean>>} [features]  Parts of the panel to switch off
+ *   for everyone, e.g. { scan: false, audit: false } (all on by default). Unlike the rest of the
+ *   config it's read live, so a site can change it after loading (from its own settings).
  * @property {boolean | 'auto'} [recolour]  Re-colour a site that doesn't paint with the --color-*
  *   variables, by swapping the colours actually on the page. 'auto' (default) does it only when
  *   the site doesn't define --color-primary itself.
@@ -85,10 +88,28 @@ function resolveSite(config, pageColours) {
 }
 
 /** @param {{ config?: ColorsByMaxConfig, children: import('react').ReactNode }} props */
+/** Parts of the panel a site can switch off for everyone (config `features`). All on by default. */
+export const FEATURES = {
+  picks: true, // Max's picks
+  library: true, // the theme library
+  search: true,
+  surprise: true, // Surprise me
+  scan: true, // Scan site
+  custom: true, // Custom palettes
+  overrides: true, // Override a single colour
+  importExport: true,
+  audit: true,
+  addToSite: true, // the light and dark switch for the site ("Add to site")
+  colourStyle: true, // the Subtle / Colourful switch
+  colourCount: true, // − and + for how many colours a theme uses
+}
+
 export function ThemeProvider({ config = {}, children }) {
   const storageKey = config.storageKey || DEFAULT_STORAGE_KEY
-  // Config is read once; it describes the host site and shouldn't change at runtime.
+  // Config is read once; it describes the host site and shouldn't change at runtime. The one
+  // exception is `features`, read live below.
   const [initialConfig] = useState(config)
+  const features = useMemo(() => ({ ...FEATURES, ...Object.fromEntries(Object.entries(config.features ?? {}).filter(([k, v]) => k in FEATURES && typeof v === 'boolean')) }), [config.features])
   // The site's own colours, when it's being re-coloured (read once its content has rendered).
   const [pageColours, setPageColours] = useState(null)
   const site = useMemo(() => resolveSite(initialConfig, pageColours), [initialConfig, pageColours])
@@ -307,6 +328,8 @@ export function ThemeProvider({ config = {}, children }) {
     setLogoColouring,
     /** Sets how boldly a re-coloured site takes the theme: 'colourful' or 'subtle'. */
     setColourStyle,
+    /** Which parts of the panel are on (config `features`). */
+    features,
     /** How many colours a theme uses (5 to 10): its own count, or the visitor's default. */
     coloursOf,
     /** Sets one theme's colour count (light and dark share it). */

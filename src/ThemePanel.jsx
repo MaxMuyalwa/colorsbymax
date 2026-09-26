@@ -148,6 +148,7 @@ export default function ThemePanel({ open = true }) {
             )
           })}
         </div>
+        {theme.features.addToSite && (
         <button
           type="button"
           onClick={(e) => (view === 'mode-toggle' ? setView('main') : showView('mode-toggle', e.currentTarget))}
@@ -159,6 +160,8 @@ export default function ThemePanel({ open = true }) {
           <ToggleRight className="w-4 h-4" aria-hidden="true" />
           <span className="hidden @min-[500px]:inline">Add to site</span>
         </button>
+        )}
+        {theme.features.audit && (
         <button
           type="button"
           onClick={audit.toggle}
@@ -169,6 +172,7 @@ export default function ThemePanel({ open = true }) {
           <ScanSearch className="w-4 h-4" aria-hidden="true" />
           Audit
         </button>
+        )}
         <button
           type="button"
           onClick={(e) => (view === 'settings' ? setView('main') : showView('settings', e.currentTarget))}
@@ -546,7 +550,7 @@ const MODES = [
 /** The visitor's preferences for the panel and colour button. */
 function SettingsView({ onBack }) {
   const { settings, update, reset, resetButton } = useSettings()
-  const { active } = useTheme()
+  const { active, features } = useTheme()
   const { toast } = usePanel()
   const headingRef = useRef(null)
   useEffect(() => headingRef.current?.focus(), [])
@@ -587,6 +591,7 @@ function SettingsView({ onBack }) {
         </p>
       </fieldset>
 
+      {features.colourCount && (
       <fieldset className="space-y-1.5">
         <legend className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-600">Colours per theme</legend>
         {/* A sample: the current theme's colours at the chosen count. */}
@@ -601,6 +606,7 @@ function SettingsView({ onBack }) {
           stay. You can still change it on any theme with − and + on its card.
         </p>
       </fieldset>
+      )}
 
       <fieldset className="space-y-1.5">
         <legend className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-600">Panel size</legend>
@@ -632,11 +638,11 @@ function SettingsView({ onBack }) {
 
       <fieldset className="space-y-1">
         <legend className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-600">Show</legend>
-        <Toggle checked={settings.showPicks} onChange={(v) => update({ showPicks: v })} label="Max’s picks" note="Hand-tuned colorsbymax themes" />
-        <Toggle checked={settings.showLibrary} onChange={(v) => update({ showLibrary: v })} label="Theme library" note="Hundreds of themes in categories, with search" />
-        <Toggle checked={settings.showCustom} onChange={(v) => update({ showCustom: v })} label="Custom palettes" />
-        <Toggle checked={settings.showOverrides} onChange={(v) => update({ showOverrides: v })} label="Override a single colour" />
-        <Toggle checked={settings.showImportExport} onChange={(v) => update({ showImportExport: v })} label="Import / export" />
+        {features.picks && <Toggle checked={settings.showPicks} onChange={(v) => update({ showPicks: v })} label="Max’s picks" note="Hand-tuned colorsbymax themes" />}
+        {features.library && <Toggle checked={settings.showLibrary} onChange={(v) => update({ showLibrary: v })} label="Theme library" note="Hundreds of themes in categories, with search" />}
+        {features.custom && <Toggle checked={settings.showCustom} onChange={(v) => update({ showCustom: v })} label="Custom palettes" />}
+        {features.overrides && <Toggle checked={settings.showOverrides} onChange={(v) => update({ showOverrides: v })} label="Override a single colour" />}
+        {features.importExport && <Toggle checked={settings.showImportExport} onChange={(v) => update({ showImportExport: v })} label="Import / export" />}
       </fieldset>
 
       <fieldset className="space-y-1">
@@ -855,7 +861,7 @@ const COLOUR_STYLES = [
 ]
 
 function PresetGrid() {
-  const { siteName, siteThemes, presets: allPresets, customs, active, selectTheme, state, clearOverrides, tokens, recolouring } = useTheme()
+  const { siteName, siteThemes, presets: allPresets, customs, active, selectTheme, state, clearOverrides, tokens, recolouring, features } = useTheme()
   const surpriseBurst = useBurst()
   const { settings, mode, update } = useSettings()
   const categoriesId = useId()
@@ -976,13 +982,13 @@ function PresetGrid() {
 
   return (
     <div ref={wrapRef} className="space-y-3">
-      <ScanCard />
+      {features.scan && <ScanCard />}
       <p className="text-xs text-zinc-600">
         Current theme: <strong className="font-semibold text-zinc-900">{active.name}</strong>
       </p>
       {/* How boldly the site takes the theme, on every site: on one painted with the colour tokens,
           Subtle calms its backgrounds; on a re-coloured one, Colourful paints its parts by role. */}
-      {(
+      {features.colourStyle && (
         <div className="rounded-xl border border-zinc-200 p-2.5">
           <div role="radiogroup" aria-label="Colour style" className="grid grid-cols-2 gap-1 rounded-lg bg-zinc-100 p-1">
             {COLOUR_STYLES.map(({ id, label, Icon }) => {
@@ -1029,7 +1035,10 @@ function PresetGrid() {
         </p>
       )}
 
+      {(features.search || features.surprise) && (
       <div className="flex gap-2">
+        {features.search && (
+        <>
         <label htmlFor={searchId} className="sr-only">Search themes</label>
         <input
           id={searchId}
@@ -1042,7 +1051,10 @@ function PresetGrid() {
             setLimit(PAGE_SIZE)
           }}
         />
-        <button type="button" className={`${btn} relative shrink-0`} onClick={surprise} disabled={!library && needsLibrary}>
+        </>
+        )}
+        {features.surprise && (
+        <button type="button" className={`${btn} relative shrink-0 ${features.search ? '' : 'flex-1'}`} onClick={surprise} disabled={!library && needsLibrary}>
           {/* "Surprise" alone on a narrow panel, leaving the search box room for its hint. */}
           <Shuffle className="w-3.5 h-3.5" aria-hidden="true" />
           <span>
@@ -1051,7 +1063,9 @@ function PresetGrid() {
           {/* A burst of the theme it just picked, like the colour button's. */}
           {surpriseBurst.bursting && <Burst key={surpriseBurst.burst} tokens={tokens} spread={1.7} />}
         </button>
+        )}
       </div>
+      )}
       {/* Words that finish what's being typed ("b": black, blue, brown…); a tap completes it. */}
       {suggestions.length > 0 && (
         <div role="group" aria-label="Suggestions" className="-mt-1 flex flex-wrap items-center gap-1.5">
@@ -1293,7 +1307,7 @@ function ScanCard() {
 }
 
 function ThemeCard({ theme: t, isActive, onSelect }) {
-  const { issues, coloursOf, setThemeColours } = useTheme()
+  const { issues, coloursOf, setThemeColours, features } = useTheme()
   const colours = coloursOf(t.id)
   const showContrast = useContext(ContrastNav)
   // The active card reflects live edits and overrides. Library themes are contrast-checked at
@@ -1343,7 +1357,7 @@ function ThemeCard({ theme: t, isActive, onSelect }) {
         </button>
       )}
       {/* The theme in use: how many of its colours the site uses (5 to 10). */}
-      {isActive && (
+      {isActive && features.colourCount && (
         <span className="absolute right-2 bottom-2">
           <ColourStepper value={colours} onChange={(n) => setThemeColours(t.id, n)} label={`Colours ${t.name} uses`} />
         </span>
