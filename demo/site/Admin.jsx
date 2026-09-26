@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Lock, LogOut, X } from 'lucide-react'
+import { Wordmark } from './Nav.jsx'
 import { GitHubIcon } from './ui.jsx'
 
 const API = `${import.meta.env.BASE_URL}api/admin`
@@ -63,8 +64,11 @@ export function AdminButton({ className = '' }) {
   )
 }
 
-/** A centred window over the page, portalled to <body>, closed by Escape or a click outside. */
-export function Modal({ title, onClose, children, wide = false }) {
+/**
+ * A centred window over the page, portalled to <body>, closed by Escape or a click outside.
+ * `hideTitle` keeps the title for screen readers only.
+ */
+export function Modal({ title, onClose, children, wide = false, hideTitle = false }) {
   const ids = useId()
   const box = useRef(null)
   useEffect(() => {
@@ -86,11 +90,11 @@ export function Modal({ title, onClose, children, wide = false }) {
         aria-labelledby={`${ids}-title`}
         className={`my-8 w-full ${wide ? 'max-w-3xl' : 'max-w-sm'} animate-[tab-in_250ms_ease-out] rounded-3xl border border-border bg-surface p-6 text-ink shadow-2xl shadow-shadow/20`}
       >
-        <div className="flex items-start justify-between gap-4">
-          <h2 id={`${ids}-title`} className="font-display text-2xl font-bold tracking-tight">
+        <div className={`flex items-start justify-between gap-4 ${hideTitle ? '-mb-9' : ''}`}>
+          <h2 id={`${ids}-title`} className={hideTitle ? 'sr-only' : 'font-display text-2xl font-bold tracking-tight'}>
             {title}
           </h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-full text-ink-secondary transition hover:bg-accent hover:text-on-accent">
+          <button type="button" onClick={onClose} aria-label="Close" className="ml-auto grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-full text-ink-secondary transition hover:bg-accent hover:text-on-accent">
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
@@ -101,19 +105,22 @@ export function Modal({ title, onClose, children, wide = false }) {
   )
 }
 
+/** Just the logo and a way in: nothing that says whose it is or what it's for. */
 function AdminSignIn({ onClose }) {
   return (
-    <Modal title="Admin sign-in" onClose={onClose}>
-      <span className="mt-4 grid h-11 w-11 place-items-center rounded-2xl bg-secondary text-on-secondary">
-        <Lock className="h-5 w-5" aria-hidden="true" />
-      </span>
-      <p className="mt-3 text-sm leading-relaxed text-ink-secondary">For Max, to write posts and testimonials. Sign in with GitHub; only Max’s account is let in.</p>
-      <a
-        href={`${API}/login`}
-        className="shine mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-ink font-semibold text-background shadow-lg transition hover:-translate-y-px"
-      >
-        <GitHubIcon className="h-5 w-5" /> Sign in with GitHub
-      </a>
+    <Modal title="Sign in" onClose={onClose} hideTitle>
+      <div className="flex flex-col items-center pt-10 pb-1 text-center">
+        <span className="text-3xl text-primary-dark">
+          <Wordmark />
+        </span>
+        <a
+          href={`${API}/login`}
+          className="shine mt-8 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-ink font-semibold text-background shadow-lg transition hover:-translate-y-px"
+        >
+          <GitHubIcon className="h-5 w-5" /> Sign in with GitHub
+        </a>
+        <p className="mt-4 text-xs font-medium tracking-wide text-ink-muted">Authorised access only</p>
+      </div>
     </Modal>
   )
 }
