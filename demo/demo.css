@@ -19,8 +19,13 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+/* --announcement: the height of the admin's banner above the top bar, while it shows
+   (Announcement.jsx). The page moves down by it, and in-page links land clear of it. */
+body {
+  padding-top: var(--announcement, 0px);
+}
 html {
-  scroll-padding-top: 6rem;
+  scroll-padding-top: calc(6rem + var(--announcement, 0px));
   /* No page scrollbar, on any screen: the page still scrolls. The colour panel keeps its own. */
   scrollbar-width: none;
 }

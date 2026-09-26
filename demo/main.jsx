@@ -13,7 +13,6 @@ import { Agents } from './site/Agents.jsx'
 import { About, Closing } from './site/About.jsx'
 import { Footer } from './site/Footer.jsx'
 import { Feedback } from './site/Feedback.jsx'
-import { Announcement } from './site/Announcement.jsx'
 import { config } from './site/config.js'
 import { Community } from './site/Community.jsx'
 import { ThemedFavicon } from './site/Favicon.jsx'
@@ -42,8 +41,6 @@ function Site() {
       </main>
       <Footer />
       <Feedback />
-      {/* Not inside the hero's live preview of this page. */}
-      {!PREVIEW && <Announcement />}
     </div>
   )
 }

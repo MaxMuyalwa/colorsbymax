@@ -2,6 +2,10 @@
 
 What changed in each colorsbymax release. Update with `npm install colorsbymax@latest`.
 
+## Unreleased
+
+- **Room for a bar above your nav.** Set `--colorsbymax-offset-top` on `<html>` (in px) to the height of anything pinned to the top of your page, such as an announcement banner, and the colour button and its panel move down by it instead of sitting on top of it.
+
 ## 0.4.0 (2026-09-26)
 
 - **`features` config option: switch parts of the panel off for everyone,** e.g. `{ scan: false, audit: false }`: Max's picks, the library, search, Surprise me, Scan site, custom palettes, single-colour overrides, import / export, Audit, Add to site, the Subtle / Colourful switch and colour counts. It's read live, so a site can turn things off from its own settings without a redeploy.

@@ -341,6 +341,12 @@ Without a `siteName`, the site group is named from the page's `og:site_name`, it
 }
 ```
 
+A bar pinned above your nav (an announcement, a cookie notice)? Set its height on `<html>` and the colour button and panel make room for it:
+
+```js
+document.documentElement.style.setProperty('--colorsbymax-offset-top', `${bar.offsetHeight}px`)
+```
+
 ### Dark mode
 
 Dark mode works on any site: every theme has a dark twin, so choosing Dark (or Auto, on a device set to dark) re-colours the whole page, and text, buttons and icons are checked for contrast on the dark background. It applies on every page load, and keeps working when the switcher is hidden in production.

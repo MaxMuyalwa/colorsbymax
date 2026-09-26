@@ -4,6 +4,8 @@ import { DOCS, MRMAX, REPO } from './ui.jsx'
 import { StarButton } from './StarButton.jsx'
 import { FeedbackButton, openFeedback } from './Feedback.jsx'
 import { AdminMenu, DASHBOARD, useAdmin } from './Admin.jsx'
+import { Announcement } from './Announcement.jsx'
+import { PREVIEW } from './preview.js'
 import { LogoMark } from './Favicon.jsx'
 
 const MENU_CLOSE_MS = 200
@@ -67,7 +69,10 @@ export function Nav({ home = '' }) {
   }, [open])
 
   return (
-    <div className={`fixed inset-x-0 top-0 z-50 transition-[padding] duration-500 ease-out motion-reduce:transition-none ${scrolled ? 'px-4 pt-4 sm:px-6 min-[1200px]:!px-20' : ''}`}>
+    <div className="fixed inset-x-0 top-0 z-50">
+      {/* The admin's announcement, above everything (not in the hero's live preview of the page). */}
+      {!PREVIEW && <Announcement />}
+      <div className={`transition-[padding] duration-500 ease-out motion-reduce:transition-none ${scrolled ? 'px-4 pt-4 sm:px-6 min-[1200px]:!px-20' : ''}`}>
       <nav
         aria-label="Main"
         className={`mx-auto flex items-center justify-between gap-2 border sm:gap-4 backdrop-blur-md transition-all duration-500 ease-out motion-reduce:transition-none ${
@@ -185,6 +190,7 @@ export function Nav({ home = '' }) {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

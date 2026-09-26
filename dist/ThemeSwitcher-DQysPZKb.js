@@ -6898,7 +6898,12 @@ function Switcher() {
 		width: settings.panelWidth,
 		height: settings.panelHeight
 	};
-	const layout = panelLayout(placed ?? (position === "top-right" ? null : cornerPoint(position, viewport)), viewport, size);
+	const offsetTop = useTopOffset();
+	const corner = placed ?? (position === "top-right" ? null : cornerPoint(position, viewport));
+	const layout = panelLayout(corner && !placed && position.startsWith("top") ? {
+		...corner,
+		top: corner.top + offsetTop
+	} : corner, viewport, size, offsetTop);
 	const onResizeStart = (edges) => (e) => {
 		if (e.button !== 0) return;
 		e.preventDefault();
@@ -7135,7 +7140,7 @@ function Switcher() {
 					onPointerUp: onDragEnd,
 					onPointerCancel: onDragEnd,
 					onLostPointerCapture: onDragEnd,
-					style: placed ?? void 0,
+					style: placed ?? (offsetTop && position.startsWith("top") ? { marginTop: offsetTop } : void 0),
 					className: `theme-switcher fixed z-[60] ${placed ? "" : CORNERS[position]} grid place-items-center w-9 h-9 rounded-full border border-zinc-200 bg-white/90 text-zinc-700 backdrop-blur hover:bg-white hover:text-zinc-900 transition-[color,background-color,box-shadow,scale] select-none ${settings.draggable ? "touch-none" : ""} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 ${dragPoint ? "scale-110 shadow-xl cursor-grabbing" : "shadow-md cursor-pointer"} ${entering ? "theme-arrive" : ""}`,
 					children: [
 						/* @__PURE__ */ jsx(Palette, {
@@ -7313,6 +7318,29 @@ function TooltipLayer({ rootRef }) {
 	});
 }
 /** Viewport size without scrollbars: the area fixed elements are placed in. */
+/**
+* How far a bar the site pins to the top of the page (above its nav, e.g. an announcement) pushes
+* the colour button and panel down: the CSS variable --colorsbymax-offset-top on <html>, in px.
+*/
+function useTopOffset() {
+	const read = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--colorsbymax-offset-top")) || 0;
+	const [offset, setOffset] = useState(read);
+	useLayoutEffect(() => {
+		const update = () => setOffset(read());
+		const observer = new MutationObserver(update);
+		observer.observe(document.documentElement, {
+			attributes: true,
+			attributeFilter: ["style", "class"]
+		});
+		window.addEventListener("resize", update);
+		update();
+		return () => {
+			observer.disconnect();
+			window.removeEventListener("resize", update);
+		};
+	}, []);
+	return offset;
+}
 function useViewport() {
 	const read = () => ({
 		width: document.documentElement.clientWidth,
@@ -7367,7 +7395,7 @@ function cornerPoint(position, { width, height }) {
 * @param {{ left: number, top: number } | null} button
 * @param {{ width: number | null, height: number | 'full' | null }} size
 */
-function panelLayout(button, { width: vw, height: vh }, size) {
+function panelLayout(button, { width: vw, height: vh }, size, offsetTop = 0) {
 	const narrow = vw < 640;
 	const style = {};
 	const free = {
@@ -7380,7 +7408,7 @@ function panelLayout(button, { width: vw, height: vh }, size) {
 	let maxHeight;
 	if (!button) {
 		const wide = vw >= 1200;
-		style.top = wide ? 72 : 128;
+		style.top = (wide ? 72 : 128) + offsetTop;
 		style.right = narrow ? EDGE : wide ? 16 : 24;
 		maxHeight = vh - style.top - EDGE;
 		free.bottom = true;

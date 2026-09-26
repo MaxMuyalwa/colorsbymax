@@ -332,7 +332,7 @@ function AnnouncementEditor({ onSaved }) {
   const input = 'mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm text-ink outline-none placeholder:text-ink-muted focus:border-primary focus:ring-2 focus:ring-primary/30'
   return (
     <>
-      <Head title="Announcement" text="A banner at the bottom of every page: news, a new release, a heads-up. Visitors can close it; it comes back for them when the message changes." />
+      <Head title="Announcement" text="A banner above the top bar on every page: news, a new release, a heads-up. While it’s on, it’s always there: visitors can close it as they browse, and a refresh brings it back." />
       <div className="space-y-4">
         <div className={`${tile} flex items-center justify-between gap-4`}>
           <span>
