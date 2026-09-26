@@ -70,7 +70,7 @@ export default function ThemeSwitcher() {
 }
 
 function Switcher() {
-  const { issues, storageKey, tokens, position: requested, setLogoColouring, intro, mode, modeSetting, setMode, settingDefaults } = useTheme()
+  const { issues, storageKey, tokens, position: requested, setLogoColouring, setColourStyle, intro, mode, modeSetting, setMode, settingDefaults } = useTheme()
   const position = CORNERS[requested] ? requested : 'bottom-right'
   const [open, setOpen] = useState(false)
 
@@ -102,6 +102,7 @@ function Switcher() {
   }, [burst])
   const [settings, setSettings] = useState(() => loadSettings(storageKey, settingDefaults))
   useEffect(() => setLogoColouring(settings.colourLogo), [settings.colourLogo, setLogoColouring])
+  useEffect(() => setColourStyle(settings.colourStyle), [settings.colourStyle, setColourStyle])
 
   // The page audit (the panel's Audit button): findings pinned to the page until it's closed.
   // It re-runs by itself when the colours or settings change, and on Re-check.
@@ -230,6 +231,12 @@ function Switcher() {
     setOpen(false)
     buttonRef.current?.focus()
   }, [])
+  // Once opened, the panel stays mounted and is only hidden when closed, so it opens again just
+  // as it was left: same group or mood, search, sections and scroll position.
+  const [kept, setKept] = useState(false)
+  useEffect(() => {
+    if (open) setKept(true)
+  }, [open])
 
   const onDragStart = (e) => {
     justDragged.current = false
@@ -308,7 +315,7 @@ function Switcher() {
     // Inside the shadow root, the document only sees the host element as focused or clicked.
     const focused = () => root.activeElement ?? document.activeElement
     const inside = (e, el) => e.composedPath().includes(el)
-    panel.querySelector(FOCUSABLE)?.focus()
+    panel.querySelector(FOCUSABLE)?.focus({ preventScroll: true })
 
     const onKeyDown = (e) => {
       if (e.key === 'Escape') {
@@ -394,7 +401,7 @@ function Switcher() {
           )}
         </button>
 
-        {open && (
+        {(open || kept) && (
           <div
             ref={panelRef}
             id="theme-panel"
@@ -402,9 +409,9 @@ function Switcher() {
             aria-modal="true"
             aria-labelledby="theme-panel-title"
             style={layout.style}
-            className="theme-switcher theme-panel fixed z-[60] flex flex-col rounded-2xl border border-zinc-200 bg-white text-zinc-900 shadow-2xl"
+            className={`theme-switcher theme-panel fixed z-[60] ${open ? 'flex' : 'hidden'} flex-col rounded-2xl border border-zinc-200 bg-white text-zinc-900 shadow-2xl`}
           >
-            <ThemePanel />
+            <ThemePanel open={open} />
             <ResizeHandles
               free={layout.free}
               onStart={onResizeStart}

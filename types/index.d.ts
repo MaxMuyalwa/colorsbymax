@@ -96,6 +96,13 @@ export interface ColorsByMaxConfig {
    */
   colourLogo?: boolean
   /**
+   * How boldly a re-coloured site (one that doesn't paint with the --color-* variables) takes a
+   * theme, for a first-time visitor. 'colourful' (default) paints the page's parts by role, as a
+   * designer would: header, hero, alternating sections, cards, buttons, links, headings and footer.
+   * 'subtle' only swaps the colours the site already has. Visitors can switch in the panel.
+   */
+  colourStyle?: 'colourful' | 'subtle'
+  /**
    * The mode a first-time visitor starts in (default 'light'; 'system' follows their device). Any
    * site can start dark: every theme has a dark twin. Visitors can still change it.
    */
@@ -148,6 +155,8 @@ export interface ThemeApi {
   recolouring: boolean
   /** Turns re-colouring of the site's logo on or off. */
   setLogoColouring(on: boolean): void
+  /** How boldly a re-coloured site takes the theme (the panel's Subtle / Colourful switch). */
+  setColourStyle(style: 'colourful' | 'subtle'): void
   /** The site's own themes, then any scan suggestions. */
   siteThemes: Theme[]
   defaultTheme: Theme
@@ -218,6 +227,8 @@ export interface PanelSettings {
   libraryCollapsed: boolean
   /** Whether themes re-colour the site's logo too. Off (the default) keeps its own colours. */
   colourLogo: boolean
+  /** On a re-coloured site: 'colourful' paints its parts by role, 'subtle' only swaps its colours. */
+  colourStyle: 'colourful' | 'subtle'
   /** Hidden on this device (from the finish screen); Alt+Shift+C or ?colorsbymax brings it back. */
   hideButton: boolean
 }

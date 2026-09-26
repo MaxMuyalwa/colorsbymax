@@ -17,6 +17,8 @@ import { createContext, useContext, useEffect, useState } from 'react'
  * @property {number | 'full' | null} panelHeight  Pixels, 'full' for all the room there is, or null to fit the content
  * @property {boolean} libraryCollapsed  Whether the library's category chips are folded away
  * @property {boolean} colourLogo  Whether themes re-colour the site's logo too (off keeps its own colours)
+ * @property {'colourful' | 'subtle'} colourStyle  On a re-coloured site: 'colourful' paints its parts by role
+ *   (header, hero, sections, cards, buttons, footer), 'subtle' only swaps the colours it already has
  * @property {boolean} hideButton  Hidden on this device from the finish screen (Alt+Shift+C brings it back)
  */
 
@@ -34,6 +36,7 @@ export const DEFAULT_SETTINGS = {
   panelHeight: null,
   libraryCollapsed: false,
   colourLogo: false,
+  colourStyle: 'colourful',
   hideButton: false,
 }
 
@@ -58,6 +61,7 @@ export function loadSettings(storageKey, defaults = DEFAULT_SETTINGS) {
       if (typeof saved[key] === typeof fallback) out[key] = saved[key]
     }
     if (!['light', 'dark', 'system'].includes(out.mode)) out.mode = defaults.mode
+    if (!['colourful', 'subtle'].includes(out.colourStyle)) out.colourStyle = defaults.colourStyle
     const size = (v) => typeof v === 'number' && v > 0 && v < 10000
     out.panelWidth = size(saved.panelWidth) ? saved.panelWidth : null
     out.panelHeight = size(saved.panelHeight) || saved.panelHeight === 'full' ? saved.panelHeight : null

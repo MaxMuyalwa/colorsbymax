@@ -43,6 +43,10 @@ const newId = () => `custom-${Date.now().toString(36)}-${Math.random().toString(
  *   `hidden: import.meta.env.PROD` to keep it out of production once the colours are chosen.
  * @property {'bottom-right' | 'bottom-left' | 'top-left' | 'top-right'} [position]  Where the colour
  *   button starts (default 'bottom-right'). 'top-right' sits under a floating nav bar.
+ * @property {'colourful' | 'subtle'} [colourStyle]  How boldly a re-coloured site takes a theme, for a
+ *   first-time visitor. 'colourful' (default) paints the page's parts by role, as a designer would:
+ *   header, hero, alternating sections, cards, buttons, links, headings and footer. 'subtle' only
+ *   swaps the colours the site already has. Visitors can switch in the panel.
  * @property {boolean | 'auto'} [recolour]  Re-colour a site that doesn't paint with the --color-*
  *   variables, by swapping the colours actually on the page. 'auto' (default) does it only when
  *   the site doesn't define --color-primary itself.
@@ -131,6 +135,7 @@ export function ThemeProvider({ config = {}, children }) {
     () => ({
       ...DEFAULT_SETTINGS,
       colourLogo: Boolean(initialConfig.colourLogo),
+      colourStyle: initialConfig.colourStyle === 'subtle' ? 'subtle' : 'colourful',
       mode: ['light', 'dark', 'system'].includes(initialConfig.defaultMode) ? initialConfig.defaultMode : DEFAULT_SETTINGS.mode,
     }),
     [initialConfig],
@@ -139,6 +144,11 @@ export function ThemeProvider({ config = {}, children }) {
   useLayoutEffect(() => {
     recolourer.current?.setLogoColouring(logoColouring)
   }, [logoColouring, pageColours])
+  // Colourful or Subtle (a visitor setting): how boldly a re-coloured site takes the theme.
+  const [colourStyle, setColourStyle] = useState(() => loadSettings(storageKey, settingDefaults).colourStyle)
+  useLayoutEffect(() => {
+    recolourer.current?.setColourful(colourStyle === 'colourful')
+  }, [colourStyle, pageColours])
   useLayoutEffect(() => {
     if (logoColouring || pageColours) return
     const style = document.createElement('style')
@@ -285,6 +295,8 @@ export function ThemeProvider({ config = {}, children }) {
     recolouring: Boolean(pageColours),
     /** Turns re-colouring of the site's logo on or off (the switcher's "Colour the logo" setting). */
     setLogoColouring,
+    /** Sets how boldly a re-coloured site takes the theme: 'colourful' or 'subtle'. */
+    setColourStyle,
     siteThemes,
     defaultTheme,
     presets: PRESETS,

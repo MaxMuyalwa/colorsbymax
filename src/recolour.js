@@ -13,6 +13,7 @@
 
 import { contrastRatio, deltaE, hexToRgb, hslToRgb, luminance, mix, rgbToHex, rgbToHsl } from './color.js'
 import { collectColors, COLOR_IN_GRADIENT, inferRoles, themeFromRoles, withoutAppliedTheme } from './scan.js'
+import { markZones, ROLE, rolesOf, vividCss, ZONE } from './vivid.js'
 
 const ATTR = 'data-cbm'
 /** Elements the engine never touches: the switcher itself. */
@@ -92,11 +93,17 @@ function createParser() {
  * Starts re-colouring the page. Returns the site's own colours as tokens (`site`), `apply(tokens)`
  * to show a theme (null restores the original look) and `stop()`.
  */
-export function createRecolourer() {
+export function createRecolourer({ colourful = false } = {}) {
   const parse = createParser()
   const sheet = document.createElement('style')
   sheet.dataset.colorsbymax = 'recolour'
   document.head.append(sheet)
+  // The Colourful style (vivid.js): the page's parts painted by role, on top of the swaps. Its
+  // own sheet, after the swaps, so its rules win where both colour an element.
+  const vividSheet = document.createElement('style')
+  vividSheet.dataset.colorsbymax = 'vivid'
+  document.head.append(vividSheet)
+  let vivid = colourful
 
   // The site's colours as a full token set, from the same analysis the site scan uses.
   const { roles } = inferRoles(collectColors())
@@ -185,11 +192,19 @@ export function createRecolourer() {
           if (el.localName === SKIP) continue
           if (el.closest(skip)) {
             el.removeAttribute(ATTR)
+            el.removeAttribute(ROLE)
             continue
           }
           const ids = read(el)
           if (ids.length) el.setAttribute(ATTR, ids.join(' '))
           else el.removeAttribute(ATTR)
+          // The part it plays, for the Colourful style, from its original look.
+          const cs = getComputedStyle(el)
+          const own = parse(cs.backgroundColor)
+          const under = parse(backdropOf(el.parentElement))?.hex ?? '#ffffff'
+          const roles = rolesOf(el, cs, own && own.alpha >= 0.5 ? own.hex : null, under)
+          if (roles.length) el.setAttribute(ROLE, roles.join(' '))
+          else el.removeAttribute(ROLE)
         }
       }
     })
@@ -303,7 +318,28 @@ export function createRecolourer() {
   // What tagging skips: the switcher, and the logo unless it's being coloured too.
   let skip = `${SKIP}, ${LOGO_SELECTOR}`
 
+  withoutAppliedTheme(markZones)
   tag([document.body], true)
+
+  // Logos keep their own colours, unless they're plain black or grey text: those would vanish on a
+  // dark theme, so they follow the theme's text colour instead, still their darkest-or-lightest self.
+  const LOGO_ATTR = 'data-cbm-logo'
+  const logos = withoutAppliedTheme(() =>
+    [...document.querySelectorAll(LOGO_SELECTOR)]
+      .filter((el) => !el.parentElement?.closest(LOGO_SELECTOR) && !el.closest(SKIP))
+      .map((el) => ({ el, color: getComputedStyle(el).color })),
+  )
+  const logoRules = () => {
+    if (!theme || !skip.includes(LOGO_SELECTOR)) return ''
+    return logos
+      .map(({ el, color }, i) => {
+        const own = parse(color)
+        if (!own || hslOf(own.hex)[1] >= NEUTRAL_SATURATION || !el.isConnected) return ''
+        el.setAttribute(LOGO_ATTR, i)
+        return `[${LOGO_ATTR}="${i}"]{color:${mapColour(color, 'text')}!important}`
+      })
+      .join('')
+  }
 
   // New content, and elements whose class or style changes, get (re)tagged as it happens.
   // Callbacks run before the next paint, so new content never shows in its old colours.
@@ -325,7 +361,13 @@ export function createRecolourer() {
     /** Shows `tokens` in place of the site's colours; null brings back the original look. */
     apply(tokens) {
       theme = tokens
-      sheet.textContent = tokens ? [...entries.values()].map(rule).join('') : ''
+      sheet.textContent = tokens ? [...entries.values()].map(rule).join('') + logoRules() : ''
+      vividSheet.textContent = tokens && vivid ? vividCss(tokens) : ''
+    },
+    /** Colourful (true) paints the page's parts by role; Subtle (false) only swaps its colours. */
+    setColourful(on) {
+      vivid = on
+      vividSheet.textContent = theme && vivid ? vividCss(theme) : ''
     },
     /** Whether the logo is re-coloured with the rest (off keeps it in its own colours). */
     setLogoColouring(on) {
@@ -333,11 +375,18 @@ export function createRecolourer() {
       if (next === skip) return
       skip = next
       tag([document.body], true)
+      if (theme) sheet.textContent = [...entries.values()].map(rule).join('') + logoRules()
     },
     stop() {
       observer.disconnect()
       sheet.remove()
-      for (const el of document.querySelectorAll(`[${ATTR}]`)) el.removeAttribute(ATTR)
+      vividSheet.remove()
+      for (const el of document.querySelectorAll(`[${ATTR}], [${ROLE}], [${ZONE}], [${LOGO_ATTR}]`)) {
+        el.removeAttribute(LOGO_ATTR)
+        el.removeAttribute(ATTR)
+        el.removeAttribute(ROLE)
+        el.removeAttribute(ZONE)
+      }
     },
   }
 }

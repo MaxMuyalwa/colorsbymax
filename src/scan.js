@@ -63,8 +63,9 @@ export function withoutAppliedTheme(fn) {
   freeze.textContent = '*,*::before,*::after{transition:none!important}'
   document.head.appendChild(freeze)
 
-  const recolour = document.querySelector('style[data-colorsbymax="recolour"]')
-  if (recolour) recolour.disabled = true
+  // The re-colouring engine's swaps and its Colourful style.
+  const applied = [...document.querySelectorAll('style[data-colorsbymax="recolour"], style[data-colorsbymax="vivid"]')]
+  for (const sheet of applied) sheet.disabled = true
 
   const style = document.documentElement.style
   const saved = []
@@ -79,7 +80,7 @@ export function withoutAppliedTheme(fn) {
     return fn()
   } finally {
     for (const [prop, value] of saved) style.setProperty(prop, value)
-    if (recolour) recolour.disabled = false
+    for (const sheet of applied) sheet.disabled = false
     // Apply the restored colours while transitions are still off, so nothing animates back.
     void getComputedStyle(document.documentElement).color
     void document.body.offsetHeight

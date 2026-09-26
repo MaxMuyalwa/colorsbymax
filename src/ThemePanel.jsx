@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Check, CheckCircle2, ChevronRight, ClipboardPaste, Copy, Download, ArrowLeft, Globe, ImageUp, Loader2, Monitor, Moon, RotateCcw, ScanLine, ScanSearch, Settings, Shuffle, Paintbrush, Sun, ToggleRight, Trash2, Upload, UserRound, Wand2, X, LibraryBig } from './icons.jsx'
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { AlertTriangle, Check, CheckCircle2, ChevronRight, ClipboardPaste, Copy, Download, ArrowLeft, Globe, ImageUp, Loader2, Monitor, Moon, RotateCcw, ScanLine, ScanSearch, Settings, Shuffle, Paintbrush, Sun, ToggleRight, Trash2, Upload, UserRound, Wand2, X, LibraryBig, Contrast } from './icons.jsx'
 import { normalizeHex } from './color.js'
 import { checkTheme } from './contrast.js'
 import { coloursFromFile, themeFromPalette } from './extract.js'
@@ -49,7 +49,12 @@ function useSavedToYours() {
   }
 }
 
-export default function ThemePanel() {
+/**
+ * The panel's contents. It stays mounted while the panel is closed (see ThemeSwitcher), so closing
+ * it is like minimising: the chosen group or mood, a search, open sections and the view all stay.
+ * `open` brings the scroll position back, since a hidden panel can't keep its own.
+ */
+export default function ThemePanel({ open = true }) {
   const theme = useTheme()
   const { settings, mode, audit, update } = useSettings()
   const overrideCount = Object.keys(theme.state.overrides).length
@@ -58,6 +63,11 @@ export default function ThemePanel() {
   const rootRef = useRef(null)
   const [toasts, setToasts] = useState([])
   const [reveal, setReveal] = useState(null)
+  const scrollTop = useRef(0)
+  useLayoutEffect(() => {
+    const el = rootRef.current
+    if (open && el) el.scrollTop = scrollTop.current
+  }, [open])
 
   // At most three toasts at once; the newest goes at the bottom.
   const toast = useCallback((text, action) => setToasts((list) => [...list.slice(-2), { id: ++toastSeq, text, action }]), [])
@@ -93,7 +103,14 @@ export default function ThemePanel() {
   return (
     <PanelContext.Provider value={panelApi}>
     {/* The panel scrolls inside the dialog, so toasts can sit fixed at its bottom edge. */}
-    <div ref={rootRef} className="theme-scroll @container flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain rounded-[inherit]">
+    <div
+      ref={rootRef}
+      onScroll={(e) => {
+        // Only while showing: hiding the panel resets a scroll box to the top.
+        if (open) scrollTop.current = e.currentTarget.scrollTop
+      }}
+      className="theme-scroll @container flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain rounded-[inherit]"
+    >
       {/* The title never shrinks under the tools: on a narrow panel (a phone) the logo and title sit
           centred on top, and the tools get their own centred row below, with room to breathe. */}
       <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-x-3 gap-y-3.5 border-b border-zinc-200 bg-white px-4 py-3">
@@ -772,8 +789,13 @@ function Swatches({ tokens }) {
 const PAGE_SIZE = 24
 const NO_THEMES = []
 
+const COLOUR_STYLES = [
+  { id: 'subtle', label: 'Subtle', Icon: Contrast },
+  { id: 'colourful', label: 'Colourful', Icon: Paintbrush },
+]
+
 function PresetGrid() {
-  const { siteName, siteThemes, presets: allPresets, customs, active, selectTheme, state, clearOverrides, tokens } = useTheme()
+  const { siteName, siteThemes, presets: allPresets, customs, active, selectTheme, state, clearOverrides, tokens, recolouring } = useTheme()
   const surpriseBurst = useBurst()
   const { settings, mode, update } = useSettings()
   const categoriesId = useId()
@@ -894,6 +916,37 @@ function PresetGrid() {
       <p className="text-xs text-zinc-600">
         Current theme: <strong className="font-semibold text-zinc-900">{active.name}</strong>
       </p>
+      {/* How boldly a re-coloured site takes the theme. Sites painted with the colour tokens already
+          use every role, so they don't need it. */}
+      {recolouring && (
+        <div className="rounded-xl border border-zinc-200 p-2.5">
+          <div role="radiogroup" aria-label="Colour style" className="grid grid-cols-2 gap-1 rounded-lg bg-zinc-100 p-1">
+            {COLOUR_STYLES.map(({ id, label, Icon }) => {
+              const on = settings.colourStyle === id
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => update({ colourStyle: id })}
+                  className={`inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-md text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 ${
+                    on ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-600 hover:text-zinc-900'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+          <p className="mt-2 px-0.5 text-[11px] leading-snug text-zinc-600">
+            {settings.colourStyle === 'colourful'
+              ? 'Colourful: the theme paints your header, hero, sections, cards, buttons and footer, like a designer would.'
+              : 'Subtle: the theme only swaps the colours your site already has.'}
+          </p>
+        </div>
+      )}
       {overrideCount > 0 && (
         <p className="flex items-center justify-between gap-2 rounded-lg bg-zinc-100 px-3 py-2 text-xs text-zinc-700">
           {overrideCount} single-colour override{overrideCount > 1 ? 's are' : ' is'} applied on top of any theme.
@@ -925,7 +978,10 @@ function PresetGrid() {
         />
         <button type="button" className={`${btn} relative shrink-0`} onClick={surprise} disabled={!library && needsLibrary}>
           {/* "Surprise" alone on a narrow panel, leaving the search box room for its hint. */}
-          <Shuffle className="w-3.5 h-3.5" aria-hidden="true" /> Surprise<span className="hidden @min-[400px]:inline">&nbsp;me</span>
+          <Shuffle className="w-3.5 h-3.5" aria-hidden="true" />
+          <span>
+            Surprise<span className="hidden @min-[400px]:inline"> me</span>
+          </span>
           {/* A burst of the theme it just picked, like the colour button's. */}
           {surpriseBurst.bursting && <Burst key={surpriseBurst.burst} tokens={tokens} spread={1.7} />}
         </button>
@@ -965,9 +1021,7 @@ function PresetGrid() {
             onClick={() => update({ libraryCollapsed: !settings.libraryCollapsed })}
             className="flex w-full items-center gap-2.5 rounded-lg px-1 py-0.5 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900"
           >
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-zinc-900 text-white">
-              <LibraryBig className="w-4 h-4" aria-hidden="true" />
-            </span>
+            <LibraryBig className="h-5 w-5 shrink-0 text-zinc-700" aria-hidden="true" />
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold text-zinc-900">Library</span>
               <span className="block text-[11px] leading-snug text-zinc-600">

@@ -330,6 +330,9 @@ Without a `siteName`, the site group is named from the page's `og:site_name`, it
                                     // 'dark', or 'system' to follow their device
   colourLogo: false,                // themes colour the logo too, for first-time visitors (default
                                     // false: it keeps its own colours); visitors can change it
+  colourStyle: 'colourful',         // on a site colorsbymax re-colours: 'colourful' (default) paints
+                                    // its header, hero, sections, cards, buttons and footer by role;
+                                    // 'subtle' only swaps the colours it already has
   intro: true,                      // the button pops in with a burst of the theme's colours a moment
                                     // after the page loads (default); reduced motion fades it in
 }

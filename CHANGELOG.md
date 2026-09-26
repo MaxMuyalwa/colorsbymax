@@ -4,6 +4,9 @@ What changed in each colorsbymax release. Update with `npm install colorsbymax@l
 
 ## Unreleased
 
+- **Closing the panel is like minimising it.** Open it again and it's just as you left it: the same group or library mood, search, open sections and scroll position.
+- **Colourful and Subtle.** On a site colorsbymax re-colours (one that doesn't paint with the --color-* variables), themes used to only swap the colours the site already had, so a plain white-and-black site barely changed. The new **Colourful** style, now the default, paints the page by role, like colorsbymax's own site: the header, a hero lit with the brand colour (with any emphasis in its headline as a gradient), sections taking turns with a soft tint, cards, brand-coloured buttons and links, deep-brand headings, badges, fields, tables and quotes, a brand-gradient call to action, and a footer in the secondary colour, with hover effects. Every text colour is checked against what it sits on. **Subtle** keeps the old behaviour, one tap away in the panel; the new `colourStyle` config option sets the default.
+- **Black or grey logos stay readable on dark themes.** A logo keeps its own colours, but a plain black or grey one now follows the theme's text colour instead of vanishing on a dark background.
 - **The panel's header fits on a phone.** On a narrow panel the Light / Dark / Auto, Add to site, Audit and settings buttons no longer sit on top of the colorsbymax title; they sit on their own centred row below it, with a little more room. Reported through the site's feedback form.
 - **Picking colorsbymax, Max’s picks or Yours scrolls to its themes,** as picking a library mood already did, so the colours are right there. The scroll now also lands clear of the panel's header.
 - **The panel's header is centred on a phone:** the logo, name and "by mrmaxdesigns" on top, the tools on their own row below.
