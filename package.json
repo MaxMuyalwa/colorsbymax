@@ -86,9 +86,9 @@
     "presets": "node scripts/generate-presets.mjs"
   },
   "peerDependencies": {
+    "pdfjs-dist": ">=4",
     "react": "^18.2.0 || ^19.0.0",
-    "react-dom": "^18.2.0 || ^19.0.0",
-    "pdfjs-dist": ">=4"
+    "react-dom": "^18.2.0 || ^19.0.0"
   },
   "peerDependenciesMeta": {
     "pdfjs-dist": {
@@ -101,7 +101,9 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
+    "dompurify": "^3.4.16",
     "lucide-react": "^1.48.0",
+    "marked": "^18.0.14",
     "nice-color-palettes": "^4.0.0",
     "pdfjs-dist": "^6.3.289",
     "react": "^19.3.0",

@@ -28,5 +28,10 @@
       "source": "/colorsbymax/api/:path*",
       "destination": "/api/:path*"
     }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "content": false
+    }
+  }
 }

@@ -10,6 +10,8 @@ export const MCP_NPM = 'https://www.npmjs.com/package/colorsbymax-mcp'
 export const MRMAX = 'https://mrmaxdesigns.com'
 /** The support page (buy Max a coffee), next to the home page. */
 export const SUPPORT = `${import.meta.env.BASE_URL}support.html`
+/** The docs: the README, changelog and posts, on their own page. */
+export const DOCS = `${import.meta.env.BASE_URL}docs.html`
 
 /** The colour button, inside the switcher's shadow root (null until it has made its entrance). */
 const colourButton = () => document.querySelector('colorsbymax-root')?.shadowRoot?.querySelector('button')

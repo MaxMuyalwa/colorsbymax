@@ -1,5 +1,6 @@
 import { ArrowUpRight, Mail, Phone } from 'lucide-react'
-import { GitHubIcon, MCP_NPM, MRMAX, NPM, REPO, SUPPORT } from './ui.jsx'
+import { DOCS, GitHubIcon, MCP_NPM, MRMAX, NPM, REPO, SUPPORT } from './ui.jsx'
+import { AdminButton } from './Admin.jsx'
 import { Wordmark } from './Nav.jsx'
 import { openFeedback } from './Feedback.jsx'
 
@@ -18,8 +19,9 @@ const COLUMNS = [
     links: [
       ['Set it up', '#setup'],
       ['Coding agents', '#agents'],
-      ['README', `${REPO}#readme`],
-      ['Changelog', `${REPO}/blob/main/CHANGELOG.md`],
+      ['README', `${DOCS}#readme`],
+      ['Changelog', `${DOCS}#changelog`],
+      ['All docs', DOCS],
     ],
   },
   {
@@ -143,9 +145,12 @@ export function Footer({ home = '' }) {
             <p>
               © {new Date().getFullYear()} <a href={MRMAX} className="font-semibold underline-offset-4 hover:underline">mrmaxdesigns</a> · colorsbymax™ is MIT licensed
             </p>
-            <button type="button" onClick={openFeedback} className="cursor-pointer font-semibold underline-offset-4 hover:underline">
-              Send feedback
-            </button>
+            <span className="flex flex-wrap items-center gap-x-5 gap-y-2">
+              <button type="button" onClick={openFeedback} className="cursor-pointer font-semibold underline-offset-4 hover:underline">
+                Send feedback
+              </button>
+              <AdminButton />
+            </span>
             <a href={MRMAX} className="group inline-flex items-center gap-1 font-semibold underline-offset-4 hover:underline">
               Back to mrmaxdesigns.com
               <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true" />

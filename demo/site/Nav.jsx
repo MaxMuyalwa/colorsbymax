@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react'
 import { ArrowRight, ArrowUpRight, Menu, X } from 'lucide-react'
-import { MRMAX, REPO } from './ui.jsx'
+import { DOCS, MRMAX, REPO } from './ui.jsx'
 import { StarButton } from './StarButton.jsx'
 import { FeedbackButton, openFeedback } from './Feedback.jsx'
 import { LogoMark } from './Favicon.jsx'
 
 const MENU_CLOSE_MS = 200
 
+// In-page links (#…) point at the home page's sections; Docs is a page of its own.
 const LINKS = [
-  ['Why', '#why'],
-  ['Colour roles', '#roles'],
-  ['Rules', '#rules'],
   ['Set up', '#setup'],
   ['AI agents', '#agents'],
+  ['Docs', DOCS],
 ]
+const to = (home, href) => (href.startsWith('#') ? home + href : href)
 
 /**
  * The colorsbymax logo: mrmaxdesigns' three-bar mark, then the wordmark. As in the mrmaxdesigns logo,
@@ -76,9 +76,9 @@ export function Nav({ home = '' }) {
         <a href={`${home}#top`} className="shrink-0 text-base text-primary-dark sm:text-lg" data-colorsbymax-logo>
           <Wordmark />
         </a>
-        <div className="hidden items-center gap-1 text-sm font-medium whitespace-nowrap text-ink-secondary xl:flex">
+        <div className="hidden items-center gap-1 text-sm font-medium whitespace-nowrap text-ink-secondary lg:flex">
           {LINKS.map(([label, href]) => (
-            <a key={href} href={home + href} className="rounded-full px-3 py-1.5 transition hover:bg-accent hover:text-on-accent">
+            <a key={href} href={to(home, href)} className="rounded-full px-3 py-1.5 transition hover:bg-accent hover:text-on-accent">
               {label}
             </a>
           ))}
@@ -106,7 +106,7 @@ export function Nav({ home = '' }) {
             aria-expanded={open}
             aria-controls="mobile-menu"
             aria-label={open ? 'Close menu' : 'Open menu'}
-            className="grid h-8 w-8 cursor-pointer place-items-center rounded-full text-ink transition hover:bg-accent sm:h-9 sm:w-9 xl:hidden"
+            className="grid h-8 w-8 cursor-pointer place-items-center rounded-full text-ink transition hover:bg-accent sm:h-9 sm:w-9 lg:hidden"
           >
             {open ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
           </button>
@@ -115,12 +115,12 @@ export function Nav({ home = '' }) {
       {menuShown && (
         <div
           id="mobile-menu"
-          className={`mx-4 mt-2 max-w-6xl sm:mx-auto rounded-3xl border border-border bg-surface p-3 shadow-xl shadow-shadow/10 xl:hidden motion-reduce:animate-none ${
+          className={`mx-4 mt-2 max-w-6xl sm:mx-auto rounded-3xl border border-border bg-surface p-3 shadow-xl shadow-shadow/10 lg:hidden motion-reduce:animate-none ${
             open ? 'animate-[tab-in_250ms_ease-out]' : 'pointer-events-none animate-[menu-out_200ms_ease-in_forwards]'
           }`}
         >
           {LINKS.map(([label, href]) => (
-            <a key={href} href={home + href} onClick={() => setOpen(false)} className="block rounded-2xl px-4 py-3 font-medium text-ink hover:bg-accent hover:text-on-accent">
+            <a key={href} href={to(home, href)} onClick={() => setOpen(false)} className="block rounded-2xl px-4 py-3 font-medium text-ink hover:bg-accent hover:text-on-accent">
               {label}
             </a>
           ))}
