@@ -7,6 +7,7 @@ import { Nav } from './site/Nav.jsx'
 import { AdminApp } from './site/AdminApp.jsx'
 import { Footer } from './site/Footer.jsx'
 import { Feedback } from './site/Feedback.jsx'
+import { Announcement } from './site/Announcement.jsx'
 import { ThemedFavicon } from './site/Favicon.jsx'
 import './demo.css'
 
@@ -22,6 +23,7 @@ createRoot(document.getElementById('root')).render(
         <AdminApp home={HOME} />
         <Footer home={HOME} />
         <Feedback />
+        <Announcement />
       </div>
       <ThemedFavicon />
       <ThemeSwitcher />

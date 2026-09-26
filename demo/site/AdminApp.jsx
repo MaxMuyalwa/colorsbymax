@@ -4,12 +4,13 @@
 //   Overview      what needs attention: new feedback, counts, quick actions
 //   Feedback      the inbox, with replies sent by email from here
 //   Posts, Testimonials   write, edit and delete what the docs page shows
+//   Announcement  a banner on every page, switched on and off from here
 //   Site text     the landing page's hero text
 //   Colour panel  switch parts of the colour panel off for everyone (e.g. something buggy)
 
 import { useEffect, useState } from 'react'
 import {
-  ArrowUpRight, BookOpen, CheckCircle2, Home, Inbox as InboxIcon, LayoutDashboard, LogOut, MessageSquareQuote, Newspaper, Palette, Pencil, Plus, RotateCcw, Save, ShieldCheck, Type,
+  ArrowUpRight, BookOpen, CheckCircle2, Home, Inbox as InboxIcon, LayoutDashboard, LogOut, Megaphone, MessageSquareQuote, Newspaper, Palette, Pencil, Plus, RotateCcw, Save, ShieldCheck, Type,
 } from 'lucide-react'
 import { FEATURES } from '../../src/ThemeProvider.jsx'
 import { AdminButton, avatarOf, useAdmin } from './Admin.jsx'
@@ -17,12 +18,14 @@ import { Inbox, useInbox } from './Inbox.jsx'
 import { Editor, EntryTools, Loading, niceDate, useContent } from './Docs.jsx'
 import { EDITABLE_TEXT, announceSiteSettings, loadSiteSettings, useSiteSettings } from './siteSettings.jsx'
 import { DOCS } from './ui.jsx'
+import { AnnouncementBar } from './Announcement.jsx'
 
 const SECTIONS = [
   { id: 'overview', label: 'Overview', Icon: LayoutDashboard },
   { id: 'feedback', label: 'Feedback', Icon: InboxIcon },
   { id: 'posts', label: 'Posts', Icon: Newspaper },
   { id: 'testimonials', label: 'Testimonials', Icon: MessageSquareQuote },
+  { id: 'announcement', label: 'Announcement', Icon: Megaphone },
   { id: 'text', label: 'Site text', Icon: Type },
   { id: 'panel', label: 'Colour panel', Icon: Palette },
 ]
@@ -92,7 +95,8 @@ function Workspace({ login, signOut, section, home }) {
     setNotice(message)
     reloadContent(true)
   }
-  const counts = { feedback: fresh, posts: content.posts.length, testimonials: content.testimonials.length }
+  const { announcement } = useSiteSettings()
+  const counts = { feedback: fresh, posts: content.posts.length, testimonials: content.testimonials.length, announcement: announcement?.on && announcement.text ? 'On' : 0 }
 
   return (
     <>
@@ -159,6 +163,7 @@ function Workspace({ login, signOut, section, home }) {
           {(section === 'posts' || section === 'testimonials') && (
             <EntryList kind={section === 'posts' ? 'post' : 'testimonial'} content={content} onNew={(kind) => setEditing({ kind })} onEdit={(kind, entry) => setEditing({ kind, entry })} onDeleted={saved} />
           )}
+          {section === 'announcement' && <AnnouncementEditor onSaved={setNotice} />}
           {section === 'text' && <SiteText onSaved={setNotice} />}
           {section === 'panel' && <PanelFeatures onSaved={setNotice} />}
         </section>
@@ -300,6 +305,79 @@ function SaveBar({ dirty, busy, error, onSave, onReset }) {
         </button>
       </div>
     </div>
+  )
+}
+
+const NO_ANNOUNCEMENT = { on: false, text: '', link: '', label: '', tone: 'brand' }
+const MAX_ANNOUNCEMENT = 200
+
+function AnnouncementEditor({ onSaved }) {
+  const settings = useSiteSettings()
+  const current = { ...NO_ANNOUNCEMENT, ...(settings.announcement ?? {}) }
+  const [draft, setDraft] = useState(current)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const dirty = JSON.stringify(draft) !== JSON.stringify(current)
+  const set = (patch) => setDraft((d) => ({ ...d, ...patch }))
+  const badLink = draft.link && !/^(https:\/\/\S+|\/\S*)$/.test(draft.link.trim())
+  const save = async () => {
+    if (draft.on && !draft.text.trim()) return setError('Write the message first.')
+    if (badLink) return setError('The link must start with https:// or be a path on the site, like /colorsbymax/docs.')
+    setBusy(true)
+    const res = await saveSettings({ ...settings, announcement: { ...draft, text: draft.text.trim(), link: draft.link.trim(), label: draft.label.trim() } })
+    setBusy(false)
+    setError(res.ok ? null : res.error)
+    if (res.ok) onSaved(res.preview ? 'Saved (preview only: nothing was stored).' : draft.on ? 'Saved. The banner shows on every page within a minute.' : 'Saved. The banner is off.')
+  }
+  const input = 'mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm text-ink outline-none placeholder:text-ink-muted focus:border-primary focus:ring-2 focus:ring-primary/30'
+  return (
+    <>
+      <Head title="Announcement" text="A banner at the bottom of every page: news, a new release, a heads-up. Visitors can close it; it comes back for them when the message changes." />
+      <div className="space-y-4">
+        <div className={`${tile} flex items-center justify-between gap-4`}>
+          <span>
+            <span className="block text-sm font-semibold text-ink">Show on the site</span>
+            <span className="block text-xs text-ink-secondary">{draft.on ? 'Visitors see the banner.' : 'Hidden. Write it now and switch it on when you’re ready.'}</span>
+          </span>
+          <button type="button" role="switch" aria-checked={draft.on} aria-label="Show on the site" onClick={() => set({ on: !draft.on })} className={`relative h-6 w-11 shrink-0 cursor-pointer rounded-full transition ${draft.on ? 'bg-primary' : 'bg-border'}`}>
+            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-surface shadow transition-all ${draft.on ? 'left-[1.375rem]' : 'left-0.5'}`} />
+          </button>
+        </div>
+        <div className={tile}>
+          <div className="flex items-center justify-between gap-3">
+            <label htmlFor="ann-text" className="text-sm font-semibold text-ink">Message</label>
+            <span className={`text-xs tabular-nums ${draft.text.length > MAX_ANNOUNCEMENT - 20 ? 'text-warning' : 'text-ink-muted'}`}>{draft.text.length} / {MAX_ANNOUNCEMENT}</span>
+          </div>
+          <textarea id="ann-text" rows={2} maxLength={MAX_ANNOUNCEMENT} value={draft.text} onChange={(e) => set({ text: e.target.value })} placeholder="colorsbymax 0.4.0 is out: themes can now take over plain sites." className={input} />
+        </div>
+        <div className={`${tile} grid gap-4 sm:grid-cols-[1fr_200px]`}>
+          <div>
+            <label htmlFor="ann-link" className="text-sm font-semibold text-ink">Link <span className="font-normal text-ink-muted">(optional)</span></label>
+            <input id="ann-link" value={draft.link} onChange={(e) => set({ link: e.target.value })} placeholder="https://… or /colorsbymax/docs#changelog" className={`${input} ${badLink ? 'border-danger' : ''}`} />
+          </div>
+          <div>
+            <label htmlFor="ann-label" className="text-sm font-semibold text-ink">Link text</label>
+            <input id="ann-label" maxLength={40} value={draft.label} onChange={(e) => set({ label: e.target.value })} placeholder="Read more" className={input} disabled={!draft.link} />
+          </div>
+        </div>
+        <div className={tile}>
+          <p className="text-sm font-semibold text-ink">Style</p>
+          <div role="radiogroup" aria-label="Style" className="mt-2 flex gap-2">
+            {[['brand', 'Brand', 'The theme’s own colour'], ['soft', 'Soft', 'A light tint, calmer']].map(([id, label, note]) => (
+              <button key={id} type="button" role="radio" aria-checked={draft.tone === id} onClick={() => set({ tone: id })} className={`flex-1 cursor-pointer rounded-xl border px-3 py-2 text-left text-sm transition ${draft.tone === id ? 'border-ink bg-ink text-background' : 'border-border text-ink hover:border-primary'}`}>
+                <span className="block font-semibold">{label}</span>
+                <span className="block text-xs opacity-75">{note}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="mb-2 text-xs font-bold tracking-wide text-ink-muted uppercase">Preview, in the current theme</p>
+          {draft.text.trim() ? <AnnouncementBar announcement={draft} onClose={() => {}} preview /> : <p className="rounded-2xl border border-dashed border-border px-4 py-6 text-center text-sm text-ink-secondary">Write a message to see it here.</p>}
+        </div>
+      </div>
+      <SaveBar dirty={dirty} busy={busy} error={error} onSave={save} onReset={() => setDraft(current)} />
+    </>
   )
 }
 
