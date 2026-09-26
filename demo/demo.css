@@ -21,6 +21,16 @@
 
 html {
   scroll-padding-top: 6rem;
+  /* No page scrollbar, on any screen: the page still scrolls. The colour panel keeps its own. */
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar {
+  display: none;
+}
+
+/* The colour button steps aside while the mobile menu is open (Nav.jsx). */
+html[data-menu-open] colorsbymax-root {
+  visibility: hidden;
 }
 @media (prefers-reduced-motion: no-preference) {
   html {
@@ -172,11 +182,17 @@ body {
   }
 }
 
-/* Tab panels and the mobile menu fade up as they open. */
+/* Tab panels and the mobile menu fade up as they open; the menu fades back as it closes. */
 @keyframes tab-in {
   from {
     opacity: 0;
     transform: translateY(8px);
+  }
+}
+@keyframes menu-out {
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
   }
 }
 

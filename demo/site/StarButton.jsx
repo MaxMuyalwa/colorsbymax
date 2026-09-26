@@ -38,9 +38,10 @@ const compact = (n) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`
 
 /**
  * Opens the repo on GitHub, where visitors add their star (GitHub only lets people star from
- * their own signed-in account), with the live count beside it.
+ * their own signed-in account), with the live count beside it. `compactOnPhone` makes it just
+ * the GitHub mark and a star on small screens.
  */
-export function StarButton({ className = '' }) {
+export function StarButton({ className = '', compactOnPhone = false }) {
   const stars = useStars()
   return (
     <a
@@ -50,12 +51,14 @@ export function StarButton({ className = '' }) {
       aria-label={`Star colorsbymax on GitHub${stars !== null ? ` (${stars} stars)` : ''}`}
       className={`group inline-flex items-center overflow-hidden rounded-full border border-border bg-surface text-sm font-semibold text-ink shadow-sm transition hover:-translate-y-px hover:border-primary hover:shadow-md ${className}`}
     >
-      <span className="inline-flex items-center gap-1.5 px-3 py-1.5">
+      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${compactOnPhone ? 'max-sm:h-8 max-sm:gap-1 max-sm:px-2.5 max-sm:py-0' : ''}`}>
         <GitHubIcon className="h-4 w-4" />
         <Star className="h-4 w-4 text-warning transition-transform duration-500 group-hover:scale-125 group-hover:rotate-[72deg] group-hover:fill-current" aria-hidden="true" />
         <span className="hidden xl:inline">Star</span>
       </span>
-      {stars !== null && <span className="border-l border-border bg-background px-2.5 py-1.5 tabular-nums">{compact(stars)}</span>}
+      {stars !== null && (
+        <span className={`border-l border-border bg-background px-2.5 py-1.5 tabular-nums ${compactOnPhone ? 'max-sm:hidden' : ''}`}>{compact(stars)}</span>
+      )}
     </a>
   )
 }
