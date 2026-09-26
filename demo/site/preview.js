@@ -50,16 +50,22 @@ export async function setUpPreview() {
     window.scrollTo(0, why.getBoundingClientRect().top + scrollY + 265)
     const root = document.querySelector('colorsbymax-root')?.shadowRoot
     const open = () => root?.querySelector('[role=radio]')
-    const toggle = () => root?.querySelector('button[aria-label="colorsbymax theme settings"]')
+    const toggle = () => root?.querySelector('button[aria-label^="colorsbymax theme settings"]')
     for (let i = 0; i < 30 && root && !toggle(); i++) await wait(100)
     if (root && !open()) toggle()?.click()
-    // Show a library mood's theme cards, with their swatches, from its row of moods down.
+    // Unfold "Preset themes" (sections start folded), then show a library mood's theme cards,
+    // with their swatches, from its row of moods down.
+    for (let i = 0; i < 30 && root && !root.querySelector('details'); i++) await wait(100)
+    const presets = root?.querySelector('details')
+    if (presets) presets.open = true
     const find = () => [...root.querySelectorAll('button')].find((b) => /^Winter\d/.test(b.textContent.trim()))
     for (let i = 0; i < 30 && root && !find(); i++) await wait(100)
     const mood = root && find()
     if (mood) {
       mood.click()
       await wait(400)
+      // The real panel starts folded; this showcase keeps its themes open.
+      if (presets) presets.open = true
       const scroller = root.querySelector('.theme-scroll')
       scroller.style.scrollBehavior = 'auto'
       for (let i = 0; i < 3; i++, await wait(150)) scroller.scrollTop += find().getBoundingClientRect().top - scroller.getBoundingClientRect().top - 84 // under the panel's pinned header

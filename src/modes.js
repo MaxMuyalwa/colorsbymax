@@ -106,3 +106,27 @@ export function toDark(theme) {
  * @param {'light' | 'dark'} mode
  */
 export const inMode = (theme, mode) => (mode === 'dark' && !theme.custom ? toDark(theme) : theme)
+
+// The page's quiet colours: its background, surfaces, borders and soft tints.
+const QUIET = ['background', 'surface', 'secondary', 'accent', 'border', 'app-background', 'app-input', 'app-border']
+// Text that sits on those tints, kept readable once they're calmer.
+const ON_QUIET = { secondary: 'on-secondary', accent: 'on-accent' }
+
+/**
+ * The Subtle style on a site painted with the colour tokens: the page's backgrounds, cards,
+ * borders and tints go nearly neutral (same lightness, a hint of the hue), so the theme's colour
+ * stays on what matters: buttons, links, headings, highlights and charts.
+ */
+export function subtleTokens(t) {
+  const out = { ...t }
+  for (const key of QUIET) {
+    if (!t[key]) continue
+    const [h, s, l] = hslOf(t[key])
+    out[key] = hsl(h, s * 0.18, l)
+  }
+  for (const [bg, fg] of Object.entries(ON_QUIET)) {
+    if (!out[bg] || !out[fg] || contrastRatio(out[fg], out[bg]) >= 4.5) continue
+    out[fg] = contrastRatio(t.ink, out[bg]) >= 4.5 ? t.ink : luminance(out[bg]) > 0.4 ? '#000000' : '#ffffff'
+  }
+  return out
+}

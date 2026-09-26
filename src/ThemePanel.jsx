@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Check, CheckCircle2, ChevronRight, ClipboardPaste, Copy, Download, ArrowLeft, Globe, ImageUp, Loader2, Monitor, Moon, RotateCcw, ScanLine, ScanSearch, Settings, Shuffle, Paintbrush, Sun, ToggleRight, Trash2, Upload, UserRound, Wand2, X, LibraryBig, Contrast } from './icons.jsx'
+import { AlertTriangle, Check, CheckCircle2, ChevronRight, ClipboardPaste, Copy, Download, ArrowLeft, Globe, ImageUp, Loader2, Monitor, Moon, RotateCcw, ScanLine, ScanSearch, Settings, Shuffle, Paintbrush, Sun, ToggleRight, Trash2, Upload, UserRound, Wand2, X, LibraryBig, Contrast, Minus, Plus } from './icons.jsx'
 import { normalizeHex } from './color.js'
 import { checkTheme } from './contrast.js'
 import { coloursFromFile, themeFromPalette } from './extract.js'
@@ -8,16 +8,16 @@ import { TOGGLE_CSS, TOGGLE_HTML, TOGGLE_PROMPT, TOGGLE_REACT, isPreviewing, pre
 import { LogoMark } from './logoMark.jsx'
 import { Burst, useBurst } from './burst.jsx'
 import { colourMatcher, suggestWords } from './colourWords.js'
+import { MAX_COLOURS, MIN_COLOURS, paletteKeys } from './palette.js'
 
 // The dark panel's background (--color-white in panel.css's dark palette), for the logo mark.
 const PANEL_DARK = '#18181b'
 import { loadLibrary } from './library.js'
-import { inMode } from './modes.js'
+import { inMode, subtleTokens } from './modes.js'
 import { PANEL_PRESETS, useSettings } from './settings.js'
 import { useTheme } from './ThemeProvider.jsx'
 import { TOKEN_GROUPS, TOKEN_LABELS } from './tokens.js'
 
-const SWATCH_KEYS = ['primary', 'primary-alt', 'primary-dark', 'secondary', 'background', 'ink', 'data-1', 'data-2', 'data-3', 'data-4']
 
 const btn =
   'inline-flex items-center justify-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-1'
@@ -190,7 +190,8 @@ export default function ThemePanel({ open = true }) {
       {/* Kept mounted while another view is open so open sections and scroll state survive. */}
       <div hidden={view !== 'main'}>
       <ContrastNav.Provider value={(from) => showView('contrast', from)}>
-      <Section title="Preset themes" defaultOpen>
+      {/* Every section starts folded, so a first look isn't overwhelming; each opens with a tap. */}
+      <Section title="Preset themes">
         <PresetGrid />
       </Section>
       {settings.showCustom && (
@@ -424,8 +425,10 @@ const FINISH_OPTIONS = [
  * here only, or remove colorsbymax, each with code and a prompt for an AI editor. Cancel goes back.
  */
 function FinishView({ onBack }) {
-  const { tokens, active, recolouring } = useTheme()
-  const { update } = useSettings()
+  const { tokens: themeTokens, active, recolouring } = useTheme()
+  const { settings, update } = useSettings()
+  // The colours as the page shows them: Subtle's calmer ones on a site painted with the tokens.
+  const tokens = !recolouring && settings.colourStyle === 'subtle' ? subtleTokens(themeTokens) : themeTokens
   const [choice, setChoice] = useState('keep')
   const [kind, setKind] = useState(() => (document.querySelector('[data-colorsbymax="auto"]') ? 'auto' : 'provider'))
   const headingRef = useRef(null)
@@ -543,6 +546,7 @@ const MODES = [
 /** The visitor's preferences for the panel and colour button. */
 function SettingsView({ onBack }) {
   const { settings, update, reset, resetButton } = useSettings()
+  const { active } = useTheme()
   const { toast } = usePanel()
   const headingRef = useRef(null)
   useEffect(() => headingRef.current?.focus(), [])
@@ -580,6 +584,21 @@ function SettingsView({ onBack }) {
         </div>
         <p className="text-[11px] text-zinc-600">
           Shows every theme in light or dark colours and switches the current one to match. Auto follows your device. The panel matches too, and your own palettes stay as you made them.
+        </p>
+      </fieldset>
+
+      <fieldset className="space-y-1.5">
+        <legend className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-600">Colours per theme</legend>
+        {/* A sample: the current theme's colours at the chosen count. */}
+        <div className="flex items-center gap-3 rounded-xl border border-zinc-200 p-2.5">
+          <div className="min-w-0 flex-1">
+            <Swatches tokens={active.tokens} count={settings.paletteSize} />
+          </div>
+          <ColourStepper value={settings.paletteSize} onChange={(n) => update({ paletteSize: n })} label="Colours every theme uses" size="md" />
+        </div>
+        <p className="text-[11px] text-zinc-600">
+          How many colours every theme uses, from {MIN_COLOURS} to {MAX_COLOURS}. Fewer keeps a site calmer, with only a theme’s main colours; the ones that fit it best
+          stay. You can still change it on any theme with − and + on its card.
         </p>
       </fieldset>
 
@@ -777,13 +796,53 @@ function IssuesLink() {
   )
 }
 
-function Swatches({ tokens }) {
+/** A theme's colours as a strip: the `count` it uses (5 to 10), its most fitting ones. */
+function Swatches({ tokens, count = MAX_COLOURS }) {
   return (
     <div className="flex overflow-hidden rounded-md border border-zinc-200" aria-hidden="true">
-      {SWATCH_KEYS.map((key) => (
+      {paletteKeys(tokens, count).map((key) => (
         <span key={key} className="h-5 flex-1" style={{ background: tokens[key] }} />
       ))}
     </div>
+  )
+}
+
+/**
+ * − n + for how many colours a theme uses. Each end dims when it's as far as it goes.
+ * @param {{ value: number, onChange: (n: number) => void, label: string, size?: 'sm' | 'md' }} props
+ */
+function ColourStepper({ value, onChange, label, size = 'sm' }) {
+  const box = size === 'sm' ? 'h-6 w-6' : 'h-8 w-8'
+  const step = (d) => (e) => {
+    e.stopPropagation()
+    onChange(value + d)
+  }
+  return (
+    <span role="group" aria-label={label} className="inline-flex items-center gap-1">
+      <button
+        type="button"
+        onClick={step(-1)}
+        disabled={value <= MIN_COLOURS}
+        aria-label={`Fewer colours (${value} now)`}
+        data-tip={value <= MIN_COLOURS ? `${MIN_COLOURS} is the fewest` : 'Use fewer colours'}
+        className={`${box} grid place-items-center rounded-full border border-zinc-300 bg-white text-zinc-800 cursor-pointer hover:border-zinc-900 disabled:cursor-default disabled:opacity-35 disabled:hover:border-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900`}
+      >
+        <Minus className="w-3.5 h-3.5" aria-hidden="true" />
+      </button>
+      <span className="min-w-[1.25rem] text-center text-xs font-semibold tabular-nums text-zinc-900" aria-live="polite">
+        {value}
+      </span>
+      <button
+        type="button"
+        onClick={step(1)}
+        disabled={value >= MAX_COLOURS}
+        aria-label={`More colours (${value} now)`}
+        data-tip={value >= MAX_COLOURS ? `${MAX_COLOURS} is every colour` : 'Use more colours'}
+        className={`${box} grid place-items-center rounded-full border border-zinc-300 bg-white text-zinc-800 cursor-pointer hover:border-zinc-900 disabled:cursor-default disabled:opacity-35 disabled:hover:border-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900`}
+      >
+        <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+      </button>
+    </span>
   )
 }
 
@@ -921,9 +980,9 @@ function PresetGrid() {
       <p className="text-xs text-zinc-600">
         Current theme: <strong className="font-semibold text-zinc-900">{active.name}</strong>
       </p>
-      {/* How boldly a re-coloured site takes the theme. Sites painted with the colour tokens already
-          use every role, so they don't need it. */}
-      {recolouring && (
+      {/* How boldly the site takes the theme, on every site: on one painted with the colour tokens,
+          Subtle calms its backgrounds; on a re-coloured one, Colourful paints its parts by role. */}
+      {(
         <div className="rounded-xl border border-zinc-200 p-2.5">
           <div role="radiogroup" aria-label="Colour style" className="grid grid-cols-2 gap-1 rounded-lg bg-zinc-100 p-1">
             {COLOUR_STYLES.map(({ id, label, Icon }) => {
@@ -948,7 +1007,9 @@ function PresetGrid() {
           <p className="mt-2 px-0.5 text-[11px] leading-snug text-zinc-600">
             {settings.colourStyle === 'colourful'
               ? 'Colourful: the theme paints your header, hero, sections, cards, buttons and footer, like a designer would.'
-              : 'Subtle: the theme only swaps the colours your site already has.'}
+              : recolouring
+                ? 'Subtle: the theme only swaps the colours your site already has.'
+                : 'Subtle: calm, nearly neutral backgrounds and cards, with the theme’s colour on buttons, links and highlights.'}
           </p>
         </div>
       )}
@@ -1232,7 +1293,8 @@ function ScanCard() {
 }
 
 function ThemeCard({ theme: t, isActive, onSelect }) {
-  const { issues } = useTheme()
+  const { issues, coloursOf, setThemeColours } = useTheme()
+  const colours = coloursOf(t.id)
   const showContrast = useContext(ContrastNav)
   // The active card reflects live edits and overrides. Library themes are contrast-checked at
   // build time, so only presets, custom palettes and dark twins can fail.
@@ -1250,7 +1312,7 @@ function ThemeCard({ theme: t, isActive, onSelect }) {
         } ${count ? 'pr-12' : ''}`}
       >
         <span className="truncate text-sm font-medium">{t.name}</span>
-        <Swatches tokens={t.tokens} />
+        <Swatches tokens={t.tokens} count={colours} />
         {(isActive || t.custom || t.scanned) && (
           <span className="flex items-center gap-1.5 text-[11px]">
             {isActive && (
@@ -1279,6 +1341,12 @@ function ThemeCard({ theme: t, isActive, onSelect }) {
           <AlertTriangle className="w-3 h-3" aria-hidden="true" />
           {count}
         </button>
+      )}
+      {/* The theme in use: how many of its colours the site uses (5 to 10). */}
+      {isActive && (
+        <span className="absolute right-2 bottom-2">
+          <ColourStepper value={colours} onChange={(n) => setThemeColours(t.id, n)} label={`Colours ${t.name} uses`} />
+        </span>
       )}
     </div>
   )

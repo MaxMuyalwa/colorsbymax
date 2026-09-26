@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { checkTheme, fixAll, suggestFix } from './contrast.js'
 import { loadLibrary } from './library.js'
-import { DARK_SUFFIX, isDarkTheme, toDark } from './modes.js'
+import { DARK_SUFFIX, isDarkTheme, subtleTokens, toDark } from './modes.js'
+import { baseId, clampColours, coloursFor, reducePalette } from './palette.js'
 import { LOGO_SELECTOR, createRecolourer, usesColourTokens } from './recolour.js'
 import { collectColors, detectSiteName, inferRoles, suggestThemes } from './scan.js'
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, usePrefersDark } from './settings.js'
@@ -105,7 +106,11 @@ export function ThemeProvider({ config = {}, children }) {
     (lightOfTwin ? toDark(lightOfTwin) : null) ??
     (state.snapshot?.id === state.activeId ? state.snapshot : null) ??
     defaultTheme
-  const tokens = useMemo(() => ({ ...base.tokens, ...state.overrides }), [base, state.overrides])
+  // How many of the theme's colours it uses: its own count, else the visitor's default (5 to 10).
+  const [paletteDefault, setPaletteDefault] = useState(() => loadSettings(storageKey, DEFAULT_SETTINGS).paletteSize)
+  const coloursOf = useCallback((id) => coloursFor(state.paletteSizes, id, paletteDefault), [state.paletteSizes, paletteDefault])
+  const colourCount = coloursOf(base.id)
+  const tokens = useMemo(() => ({ ...reducePalette(base.tokens, colourCount), ...state.overrides }), [base, colourCount, state.overrides])
   const issues = useMemo(() => checkTheme(tokens), [tokens])
 
   useLayoutEffect(() => {
@@ -149,6 +154,11 @@ export function ThemeProvider({ config = {}, children }) {
   useLayoutEffect(() => {
     recolourer.current?.setColourful(colourStyle === 'colourful')
   }, [colourStyle, pageColours])
+  // On a site painted with the tokens, Subtle calms the page's backgrounds, cards and tints and
+  // keeps the theme's colour for buttons, links and highlights. (Runs after the plain apply above.)
+  useLayoutEffect(() => {
+    if (!pageColours) applyTokens(colourStyle === 'subtle' ? subtleTokens(tokens) : tokens)
+  }, [tokens, state, colourStyle, pageColours])
   useLayoutEffect(() => {
     if (logoColouring || pageColours) return
     const style = document.createElement('style')
@@ -297,6 +307,12 @@ export function ThemeProvider({ config = {}, children }) {
     setLogoColouring,
     /** Sets how boldly a re-coloured site takes the theme: 'colourful' or 'subtle'. */
     setColourStyle,
+    /** How many colours a theme uses (5 to 10): its own count, or the visitor's default. */
+    coloursOf,
+    /** Sets one theme's colour count (light and dark share it). */
+    setThemeColours: (id, n) => setState((s) => ({ ...s, paletteSizes: { ...s.paletteSizes, [baseId(id)]: clampColours(n) } })),
+    /** The default count for every theme (the panel's settings); themes given their own count keep it. */
+    setPaletteDefault,
     siteThemes,
     defaultTheme,
     presets: PRESETS,

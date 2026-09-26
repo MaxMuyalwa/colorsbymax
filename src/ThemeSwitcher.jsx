@@ -70,7 +70,7 @@ export default function ThemeSwitcher() {
 }
 
 function Switcher() {
-  const { issues, storageKey, tokens, position: requested, setLogoColouring, setColourStyle, intro, mode, modeSetting, setMode, settingDefaults } = useTheme()
+  const { issues, storageKey, tokens, position: requested, setLogoColouring, setColourStyle, setPaletteDefault, intro, mode, modeSetting, setMode, settingDefaults } = useTheme()
   const position = CORNERS[requested] ? requested : 'bottom-right'
   const [open, setOpen] = useState(false)
 
@@ -103,6 +103,7 @@ function Switcher() {
   const [settings, setSettings] = useState(() => loadSettings(storageKey, settingDefaults))
   useEffect(() => setLogoColouring(settings.colourLogo), [settings.colourLogo, setLogoColouring])
   useEffect(() => setColourStyle(settings.colourStyle), [settings.colourStyle, setColourStyle])
+  useEffect(() => setPaletteDefault(settings.paletteSize), [settings.paletteSize, setPaletteDefault])
 
   // The page audit (the panel's Audit button): findings pinned to the page until it's closed.
   // It re-runs by itself when the colours or settings change, and on Re-check.

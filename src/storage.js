@@ -19,7 +19,7 @@ const VERSION = 1
  */
 
 /** @returns {ThemeState} */
-export const initialState = (defaultId) => ({ activeId: defaultId, overrides: {}, customs: [], snapshot: null, scanned: null })
+export const initialState = (defaultId) => ({ activeId: defaultId, overrides: {}, customs: [], snapshot: null, scanned: null, paletteSizes: {} })
 
 /** Keeps only known token keys with valid hex values. */
 export function sanitizeTokens(input) {
@@ -70,6 +70,12 @@ export function loadState(storageKey, defaultTheme) {
       customs,
       snapshot,
       scanned,
+      // How many colours each theme uses, where the visitor changed it (5 to 10).
+      paletteSizes: Object.fromEntries(
+        Object.entries(data.paletteSizes && typeof data.paletteSizes === 'object' ? data.paletteSizes : {}).filter(
+          ([id, n]) => typeof id === 'string' && Number.isInteger(n) && n >= 5 && n <= 10,
+        ),
+      ),
     }
   } catch {
     return fresh

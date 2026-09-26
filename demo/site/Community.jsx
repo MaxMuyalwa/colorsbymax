@@ -64,15 +64,19 @@ export function Community() {
             </span>
             <h2 className="mt-5 font-display text-3xl font-bold tracking-tight">Enjoying colorsbymax?</h2>
             <p className="mt-3 leading-relaxed opacity-90">It’s free and open source, made by one designer. A coffee or a star keeps it going.</p>
-            <div className="mt-auto flex flex-col gap-3 pt-8 sm:flex-row lg:flex-col xl:flex-row">
-              <a href={SUPPORT} className="shine group inline-flex items-center justify-center gap-2 rounded-full bg-on-primary px-5 py-3 font-semibold text-primary shadow-xl transition hover:-translate-y-0.5">
+            {/* Side by side where the card is wide, stacked where it's narrow; labels never wrap. */}
+            <div className="mt-auto grid gap-3 pt-8 sm:grid-cols-2 lg:grid-cols-1">
+              <a
+                href={SUPPORT}
+                className="shine group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-on-primary px-6 font-semibold whitespace-nowrap text-primary shadow-xl transition hover:-translate-y-0.5"
+              >
                 <Coffee className="h-4 w-4 transition-transform group-hover:-rotate-12" aria-hidden="true" /> Buy Max a coffee
               </a>
               <a
                 href={REPO}
                 target="_blank"
                 rel="noopener"
-                className="group inline-flex items-center justify-center gap-2 rounded-full border-2 border-on-primary/60 px-5 py-3 font-semibold transition hover:-translate-y-0.5 hover:border-on-primary hover:bg-on-primary/10"
+                className="group inline-flex h-12 items-center justify-center gap-2 rounded-full border-2 border-on-primary/60 px-6 font-semibold whitespace-nowrap transition hover:-translate-y-0.5 hover:border-on-primary hover:bg-on-primary/10"
               >
                 <Star className="h-4 w-4 transition-transform duration-500 group-hover:rotate-[72deg]" aria-hidden="true" /> Star on GitHub
                 <ArrowUpRight className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />
