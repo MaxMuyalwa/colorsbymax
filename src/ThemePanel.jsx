@@ -7,6 +7,7 @@ import { BRING_BACK_PROMPT, cssSnippet, keepPrompt, keepSnippet, NODE_PROD, remo
 import { TOGGLE_CSS, TOGGLE_HTML, TOGGLE_PROMPT, TOGGLE_REACT, isPreviewing, previewToggle, removePreview } from './modeToggle.js'
 import { LogoMark } from './logoMark.jsx'
 import { Burst, useBurst } from './burst.jsx'
+import { colourMatcher, suggestWords } from './colourWords.js'
 
 // The dark panel's background (--color-white in panel.css's dark palette), for the logo mark.
 const PANEL_DARK = '#18181b'
@@ -880,8 +881,11 @@ function PresetGrid() {
     else if (category === 'all') list = library?.themes ?? []
     else list = (library?.themes ?? []).filter((t) => t.tags.includes(category))
     if (q) {
+      // By name or mood, and, for a colour word ("red"), by the theme's own colours: names first.
       const labels = Object.fromEntries((library?.categories ?? []).map((c) => [c.id, c.label.toLowerCase()]))
-      list = list.filter((t) => t.name.toLowerCase().includes(q) || t.tags?.some((tag) => labels[tag]?.includes(q)))
+      const byName = (t) => t.name.toLowerCase().includes(q) || t.tags?.some((tag) => labels[tag]?.includes(q))
+      const byColour = colourMatcher(q)
+      list = [...list.filter(byName), ...(byColour ? list.filter((t) => !byName(t) && byColour(t.tokens)) : [])]
     }
     return list
   }, [q, category, siteThemes, presets, customs, library])
@@ -906,6 +910,7 @@ function PresetGrid() {
     pick(inMode(pool[Math.floor(Math.random() * pool.length)], mode))
     surpriseBurst.celebrate()
   }
+  const suggestions = suggestWords(query, categories.map((c) => c.label))
   // "Search 700+ themes", not an exact count that shifts as groups are shown or hidden.
   const themeCount = (library?.themes.length ?? 0) + presets.length + siteThemes.length + customs.length
   const roughCount = themeCount >= 100 ? `${Math.floor(themeCount / 100) * 100}+` : themeCount
@@ -986,6 +991,56 @@ function PresetGrid() {
           {surpriseBurst.bursting && <Burst key={surpriseBurst.burst} tokens={tokens} spread={1.7} />}
         </button>
       </div>
+      {/* Words that finish what's being typed ("b": black, blue, brown…); a tap completes it. */}
+      {suggestions.length > 0 && (
+        <div role="group" aria-label="Suggestions" className="-mt-1 flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] text-zinc-500">Try</span>
+          {suggestions.map((w) => (
+            <button
+              key={w}
+              type="button"
+              onClick={() => {
+                setQuery(w)
+                setLimit(PAGE_SIZE)
+              }}
+              className="rounded-full border border-zinc-300 bg-white px-2.5 py-0.5 text-xs font-medium text-zinc-800 capitalize hover:border-zinc-900 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900"
+            >
+              {w}
+            </button>
+          ))}
+        </div>
+      )}
+      {/* Searching: only the results, with how many there are and light or dark to see them in. */}
+      {q && (
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-zinc-600" role="status">
+            {visible.length} {visible.length === 1 ? 'theme' : 'themes'} for “{query.trim()}”
+          </p>
+          <div role="radiogroup" aria-label="Show them in" className="flex shrink-0 items-center rounded-lg border border-zinc-200 p-0.5">
+            {MODES.filter((m) => m.id !== 'system').map(({ id, label, Icon }) => {
+              const on = mode === id
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => update({ mode: id })}
+                  className={`inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 ${
+                    on ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {!q && (
+        <>
 
       <div role="group" aria-label="Your groups" data-groups className="grid grid-cols-3 gap-2">
         {groups.map((g) => {
@@ -1067,6 +1122,8 @@ function PresetGrid() {
           </div>
         </section>
       )}
+        </>
+      )}
 
       {/* scroll-mt keeps a little room above the category's description when it's scrolled to. */}
       <div ref={themesRef} className="scroll-mt-3" />
@@ -1084,7 +1141,7 @@ function PresetGrid() {
         <p className="py-6 text-center text-xs text-zinc-600" role="status">No themes match “{query}”.</p>
       ) : (
         <>
-          <p className="sr-only" role="status">{visible.length} themes</p>
+          {!q && <p className="sr-only" role="status">{visible.length} themes</p>}
           <div data-theme-grid className="grid grid-cols-2 @min-[520px]:grid-cols-3 gap-2">
             {shown.map((t) => (
               <ThemeCard key={t.id} theme={t} isActive={t.id === active.id} onSelect={() => pick(t)} />
