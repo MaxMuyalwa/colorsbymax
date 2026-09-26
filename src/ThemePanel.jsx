@@ -93,18 +93,20 @@ export default function ThemePanel() {
     <PanelContext.Provider value={panelApi}>
     {/* The panel scrolls inside the dialog, so toasts can sit fixed at its bottom edge. */}
     <div ref={rootRef} className="theme-scroll @container flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain rounded-[inherit]">
-      <header className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-zinc-200 bg-white px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2">
+      {/* The title never shrinks under the tools: on a narrow panel (a phone) they get their own
+          centred row below it, with room to breathe. */}
+      <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-x-3 gap-y-3.5 border-b border-zinc-200 bg-white px-4 py-3">
+        <div className="flex shrink-0 items-center gap-2">
           {/* The mrmaxdesigns mark, in this theme's colours, on the panel's own background. */}
           <LogoMark tokens={theme.tokens} background={mode === 'dark' ? PANEL_DARK : '#ffffff'} className="h-7 w-auto shrink-0" />
-          <div className="min-w-0">
+          <div>
             <h2 id="theme-panel-title" className="text-base font-semibold tracking-tight">
               colorsbymax<span className="align-super text-[10px] font-medium">™</span>
             </h2>
             <p className="text-[11px] text-zinc-500">by mrmaxdesigns</p>
           </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex w-full items-center justify-center gap-1 @min-[520px]:ml-auto @min-[520px]:w-auto">
         {/* Light, dark or the device's mode, one click away (it's also in settings). */}
         <div role="radiogroup" aria-label="Theme mode" className="flex items-center rounded-lg border border-zinc-200 p-0.5">
           {MODES.map(({ id, label, Icon }) => {
@@ -783,7 +785,7 @@ function PresetGrid() {
   const { toast, reveal } = usePanel()
   const wrapRef = useRef(null)
   const pendingScroll = useRef(false)
-  // Picking a library category brings its themes into view, so the colours are right there.
+  // Picking a group or a library category brings its themes into view, so the colours are right there.
   const themesRef = useRef(null)
   const scrollToThemes = useRef(false)
 
@@ -803,6 +805,9 @@ function PresetGrid() {
     if (scrollToThemes.current && themesRef.current) {
       scrollToThemes.current = false
       const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      // Clear of the panel's pinned header, which is taller when its tools wrap on a phone.
+      const header = themesRef.current.closest('.theme-scroll')?.querySelector('header')
+      themesRef.current.style.scrollMarginTop = `${(header?.offsetHeight ?? 0) + 12}px`
       themesRef.current.scrollIntoView({ block: 'start', behavior: still ? 'auto' : 'smooth' })
     }
     if (!pendingScroll.current) return
@@ -923,7 +928,7 @@ function PresetGrid() {
               type="button"
               aria-pressed={on}
               data-tip={`${g.description} (${g.count} ${g.count === 1 ? 'theme' : 'themes'})`}
-              onClick={() => choose(g.id)}
+              onClick={() => choose(g.id, { scroll: true })}
               className={`flex h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border px-2 text-xs font-semibold @min-[380px]:h-10 @min-[380px]:flex-row @min-[380px]:justify-start @min-[380px]:gap-1.5 @min-[440px]:px-2.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-1 ${
                 on ? 'border-zinc-900 bg-zinc-900 text-white shadow-sm' : 'border-zinc-200 bg-zinc-100 text-zinc-900 hover:bg-zinc-200'
               }`}

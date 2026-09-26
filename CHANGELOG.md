@@ -2,6 +2,11 @@
 
 What changed in each colorsbymax release. Update with `npm install colorsbymax@latest`.
 
+## Unreleased
+
+- **The panel's header fits on a phone.** On a narrow panel the Light / Dark / Auto, Add to site, Audit and settings buttons no longer sit on top of the colorsbymax title; they sit on their own centred row below it, with a little more room. Reported through the site's feedback form.
+- **Picking colorsbymax, Max’s picks or Yours scrolls to its themes,** as picking a library mood already did, so the colours are right there. The scroll now also lands clear of the panel's header.
+
 ## 0.3.3 (2026-09-25)
 
 - **The panel's header shows the mrmaxdesigns mark** (three slanted bars) before "colorsbymax", in the current theme's colours, deepened or lightened so each bar stands out on the light or dark panel.
