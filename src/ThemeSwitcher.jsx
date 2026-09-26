@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Palette } from './icons.jsx'
+import { BURST_TIME, Burst } from './burst.jsx'
 import ThemePanel from './ThemePanel.jsx'
 import AuditLayer from './AuditLayer.jsx'
 import { runAudit } from './audit.js'
@@ -34,7 +35,6 @@ const DRAG_THRESHOLD = 5 // pixels of movement before a press becomes a drag
 const HINT_DELAY = 100 // ms of hovering before the drag tooltip shows; just enough to skip passing sweeps
 const DOT_INTERVAL = 1500 // ms between the colour button dot's colour changes
 const INTRO_DELAY = 900 // ms the colour button waits before making its entrance
-const BURST_TIME = 1100 // ms a burst of colour lasts
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])'
 
@@ -464,41 +464,6 @@ function CyclingDot({ tokens, animate }) {
       className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm transition-colors duration-700 ease-in-out"
       style={{ backgroundColor: still ? tokens.primary : colours[index % colours.length] }}
     />
-  )
-}
-
-// A burst of colour (on the entrance, and on every click): squiggles, dots and dashes in the theme's colours, flung out from the
-// button. Each piece flies to (x, y) px from the centre, turning from r degrees as it goes.
-const BURST_KEYS = ['primary', 'primary-alt', 'data-1', 'data-2', 'data-3', 'data-4', 'warning', 'data-5']
-const BURST_PIECES = Array.from({ length: 12 }, (_, i) => {
-  const angle = (i * 30 + (i % 2 ? 9 : -6)) * (Math.PI / 180)
-  const distance = 30 + (i % 3) * 9
-  return {
-    x: Math.round(Math.cos(angle) * distance),
-    y: Math.round(Math.sin(angle) * distance),
-    r: Math.round((angle * 180) / Math.PI),
-    shape: ['squiggle', 'dot', 'dash'][i % 3],
-    delay: (i % 4) * 25,
-  }
-})
-
-function Burst({ tokens }) {
-  return (
-    <span aria-hidden="true" className="theme-burst pointer-events-none absolute inset-0">
-      {BURST_PIECES.map((p, i) => (
-        <span
-          key={i}
-          className={`theme-burst-piece ${p.shape === 'squiggle' ? '' : `theme-piece-${p.shape}`}`}
-          style={{ '--x': `${p.x}px`, '--y': `${p.y}px`, '--r': `${p.r}deg`, color: tokens[BURST_KEYS[i % BURST_KEYS.length]], animationDelay: `${p.delay}ms` }}
-        >
-          {p.shape === 'squiggle' && (
-            <svg width="16" height="10" viewBox="0 0 16 10" fill="none">
-              <path d="M1 5c1.6-3.6 3.4-3.6 4.6 0s3 3.6 4.6 0 3-3.6 4.4 0" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-            </svg>
-          )}
-        </span>
-      ))}
-    </span>
   )
 }
 

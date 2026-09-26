@@ -1,11 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Check, CheckCircle2, ChevronRight, ClipboardPaste, Copy, Download, ArrowLeft, Globe, ImageUp, Loader2, Monitor, Moon, RotateCcw, ScanLine, ScanSearch, Settings, Shuffle, Paintbrush, Sun, ToggleRight, Trash2, Upload, UserRound, Wand2, X } from './icons.jsx'
+import { AlertTriangle, Check, CheckCircle2, ChevronRight, ClipboardPaste, Copy, Download, ArrowLeft, Globe, ImageUp, Loader2, Monitor, Moon, RotateCcw, ScanLine, ScanSearch, Settings, Shuffle, Paintbrush, Sun, ToggleRight, Trash2, Upload, UserRound, Wand2, X, LibraryBig } from './icons.jsx'
 import { normalizeHex } from './color.js'
 import { checkTheme } from './contrast.js'
 import { coloursFromFile, themeFromPalette } from './extract.js'
 import { BRING_BACK_PROMPT, cssSnippet, keepPrompt, keepSnippet, NODE_PROD, removePrompt, VITE_PROD } from './finish.js'
 import { TOGGLE_CSS, TOGGLE_HTML, TOGGLE_PROMPT, TOGGLE_REACT, isPreviewing, previewToggle, removePreview } from './modeToggle.js'
 import { LogoMark } from './logoMark.jsx'
+import { Burst, useBurst } from './burst.jsx'
 
 // The dark panel's background (--color-white in panel.css's dark palette), for the logo mark.
 const PANEL_DARK = '#18181b'
@@ -93,10 +94,10 @@ export default function ThemePanel() {
     <PanelContext.Provider value={panelApi}>
     {/* The panel scrolls inside the dialog, so toasts can sit fixed at its bottom edge. */}
     <div ref={rootRef} className="theme-scroll @container flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain rounded-[inherit]">
-      {/* The title never shrinks under the tools: on a narrow panel (a phone) they get their own
-          centred row below it, with room to breathe. */}
+      {/* The title never shrinks under the tools: on a narrow panel (a phone) the logo and title sit
+          centred on top, and the tools get their own centred row below, with room to breathe. */}
       <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-x-3 gap-y-3.5 border-b border-zinc-200 bg-white px-4 py-3">
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex w-full shrink-0 items-center justify-center gap-2 @min-[520px]:w-auto @min-[520px]:justify-start">
           {/* The mrmaxdesigns mark, in this theme's colours, on the panel's own background. */}
           <LogoMark tokens={theme.tokens} background={mode === 'dark' ? PANEL_DARK : '#ffffff'} className="h-7 w-auto shrink-0" />
           <div>
@@ -772,7 +773,8 @@ const PAGE_SIZE = 24
 const NO_THEMES = []
 
 function PresetGrid() {
-  const { siteName, siteThemes, presets: allPresets, customs, active, selectTheme, state, clearOverrides } = useTheme()
+  const { siteName, siteThemes, presets: allPresets, customs, active, selectTheme, state, clearOverrides, tokens } = useTheme()
+  const surpriseBurst = useBurst()
   const { settings, mode, update } = useSettings()
   const categoriesId = useId()
   const [loaded, setLoaded] = useState(null)
@@ -875,9 +877,16 @@ function PresetGrid() {
   }
   const pick = (t) => selectTheme(t.id, t)
   const surprise = () => {
-    const pool = visible.length ? visible : (library?.themes ?? [...siteThemes, ...presets])
+    // From what's showing, or everything when that's a single theme; never the one already on.
+    const everything = library?.themes ?? [...siteThemes, ...presets]
+    const pool = (visible.length > 1 ? visible : everything).filter((t) => t.id !== active.id && inMode(t, mode).id !== active.id)
+    if (!pool.length) return
     pick(inMode(pool[Math.floor(Math.random() * pool.length)], mode))
+    surpriseBurst.celebrate()
   }
+  // "Search 700+ themes", not an exact count that shifts as groups are shown or hidden.
+  const themeCount = (library?.themes.length ?? 0) + presets.length + siteThemes.length + customs.length
+  const roughCount = themeCount >= 100 ? `${Math.floor(themeCount / 100) * 100}+` : themeCount
 
   return (
     <div ref={wrapRef} className="space-y-3">
@@ -907,15 +916,18 @@ function PresetGrid() {
           id={searchId}
           type="search"
           className={field}
-          placeholder={`Search ${(library?.themes.length ?? 0) + presets.length + siteThemes.length + customs.length} themes…`}
+          placeholder={`Search ${roughCount} themes…`}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value)
             setLimit(PAGE_SIZE)
           }}
         />
-        <button type="button" className={`${btn} shrink-0`} onClick={surprise} disabled={!library && needsLibrary}>
-          <Shuffle className="w-3.5 h-3.5" aria-hidden="true" /> Surprise me
+        <button type="button" className={`${btn} relative shrink-0`} onClick={surprise} disabled={!library && needsLibrary}>
+          {/* "Surprise" alone on a narrow panel, leaving the search box room for its hint. */}
+          <Shuffle className="w-3.5 h-3.5" aria-hidden="true" /> Surprise<span className="hidden @min-[400px]:inline">&nbsp;me</span>
+          {/* A burst of the theme it just picked, like the colour button's. */}
+          {surpriseBurst.bursting && <Burst key={surpriseBurst.burst} tokens={tokens} spread={1.7} />}
         </button>
       </div>
 
@@ -929,43 +941,55 @@ function PresetGrid() {
               aria-pressed={on}
               data-tip={`${g.description} (${g.count} ${g.count === 1 ? 'theme' : 'themes'})`}
               onClick={() => choose(g.id, { scroll: true })}
-              className={`flex h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border px-2 text-xs font-semibold @min-[380px]:h-10 @min-[380px]:flex-row @min-[380px]:justify-start @min-[380px]:gap-1.5 @min-[440px]:px-2.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-1 ${
+              className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-1.5 py-2 text-[11px] leading-tight font-semibold @min-[460px]:h-10 @min-[460px]:min-h-0 @min-[460px]:flex-row @min-[460px]:justify-start @min-[460px]:gap-1.5 @min-[460px]:px-2.5 @min-[460px]:py-0 @min-[460px]:text-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-1 ${
                 on ? 'border-zinc-900 bg-zinc-900 text-white shadow-sm' : 'border-zinc-200 bg-zinc-100 text-zinc-900 hover:bg-zinc-200'
               }`}
             >
               <g.Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
-              <span className="max-w-full truncate">{g.label}</span>
-              <span className={`ml-auto hidden pl-1 font-medium tabular-nums @min-[440px]:inline ${on ? 'text-zinc-300' : 'text-zinc-500'}`}>{g.count}</span>
+              {/* Narrow, the label wraps under its icon rather than being cut off. */}
+              <span className="max-w-full text-center break-words @min-[460px]:truncate @min-[460px]:text-left">{g.label}</span>
+              <span className={`ml-auto hidden pl-1 font-medium tabular-nums @min-[460px]:inline ${on ? 'text-zinc-300' : 'text-zinc-500'}`}>{g.count}</span>
             </button>
           )
         })}
       </div>
 
+      {/* The library: community palettes sorted by mood, in a box of its own so it reads as one
+          place to browse. Its header says what it is and folds it away. */}
       {categories.length > 0 && (
-        <>
+        <section aria-label="Theme library" className="rounded-xl border border-zinc-200 bg-zinc-50 p-2.5">
           <button
             type="button"
             aria-expanded={!settings.libraryCollapsed}
             aria-controls={categoriesId}
             onClick={() => update({ libraryCollapsed: !settings.libraryCollapsed })}
-            className="flex w-full items-center gap-1.5 rounded text-[11px] font-semibold uppercase tracking-wide text-zinc-500 hover:text-zinc-900 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900"
+            className="flex w-full items-center gap-2.5 rounded-lg px-1 py-0.5 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900"
           >
-            <ChevronRight
-              className={`w-3.5 h-3.5 shrink-0 transition-transform motion-reduce:transition-none ${settings.libraryCollapsed ? '' : 'rotate-90'}`}
-              aria-hidden="true"
-            />
-            Library
-            {/* Folded away, the label still says which category is showing. */}
-            {settings.libraryCollapsed && activeCategory && <span className="normal-case tracking-normal text-zinc-700">· {activeCategory.label}</span>}
-            <span className="h-px flex-1 bg-zinc-200" />
-            <span className="normal-case tracking-normal font-medium">{settings.libraryCollapsed ? 'Show' : 'Hide'}</span>
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-zinc-900 text-white">
+              <LibraryBig className="w-4 h-4" aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-zinc-900">Library</span>
+              <span className="block text-[11px] leading-snug text-zinc-600">
+                {settings.libraryCollapsed && activeCategory
+                  ? `Showing ${activeCategory.label}`
+                  : `${library ? `${library.themes.length} palettes` : 'Palettes'} sorted by mood. Pick one to see its themes.`}
+              </span>
+            </span>
+            <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-zinc-600">
+              {settings.libraryCollapsed ? 'Show' : 'Hide'}
+              <ChevronRight
+                className={`w-3.5 h-3.5 transition-transform motion-reduce:transition-none ${settings.libraryCollapsed ? '' : 'rotate-90'}`}
+                aria-hidden="true"
+              />
+            </span>
           </button>
           <div
             id={categoriesId}
             hidden={settings.libraryCollapsed}
             role="group"
-            aria-label="Library categories"
-            className="grid grid-cols-2 @min-[380px]:grid-cols-3 gap-2"
+            aria-label="Library moods"
+            className="mt-2.5 grid grid-cols-2 @min-[380px]:grid-cols-3 gap-2"
           >
             {categories.map((c) => {
               const on = !q && category === c.id
@@ -987,7 +1011,7 @@ function PresetGrid() {
               )
             })}
           </div>
-        </>
+        </section>
       )}
 
       {/* scroll-mt keeps a little room above the category's description when it's scrolled to. */}

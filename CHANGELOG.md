@@ -6,6 +6,10 @@ What changed in each colorsbymax release. Update with `npm install colorsbymax@l
 
 - **The panel's header fits on a phone.** On a narrow panel the Light / Dark / Auto, Add to site, Audit and settings buttons no longer sit on top of the colorsbymax title; they sit on their own centred row below it, with a little more room. Reported through the site's feedback form.
 - **Picking colorsbymax, Max’s picks or Yours scrolls to its themes,** as picking a library mood already did, so the colours are right there. The scroll now also lands clear of the panel's header.
+- **The panel's header is centred on a phone:** the logo, name and "by mrmaxdesigns" on top, the tools on their own row below.
+- **A clearer library.** It sits in a box of its own with a heading that says what it is ("715 palettes sorted by mood"), so it reads as one place to browse.
+- **Nothing cut off on a phone:** the colorsbymax / Max’s picks / Yours labels wrap under their icons instead of being cut off, and the search box says "Search 700+ themes…" in full.
+- **Surprise me bursts with colour,** like the colour button, in the theme it just picked. When the group showing has a single theme it picks from the whole library, and never the theme already on.
 
 ## 0.3.3 (2026-09-25)
 
