@@ -11,6 +11,8 @@
 //                    "colorsbymax feedback <feedback@mrmaxdesigns.com>"
 //                    (default Resend's test sender, which only delivers to the Resend account's own email)
 
+import { inboxReady, saveReport } from './_lib/inbox.js'
+
 const MAX_SHOTS = 6
 const MAX_TOTAL_BYTES = 4 * 1024 * 1024 // Vercel accepts request bodies up to 4.5 MB
 const MAX_FIELD = 5000
@@ -89,8 +91,20 @@ export async function POST(request) {
     files.map(async (f, i) => ({ filename: clip(f.name, 80).replace(/[^\w .()-]/g, '_') || `screenshot-${i + 1}.png`, content: Buffer.from(await f.arrayBuffer()).toString('base64') })),
   )
 
+  // A copy for the admin dashboard's inbox, in a private repo. It never stops the email.
+  let stored = false
+  if (inboxReady()) {
+    try {
+      const shots = await Promise.all(files.map(async (f) => ({ name: f.name, type: f.type, bytes: Buffer.from(await f.arrayBuffer()) })))
+      await saveReport({ ...report, environment: env, markdown: clip(r.markdown, 20000) }, shots)
+      stored = true
+    } catch (e) {
+      console.error('Couldn’t keep the report in the inbox', e)
+    }
+  }
+
   const key = process.env.RESEND_API_KEY
-  if (!key) return json(503, { error: 'Feedback email isn’t set up yet.' })
+  if (!key) return stored ? json(200, { ok: true }) : json(503, { error: 'Feedback email isn’t set up yet.' })
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
@@ -106,7 +120,8 @@ export async function POST(request) {
   })
   if (!res.ok) {
     console.error('Resend refused the email', res.status, await res.text().catch(() => ''))
-    return json(502, { error: 'Couldn’t send it just now.' })
+    // Kept in the inbox all the same: the report isn't lost.
+    if (!stored) return json(502, { error: 'Couldn’t send it just now.' })
   }
   return json(200, { ok: true })
 }

@@ -3,7 +3,8 @@
 import { CALLBACK, SITE_URL, cookie, cookies, isAdmin, sessionCookie } from '../_lib/admin.js'
 
 const back = (result, setCookies) => {
-  const headers = new Headers({ Location: `${SITE_URL}/docs?admin=${result}` })
+  // Signed in: straight to the dashboard. Otherwise back to the docs, with why.
+  const headers = new Headers({ Location: `${SITE_URL}/docs?admin=${result}${result === 'signed-in' ? '#admin' : ''}` })
   for (const c of setCookies) headers.append('Set-Cookie', c)
   return new Response(null, { status: 302, headers })
 }

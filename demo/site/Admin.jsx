@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Lock, LogOut, X } from 'lucide-react'
+import { ChevronDown, LayoutDashboard, Lock, LogOut, X } from 'lucide-react'
 import { Wordmark } from './Nav.jsx'
 import { GitHubIcon } from './ui.jsx'
 
@@ -40,13 +40,71 @@ export function useAdmin() {
   return { ...state, signOut, refresh }
 }
 
+export const DASHBOARD = `${import.meta.env.BASE_URL}docs.html#admin`
+/** The admin's GitHub picture (a placeholder on the dev server's preview). */
+export const avatarOf = (login) => (login && login !== 'preview' ? `https://github.com/${login}.png?size=64` : null)
+
+function Avatar({ login, className = 'h-6 w-6' }) {
+  const src = avatarOf(login)
+  return src ? <img src={src} alt="" className={`${className} shrink-0 rounded-full bg-secondary`} /> : <GitHubIcon className={className} />
+}
+
+/**
+ * In the top bar while signed in, in place of "Get started": who's signed in, with the dashboard
+ * and a way to sign out (and see the site as a visitor does).
+ */
+export function AdminMenu({ login, signOut }) {
+  const [open, setOpen] = useState(false)
+  const box = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    const away = (e) => !box.current?.contains(e.target) && setOpen(false)
+    const key = (e) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('pointerdown', away)
+    document.addEventListener('keydown', key)
+    return () => {
+      document.removeEventListener('pointerdown', away)
+      document.removeEventListener('keydown', key)
+    }
+  }, [open])
+  return (
+    <div ref={box} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-ink py-1 pr-3 pl-1 text-sm font-semibold whitespace-nowrap text-background shadow-md transition hover:-translate-y-px"
+      >
+        <Avatar login={login} />
+        <span className="hidden sm:inline">{login === 'preview' ? 'Admin' : login}</span>
+        <GitHubIcon className="hidden h-3.5 w-3.5 opacity-70 sm:inline" />
+        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
+      </button>
+      {open && (
+        <div role="menu" className="absolute right-0 mt-2 w-60 animate-[tab-in_200ms_ease-out] rounded-2xl border border-border bg-surface p-2 text-ink shadow-xl shadow-shadow/15">
+          <p className="px-3 pt-1.5 pb-2 text-xs text-ink-secondary">
+            Signed in with GitHub as <strong className="text-ink">{login}</strong>
+          </p>
+          <a role="menuitem" href={DASHBOARD} onClick={() => setOpen(false)} className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold hover:bg-accent hover:text-on-accent">
+            <LayoutDashboard className="h-4 w-4" aria-hidden="true" /> Dashboard
+          </a>
+          <button role="menuitem" type="button" onClick={signOut} className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold hover:bg-accent hover:text-on-accent">
+            <LogOut className="h-4 w-4" aria-hidden="true" /> Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function AdminButton({ className = '' }) {
   const [open, setOpen] = useState(false)
   const { admin, login, signOut } = useAdmin()
   if (admin)
     return (
       <span className={`inline-flex items-center gap-3 ${className}`}>
-        <a href={`${import.meta.env.BASE_URL}docs.html`} className="inline-flex items-center gap-1.5 font-semibold underline-offset-4 hover:underline">
+        <a href={DASHBOARD} className="inline-flex items-center gap-1.5 font-semibold underline-offset-4 hover:underline">
           <Lock className="h-3.5 w-3.5" aria-hidden="true" /> Admin{login && login !== 'preview' ? ` · ${login}` : ''}
         </a>
         <button type="button" onClick={signOut} className="inline-flex cursor-pointer items-center gap-1 font-semibold underline-offset-4 hover:underline">

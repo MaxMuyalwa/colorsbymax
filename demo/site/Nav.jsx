@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, ArrowUpRight, Menu, X } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, LayoutDashboard, LogOut, Menu, X } from 'lucide-react'
 import { DOCS, MRMAX, REPO } from './ui.jsx'
 import { StarButton } from './StarButton.jsx'
 import { FeedbackButton, openFeedback } from './Feedback.jsx'
+import { AdminMenu, DASHBOARD, useAdmin } from './Admin.jsx'
 import { LogoMark } from './Favicon.jsx'
 
 const MENU_CLOSE_MS = 200
@@ -39,6 +40,8 @@ export function Wordmark({ className = '' }) {
 /** @param {{ home?: string }} props  prefix for in-page links, for pages other than the home page */
 export function Nav({ home = '' }) {
   const [open, setOpen] = useState(false)
+  // Signed in as the admin: who, in place of "Get started", with the dashboard and sign-out.
+  const { admin, login, signOut } = useAdmin()
   // The menu stays on screen while it animates closed, then goes.
   const [menuShown, setMenuShown] = useState(false)
   useEffect(() => {
@@ -94,12 +97,16 @@ export function Nav({ home = '' }) {
             mrmaxdesigns.com
             <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true" />
           </a>
-          <a
-            href={`${home}#setup`}
-            className="shine hidden rounded-full bg-primary px-4 py-1.5 whitespace-nowrap text-sm font-semibold text-on-primary shadow-md shadow-primary/25 transition hover:-translate-y-px hover:shadow-lg sm:inline-flex"
-          >
-            Get started
-          </a>
+          {admin ? (
+            <AdminMenu login={login} signOut={signOut} />
+          ) : (
+            <a
+              href={`${home}#setup`}
+              className="shine hidden rounded-full bg-primary px-4 py-1.5 whitespace-nowrap text-sm font-semibold text-on-primary shadow-md shadow-primary/25 transition hover:-translate-y-px hover:shadow-lg sm:inline-flex"
+            >
+              Get started
+            </a>
+          )}
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}
@@ -142,14 +149,32 @@ export function Nav({ home = '' }) {
           </a>
           {/* The two main ways on, set apart below the links with room between them. */}
           <div className="mt-3 grid gap-2.5 border-t border-border px-1 pt-4 pb-1">
-            <a
-              href={`${home}#setup`}
-              onClick={() => setOpen(false)}
-              className="shine group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-primary px-5 font-semibold text-on-primary shadow-lg shadow-primary/25 transition hover:-translate-y-px sm:hidden"
-            >
-              Get started
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-            </a>
+            {admin ? (
+              <>
+                <a href={DASHBOARD} onClick={() => setOpen(false)} className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-ink px-5 font-semibold text-background sm:hidden">
+                  <LayoutDashboard className="h-4 w-4" aria-hidden="true" /> Admin dashboard
+                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false)
+                    signOut()
+                  }}
+                  className="inline-flex h-12 cursor-pointer items-center justify-center gap-2 rounded-full border border-border px-5 font-semibold text-ink sm:hidden"
+                >
+                  <LogOut className="h-4 w-4" aria-hidden="true" /> Sign out
+                </button>
+              </>
+            ) : (
+              <a
+                href={`${home}#setup`}
+                onClick={() => setOpen(false)}
+                className="shine group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-primary px-5 font-semibold text-on-primary shadow-lg shadow-primary/25 transition hover:-translate-y-px sm:hidden"
+              >
+                Get started
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+              </a>
+            )}
             <a
               href={MRMAX}
               className="group inline-flex h-12 items-center justify-center gap-2 rounded-full border border-border bg-background px-5 font-semibold text-ink transition hover:border-primary"
