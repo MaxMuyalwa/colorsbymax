@@ -4,11 +4,11 @@
     "audit": false
   },
   "announcement": {
-    "on": true,
+    "on": false,
     "text": "Welcome to Colors by Max, a design tool I’m building to help make websites more unique. It’s still in beta, so explore, experiment, and share your feedback.",
     "link": "https://www.mrmaxdesigns.com/colorsbymax/docs#changelog",
     "label": "ChangeLogs",
     "tone": "brand"
   },
-  "updated": "2026-09-26T21:54:12.200Z"
+  "updated": "2026-09-26T21:55:53.267Z"
 }
