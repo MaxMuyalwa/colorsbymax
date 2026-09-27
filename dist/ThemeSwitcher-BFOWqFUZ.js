@@ -6121,11 +6121,28 @@ function PaletteFromFile() {
 		]
 	});
 }
+var EXPORT_FORMATS = [{
+	id: "json",
+	label: "JSON",
+	type: "application/json",
+	ext: "theme.json",
+	what: "theme JSON"
+}, {
+	id: "css",
+	label: "CSS",
+	type: "text/css",
+	ext: "theme.css",
+	what: "theme CSS"
+}];
 function ImportExport() {
-	const { exportTheme, importTheme } = useTheme();
+	const { exportTheme, importTheme, tokens } = useTheme();
 	const { toast } = usePanel();
 	const savedToYours = useSavedToYours();
 	const json = exportTheme();
+	const themeName = JSON.parse(json).name;
+	const [format, setFormat] = useState("json");
+	const out = EXPORT_FORMATS.find((f) => f.id === format);
+	const text = format === "css" ? `/* ${themeName.replace(/\*\//g, "")}, from colorsbymax */\n${cssSnippet(tokens)}\n` : json;
 	const [status, setStatus] = useState(null);
 	const [input, setInput] = useState("");
 	const exportId = useId();
@@ -6152,15 +6169,30 @@ function ImportExport() {
 			/* @__PURE__ */ jsxs("div", {
 				className: "space-y-1.5",
 				children: [
-					/* @__PURE__ */ jsx("label", {
-						htmlFor: exportId,
-						className: "block text-xs font-medium text-zinc-700",
-						children: "Current theme as JSON"
+					/* @__PURE__ */ jsxs("div", {
+						className: "flex items-center justify-between gap-2",
+						children: [/* @__PURE__ */ jsxs("label", {
+							htmlFor: exportId,
+							className: "block text-xs font-medium text-zinc-700",
+							children: ["Current theme as ", out.label]
+						}), /* @__PURE__ */ jsx("div", {
+							role: "radiogroup",
+							"aria-label": "Export as",
+							className: "flex shrink-0 items-center rounded-lg border border-zinc-200 p-0.5",
+							children: EXPORT_FORMATS.map((f) => /* @__PURE__ */ jsx("button", {
+								type: "button",
+								role: "radio",
+								"aria-checked": format === f.id,
+								onClick: () => setFormat(f.id),
+								className: `h-6 rounded-md px-2 text-[11px] font-semibold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 ${format === f.id ? "bg-zinc-900 text-white" : "text-zinc-700 hover:bg-zinc-100"}`,
+								children: f.label
+							}, f.id))
+						})]
 					}),
 					/* @__PURE__ */ jsx("textarea", {
 						id: exportId,
 						readOnly: true,
-						value: json,
+						value: text,
 						rows: 5,
 						className: `${field} font-mono text-[11px]`
 					}),
@@ -6171,9 +6203,9 @@ function ImportExport() {
 							className: btn,
 							onClick: async () => {
 								try {
-									await navigator.clipboard.writeText(json);
+									await navigator.clipboard.writeText(text);
 									setStatus(null);
-									toast("Copied the theme JSON to your clipboard.");
+									toast(`Copied the ${out.what} to your clipboard.`);
 								} catch {
 									setStatus({
 										ok: false,
@@ -6189,10 +6221,10 @@ function ImportExport() {
 							type: "button",
 							className: btn,
 							onClick: () => {
-								const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+								const url = URL.createObjectURL(new Blob([text], { type: out.type }));
 								const a = document.createElement("a");
 								a.href = url;
-								a.download = `${JSON.parse(json).name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.theme.json`;
+								a.download = `${themeName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.${out.ext}`;
 								a.click();
 								toast(`Downloaded ${a.download}.`);
 								URL.revokeObjectURL(url);
