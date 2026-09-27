@@ -5,10 +5,10 @@
   },
   "announcement": {
     "on": true,
-    "text": "Welcome to colorsbymax, a design tool I’m building to help make websites more unique. It’s still in beta, so explore, experiment, and share your feedback. Enjoy!!!",
+    "text": "Welcome to colorsbymax, a design tool I’m building to help make websites more unique. It’s still in BETA, so explore, experiment, and share your feedback. Enjoy!!!",
     "link": "https://www.mrmaxdesigns.com/colorsbymax/docs#changelog",
     "label": "ChangeLogs",
     "tone": "brand"
   },
-  "updated": "2026-09-26T22:27:25.876Z"
+  "updated": "2026-09-27T07:24:22.000Z"
 }
