@@ -2,7 +2,7 @@
 
 What changed in each colorsbymax release. Update with `npm install colorsbymax@latest`.
 
-## Unreleased
+## 0.4.1 (2026-09-27)
 
 - **Export as CSS.** Import / export now has a JSON / CSS switch: CSS gives the current theme as `--color-*` variables on `:root`, to copy or download as a `.css` file.
 - **Room for a bar above your nav.** Set `--colorsbymax-offset-top` on `<html>` (in px) to the height of anything pinned to the top of your page, such as an announcement banner, and the colour button and its panel move down by it instead of sitting on top of it.
