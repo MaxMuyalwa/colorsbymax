@@ -2,6 +2,13 @@
 
 What changed in each colorsbymax release. Update with `npm install colorsbymax@latest`.
 
+## Unreleased
+
+- **Studio.** A new **Studio** button in the panel header opens a deeper way to colour a site, with **Back to the switcher** to return to the quick one. It starts with where the colours go: the whole site, or only some pages. Studio offers the site's own pages (the ones the page links to, and the ones you've opened), and `/*` covers a whole section. The choice is saved on your device, and Studio gives you the config line and an AI-editor prompt that make it everyone's. Pages left out keep their own colours, dark mode included; the quick switcher says so when you open it there. Switch Studio off with `features: { studio: false }`.
+- **`pages` config option: only colour some pages,** e.g. `pages: ['/', '/pricing', '/blog/*']`. Every other page keeps its own colours. Single-page apps are followed as they change page, and the pre-paint script leaves those pages alone too, so they never flash in the theme.
+- **Upgrading:** if you copied the pre-paint script into your HTML by hand, copy the new one from `prePaintScript()`. The old one still works, but it would briefly paint the theme on pages left out.
+- The panel's heading reads plain "colorsbymax", without the ™.
+
 ## 0.4.1 (2026-09-27)
 
 - **Export as CSS.** Import / export now has a JSON / CSS switch: CSS gives the current theme as `--color-*` variables on `:root`, to copy or download as a `.css` file.

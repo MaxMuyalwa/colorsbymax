@@ -250,6 +250,7 @@ When you're done choosing colours, the panel's **I'm done** button gives you rea
 - **Light and dark mode, for any site.** Every built-in theme is designed light and has a generated dark twin (dark surfaces, light text, brand colours lifted until they read on dark, then contrast-checked). Switching to Dark, one click in the panel's header, turns the whole site dark, even one that never had a dark mode. Auto follows the visitor's device, and a light and dark switch can go anywhere on the site (see [Dark mode](#dark-mode)). Custom palettes stay as they were made.
 - **Visitor settings.** The gear in the panel header opens settings: theme mode (Light, Dark, Auto), panel size (Compact, Standard, Large), which groups and sections to show, whether the button can be dragged or its dot animates, and moving the button back to its corner. Saved per site.
 - **Resizable panel.** Drag the panel's free edges or corner (the ones away from the colour button) to any size, or pick a size in settings; double-click an edge to reset it. The layout follows the panel's width, so a large panel shows three theme cards a row.
+- **Studio: go deeper.** The **Studio** button in the panel header opens a second, more detailed way of working, and **Back to the switcher** returns to the quick one. It starts with **where the colours go**: the whole site, or only some pages (a landing page, say, while the app inside keeps its own colours). Studio reads the site to offer its pages: the ones the current page links to and the ones you've opened. A path ending in `/*` covers a whole section, such as `/blog/*`. The choice is saved on your device, and Studio gives you the config line, and a prompt for Claude, Cursor or Copilot, that make it the same for every visitor (the `pages` option). Pages outside the chosen ones are left exactly as the site made them, dark mode included, and the quick switcher says so when you open it there. Colouring single parts of a page, and pointing and clicking to colour anything, are coming to Studio next.
 - **Audit the page.** The **Audit** button in the panel header looks at the page in the chosen colours and pins notes to what won't look right: a logo that disappears against its background (with a one-click "Colour the logo", or tips when it's a picture colorsbymax can't re-colour, plus "Preview inverted"), pictures whose solid background shows as a box, and text or icons too faint to read. The notes stay on the page as you scroll; **Re-check** after a fix (it also re-checks when the colours change) and close it from its bar.
 - **Clear groups and feedback.** The site's own group (globe), Max’s picks (paintbrush) and Yours (person) sit in their own row, apart from the library's categories. Toasts confirm what just happened; saving, importing or building a palette says it went to Yours and offers "Show" to jump straight to it. Tooltips are drawn in the panel's colours.
 - **Themed scrollbars.** The page's scrollbars and the panel's slim one take the selected theme's primary colour. Turn the page's off with `scrollbars: false`.
@@ -332,7 +333,9 @@ Without a `siteName`, the site group is named from the page's `og:site_name`, it
                                     // false: it keeps its own colours); visitors can change it
   features: { scan: false },        // parts of the panel to switch off for everyone (all on by default):
                                     // picks, library, search, surprise, scan, custom, overrides,
-                                    // importExport, audit, addToSite, colourStyle, colourCount
+                                    // importExport, audit, addToSite, colourStyle, colourCount, studio
+  pages: ['/', '/pricing'],         // only colour these pages; the rest keep their own colours (default:
+                                    // the whole site). '/blog/*' is /blog and every page under it
   colourStyle: 'colourful',         // on a site colorsbymax re-colours: 'colourful' (default) paints
                                     // its header, hero, sections, cards, buttons and footer by role;
                                     // 'subtle' only swaps the colours it already has
@@ -485,4 +488,4 @@ PDF reading uses [pdfjs-dist](https://github.com/mozilla/pdf.js) (Apache-2.0), i
 
 ## Licence
 
-colorsbymax is released under the [MIT Licence](LICENSE). The names colorsbymax™ and mrmaxdesigns are marks of Max Muyalwa and aren't covered by the code licence.
+colorsbymax is released under the [MIT Licence](LICENSE). The names colorsbymax and mrmaxdesigns are marks of Max Muyalwa and aren't covered by the code licence.

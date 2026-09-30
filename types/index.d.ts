@@ -106,7 +106,13 @@ export interface ColorsByMaxConfig {
    * Parts of the panel to switch off for everyone, e.g. `{ scan: false, audit: false }`. All are on
    * by default. Unlike the rest of the config it's read live, so a site can change it after loading.
    */
-  features?: Partial<Record<'picks' | 'library' | 'search' | 'surprise' | 'scan' | 'custom' | 'overrides' | 'importExport' | 'audit' | 'addToSite' | 'colourStyle' | 'colourCount', boolean>>
+  features?: Partial<Record<'picks' | 'library' | 'search' | 'surprise' | 'scan' | 'custom' | 'overrides' | 'importExport' | 'audit' | 'addToSite' | 'colourStyle' | 'colourCount' | 'studio', boolean>>
+  /**
+   * Only colour these pages, e.g. `['/', '/pricing', '/blog/*']`. A path ending in `/*` is that
+   * section and every page under it. Every other page keeps its own colours. Default: the whole
+   * site. A visitor can choose differently in Studio, on their own device.
+   */
+  pages?: string[]
   /**
    * The mode a first-time visitor starts in (default 'light'; 'system' follows their device). Any
    * site can start dark: every theme has a dark twin. Visitors can still change it.

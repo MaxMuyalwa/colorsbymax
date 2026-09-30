@@ -43,6 +43,7 @@ const FEATURE_INFO = {
   addToSite: ['Add to site', 'The light and dark switch for a visitor’s own site.'],
   colourStyle: ['Subtle / Colourful', 'The switch for how boldly a theme paints.'],
   colourCount: ['Colours per theme', '− and + for how many colours a theme uses.'],
+  studio: ['Studio', 'Going deeper: choosing which pages the colours go on.'],
 }
 const sectionFromHash = () => SECTIONS.find((s) => s.id === location.hash.slice(1))?.id ?? 'overview'
 

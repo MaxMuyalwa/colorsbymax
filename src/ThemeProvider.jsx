@@ -5,6 +5,7 @@ import { DARK_SUFFIX, isDarkTheme, subtleTokens, toDark } from './modes.js'
 import { baseId, clampColours, coloursFor, reducePalette } from './palette.js'
 import { LOGO_SELECTOR, createRecolourer, usesColourTokens } from './recolour.js'
 import { collectColors, detectSiteName, inferRoles, suggestThemes } from './scan.js'
+import { MAX_SEEN, cleanPages, cleanScope, inScope, usePathname } from './scope.js'
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, usePrefersDark } from './settings.js'
 import { DEFAULT_STORAGE_KEY, loadState, sanitizeTokens, saveState } from './storage.js'
 import { BASE_TOKENS, PRESETS, TOKEN_KEYS, completeTokens } from './tokens.js'
@@ -15,6 +16,11 @@ const ThemeContext = createContext(null)
 export function applyTokens(tokens) {
   const style = document.documentElement.style
   for (const key of TOKEN_KEYS) style.setProperty(`--color-${key}`, tokens[key])
+}
+/** Takes the tokens off <html> again, so the site's own stylesheet colours show. */
+const removeTokens = () => {
+  const style = document.documentElement.style
+  for (const key of TOKEN_KEYS) style.removeProperty(`--color-${key}`)
 }
 
 /** Scrollbar thumb: the theme's primary, softened towards its page background. */
@@ -51,6 +57,9 @@ const newId = () => `custom-${Date.now().toString(36)}-${Math.random().toString(
  * @property {Partial<Record<keyof typeof FEATURES, boolean>>} [features]  Parts of the panel to switch off
  *   for everyone, e.g. { scan: false, audit: false } (all on by default). Unlike the rest of the
  *   config it's read live, so a site can change it after loading (from its own settings).
+ * @property {string[]} [pages]  Only colour these pages, e.g. ['/', '/pricing', '/blog/*'] (a path ending in
+ *   /* is that section and every page under it); every other page keeps its own colours. Default:
+ *   the whole site. A visitor can choose differently in Studio, on their own device.
  * @property {boolean | 'auto'} [recolour]  Re-colour a site that doesn't paint with the --color-*
  *   variables, by swapping the colours actually on the page. 'auto' (default) does it only when
  *   the site doesn't define --color-primary itself.
@@ -102,6 +111,7 @@ export const FEATURES = {
   addToSite: true, // the light and dark switch for the site ("Add to site")
   colourStyle: true, // the Subtle / Colourful switch
   colourCount: true, // − and + for how many colours a theme uses
+  studio: true, // Studio: going deeper, starting with which pages get the colours
 }
 
 export function ThemeProvider({ config = {}, children }) {
@@ -134,10 +144,22 @@ export function ThemeProvider({ config = {}, children }) {
   const tokens = useMemo(() => ({ ...reducePalette(base.tokens, colourCount), ...state.overrides }), [base, colourCount, state.overrides])
   const issues = useMemo(() => checkTheme(tokens), [tokens])
 
+  // Where the colours go (Studio): the visitor's choice, else the site's `pages`, else everywhere.
+  // Pages outside it are left exactly as the site made them.
+  const configPages = useMemo(() => (Array.isArray(initialConfig.pages) ? cleanPages(initialConfig.pages) : null), [initialConfig])
+  const scope = useMemo(() => state.scope ?? (configPages ? { mode: 'pages', pages: configPages } : { mode: 'all', pages: [] }), [state.scope, configPages])
+  const pathname = usePathname()
+  const here = inScope(scope, pathname)
+  // Studio offers back the pages this visitor has opened.
+  useEffect(() => {
+    setState((s) => (s.seen[0] === pathname ? s : { ...s, seen: [pathname, ...s.seen.filter((p) => p !== pathname)].slice(0, MAX_SEEN) }))
+  }, [pathname])
+
   useLayoutEffect(() => {
-    applyTokens(tokens)
-    saveState(storageKey, { ...state, activeId: base.id }, tokens)
-  }, [tokens, state, base.id, storageKey])
+    if (here) applyTokens(tokens)
+    else removeTokens()
+    saveState(storageKey, { ...state, activeId: base.id }, tokens, scope)
+  }, [tokens, state, base.id, storageKey, here, scope])
 
   // Re-colouring for sites that don't paint with the token variables. Layout effects run after
   // the children have rendered, so the engine sees the site's content.
@@ -178,24 +200,24 @@ export function ThemeProvider({ config = {}, children }) {
   // On a site painted with the tokens, Subtle calms the page's backgrounds, cards and tints and
   // keeps the theme's colour for buttons, links and highlights. (Runs after the plain apply above.)
   useLayoutEffect(() => {
-    if (!pageColours) applyTokens(colourStyle === 'subtle' ? subtleTokens(tokens) : tokens)
-  }, [tokens, state, colourStyle, pageColours])
+    if (!pageColours && here) applyTokens(colourStyle === 'subtle' ? subtleTokens(tokens) : tokens)
+  }, [tokens, state, colourStyle, pageColours, here])
   useLayoutEffect(() => {
-    if (logoColouring || pageColours) return
+    if (logoColouring || pageColours || !here) return
     const style = document.createElement('style')
     style.dataset.colorsbymax = 'logo'
     style.textContent = `:is(${LOGO_SELECTOR}){${TOKEN_KEYS.map((k) => `--color-${k}:${defaultTheme.tokens[k]}`).join(';')}}`
     document.head.append(style)
     return () => style.remove()
-  }, [logoColouring, pageColours, defaultTheme])
+  }, [logoColouring, pageColours, defaultTheme, here])
 
   // The page's own colours with no overrides are its original look, so nothing is swapped. (A
   // defaultTheme in the config is chosen colours, which do need applying.)
   const pageLook = base.id === 'site-original' || (base.id === defaultTheme.id && !initialConfig.defaultTheme)
   const original = pageLook && !Object.keys(state.overrides).length
   useLayoutEffect(() => {
-    recolourer.current?.apply(original ? null : tokens)
-  }, [tokens, original, pageColours])
+    recolourer.current?.apply(original || !here ? null : tokens)
+  }, [tokens, original, pageColours, here])
 
   // Scrollbars in the theme's colours. The rule reads the token variables, so it follows every
   // theme change by itself, and :where() keeps it weaker than any scrollbar styling the site has.
@@ -283,13 +305,19 @@ export function ThemeProvider({ config = {}, children }) {
   // and native controls and scrollbars follow it.
   useLayoutEffect(() => {
     const html = document.documentElement
-    html.dataset.colorsbymaxScheme = mode
-    html.style.colorScheme = mode
+    // A page outside the chosen ones keeps its own look, dark mode included.
+    if (here) {
+      html.dataset.colorsbymaxScheme = mode
+      html.style.colorScheme = mode
+    } else {
+      delete html.dataset.colorsbymaxScheme
+      html.style.removeProperty('color-scheme')
+    }
     for (const el of document.querySelectorAll('[data-colorsbymax-mode]')) {
       const want = el.getAttribute('data-colorsbymax-mode')
       el.setAttribute('aria-pressed', String(want === 'toggle' ? mode === 'dark' : want === modeSetting))
     }
-  }, [mode, modeSetting])
+  }, [mode, modeSetting, here])
 
   // Light and dark switches on the site itself: any element with data-colorsbymax-mode, set to
   // "toggle" (light and dark in turn), "light", "dark" or "system". The site decides where it
@@ -330,6 +358,17 @@ export function ThemeProvider({ config = {}, children }) {
     setColourStyle,
     /** Which parts of the panel are on (config `features`). */
     features,
+    /** Where the colours go: { mode: 'all' | 'pages', pages }, and whether this page gets them. */
+    scope,
+    inScope: here,
+    pathname,
+    /** The site's own `pages` config, or null; `scopeChosen` is true once the visitor picks their own. */
+    configPages,
+    scopeChosen: Boolean(state.scope),
+    /** Sets where the colours go (Studio), on this device; null goes back to the site's setting. */
+    setScope: (next) => setState((s) => ({ ...s, scope: next === null ? null : cleanScope(next) })),
+    /** Pages of the site this visitor has opened, newest first. */
+    seenPages: state.seen,
     /** How many colours a theme uses (5 to 10): its own count, or the visitor's default. */
     coloursOf,
     /** Sets one theme's colour count (light and dark share it). */

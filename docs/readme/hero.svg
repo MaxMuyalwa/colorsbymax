@@ -60,7 +60,7 @@
   </g>
     <circle cx="810" cy="250" r="29" fill="#000000" opacity="0.3"/><circle cx="810" cy="246" r="29" fill="#ffffff"/><path d="M810 246 L810.00 222.00 A24 24 0 0 1 832.83 238.58 Z" fill="#0891b2"/><path d="M810 246 L832.83 238.58 A24 24 0 0 1 824.11 265.42 Z" fill="#159c47"/><path d="M810 246 L824.11 265.42 A24 24 0 0 1 795.89 265.42 Z" fill="#ea580c"/><path d="M810 246 L795.89 265.42 A24 24 0 0 1 787.17 238.58 Z" fill="#64748b"/><path d="M810 246 L787.17 238.58 A24 24 0 0 1 810.00 222.00 Z" fill="#db2777"/><circle cx="810" cy="246" r="9" fill="#ffffff"/>
   </g>
-  <text x="46" y="92" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="54" font-weight="800" fill="#ffffff" letter-spacing="-1">colorsbymax<tspan font-size="20" dy="-26" font-weight="600">™</tspan></text>
+  <text x="46" y="92" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="54" font-weight="800" fill="#ffffff" letter-spacing="-1">colorsbymax</text>
   <text x="48" y="122" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="15" font-weight="600" letter-spacing="1.5" fill="#cbd5e1">BY MRMAXDESIGNS</text>
   <text x="48" y="170" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="25" font-weight="700" fill="#ffffff">Re-colour any website, live.</text>
   <text x="48" y="200" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="15" fill="#e2e8f0">720 themes · WCAG contrast checks · works with your coding agent</text>

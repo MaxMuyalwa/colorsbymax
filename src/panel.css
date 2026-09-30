@@ -178,7 +178,23 @@
   background: currentColor;
 }
 
+/* Studio's mark: the parts of a page, each in its own colour, slowly running through the hues. */
+.theme-studio-mark {
+  animation: theme-studio-hue 9s linear infinite;
+}
+@keyframes theme-studio-hue {
+  from {
+    filter: hue-rotate(0deg);
+  }
+  to {
+    filter: hue-rotate(360deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .theme-studio-mark {
+    animation: none;
+  }
   .theme-panel,
   .theme-hint,
   .theme-toast {

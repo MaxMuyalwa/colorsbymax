@@ -15,6 +15,7 @@ const PANEL_DARK = '#18181b'
 import { loadLibrary } from './library.js'
 import { inMode, subtleTokens } from './modes.js'
 import { PANEL_PRESETS, useSettings } from './settings.js'
+import { linkedPages, normalPath, pageMatches, pagesPrompt, pagesSnippet } from './scope.js'
 import { useTheme } from './ThemeProvider.jsx'
 import { TOKEN_GROUPS, TOKEN_LABELS } from './tokens.js'
 
@@ -120,7 +121,7 @@ export default function ThemePanel({ open = true }) {
           <LogoMark tokens={theme.tokens} background={mode === 'dark' ? PANEL_DARK : '#ffffff'} className="h-7 w-auto shrink-0" />
           <div>
             <h2 id="theme-panel-title" className="text-base font-semibold tracking-tight">
-              colorsbymax<span className="align-super text-[10px] font-medium">™</span>
+              colorsbymax
             </h2>
             <p className="text-[11px] text-zinc-500">by mrmaxdesigns</p>
           </div>
@@ -148,6 +149,19 @@ export default function ThemePanel({ open = true }) {
             )
           })}
         </div>
+        {theme.features.studio && (
+        <button
+          type="button"
+          onClick={(e) => (view === 'studio' ? setView('main') : showView('studio', e.currentTarget))}
+          className={`${btn} shrink-0 whitespace-nowrap px-2 ${view === 'studio' ? 'border-zinc-900 bg-zinc-100' : 'border-transparent'}`}
+          aria-pressed={view === 'studio'}
+          aria-label="Studio"
+          data-tip="Studio: go deeper and choose exactly where your colours go"
+        >
+          <StudioMark className="w-4 h-4" />
+          Studio
+        </button>
+        )}
         {theme.features.addToSite && (
         <button
           type="button"
@@ -190,9 +204,28 @@ export default function ThemePanel({ open = true }) {
       {view === 'settings' && <SettingsView onBack={() => setView('main')} />}
       {view === 'finish' && <FinishView onBack={() => setView('main')} />}
       {view === 'mode-toggle' && <ModeToggleView onBack={() => setView('main')} />}
+      {view === 'studio' && <StudioView onBack={() => setView('main')} />}
 
       {/* Kept mounted while another view is open so open sections and scroll state survive. */}
       <div hidden={view !== 'main'}>
+      {!theme.inScope && (
+        <div className="mx-4 mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+          <p>
+            <strong className="font-semibold">This page keeps its own colours.</strong> The theme only goes on{' '}
+            {theme.scope.pages.length === 1 ? 'one page' : `${theme.scope.pages.length} pages`} of your site.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button type="button" className={btnPrimary} onClick={() => theme.setScope({ mode: 'pages', pages: [...theme.scope.pages, theme.pathname] })}>
+              Colour this page too
+            </button>
+            {theme.features.studio && (
+              <button type="button" className={btn} onClick={(e) => showView('studio', e.currentTarget)}>
+                <StudioMark className="w-3.5 h-3.5" /> Open Studio
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       <ContrastNav.Provider value={(from) => showView('contrast', from)}>
       {/* Every section starts folded, so a first look isn't overwhelming; each opens with a tap. */}
       <Section title="Preset themes">
@@ -384,6 +417,228 @@ function ModeToggleView({ onBack }) {
         <strong className="font-semibold text-zinc-900">Already have a dark mode?</strong> You don’t need this. The theme you pick colours your
         site well in light and dark, with contrast checked in both.
       </p>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------- Studio
+
+/** Studio's mark: the parts of a page (header, hero, cards), each in its own colour, cycling. */
+function StudioMark({ className = '' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={`theme-studio-mark shrink-0 ${className}`} aria-hidden="true">
+      <rect x="2" y="2" width="12.5" height="8.5" rx="2.5" fill="#f43f5e" />
+      <rect x="16.5" y="2" width="5.5" height="8.5" rx="2.5" fill="#f59e0b" />
+      <rect x="2" y="12.5" width="5.5" height="9.5" rx="2.5" fill="#10b981" />
+      <rect x="9.5" y="12.5" width="12.5" height="9.5" rx="2.5" fill="#6366f1" />
+    </svg>
+  )
+}
+
+const WHERE = [
+  { id: 'all', label: 'Whole site', note: 'Every page takes the theme.' },
+  { id: 'pages', label: 'Only some pages', note: 'The rest keep their own colours.' },
+]
+
+/**
+ * Studio: going deeper than a theme. It starts with where the colours go, the whole site or only
+ * some of its pages, read from the site itself (the pages this one links to, and the ones the
+ * visitor has opened). The choice lives on this device; the code and prompt make it everyone's.
+ */
+function StudioView({ onBack }) {
+  const { scope, setScope, inScope: here, pathname, configPages, scopeChosen, seenPages } = useTheme()
+  const { toast } = usePanel()
+  const headingRef = useRef(null)
+  const inputId = useId()
+  const [draft, setDraft] = useState('')
+  const [error, setError] = useState(null)
+  // The site's pages this one links to: its nav, footer and so on. Read again on each new page.
+  const [linked, setLinked] = useState(() => linkedPages())
+  useEffect(() => setLinked(linkedPages()), [pathname])
+  useEffect(() => headingRef.current?.focus(), [])
+
+  const pages = scope.pages
+  const onlySome = scope.mode === 'pages'
+  const setPages = (list) => setScope({ mode: 'pages', pages: list })
+  const choose = (mode) => setScope({ mode, pages: mode === 'pages' && !pages.length ? [pathname] : pages })
+  const add = (page) => {
+    if (pages.includes(page)) return
+    setPages([...pages, page])
+    toast(`${page} now gets the colours.`)
+  }
+  const remove = (page) => setPages(pages.filter((p) => p !== page))
+  const covering = pages.find((p) => p !== pathname && pageMatches(p, pathname))
+  const suggestions = [...new Set([pathname, ...seenPages, ...linked])].filter((p) => !pages.includes(p)).slice(0, 14)
+
+  const addDraft = (e) => {
+    e.preventDefault()
+    const page = normalPath(draft)
+    if (!page) return setError('That doesn’t look like a page on this site. Try /pricing, or /blog/* for a whole section.')
+    setError(null)
+    setDraft('')
+    add(page)
+  }
+
+  return (
+    <div className="px-4 py-3 space-y-4">
+      <button type="button" className={`${btn} border-transparent px-1.5`} onClick={onBack}>
+        <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" /> Back to the switcher
+      </button>
+
+      <div className="flex items-center gap-3">
+        <StudioMark className="h-9 w-9" />
+        <div>
+          <h3 ref={headingRef} tabIndex={-1} className="text-base font-semibold tracking-tight focus:outline-none">
+            Studio
+          </h3>
+          <p className="text-xs text-zinc-600">Go deeper than a theme: choose exactly where your colours go.</p>
+        </div>
+      </div>
+
+      <section aria-labelledby={`${inputId}-where`} className="space-y-3 rounded-xl border border-zinc-200 p-3">
+        <h4 id={`${inputId}-where`} className="text-xs font-semibold text-zinc-900">Where the colours go</h4>
+        <div role="radiogroup" aria-labelledby={`${inputId}-where`} className="grid grid-cols-2 gap-2">
+          {WHERE.map((w) => {
+            const on = scope.mode === w.id
+            return (
+              <button
+                key={w.id}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => choose(w.id)}
+                className={`rounded-lg border p-2 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 ${
+                  on ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50'
+                }`}
+              >
+                <span className="block text-xs font-semibold">{w.label}</span>
+                <span className={`block text-[11px] leading-snug ${on ? 'text-white/80' : 'text-zinc-600'}`}>{w.note}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* This page, and whether it's in. */}
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-zinc-50 p-2.5">
+          <div className="min-w-0 text-xs">
+            <p className="text-zinc-600">This page</p>
+            <p className="truncate font-mono text-[11px] font-semibold text-zinc-900">{pathname}</p>
+          </div>
+          <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${here ? 'bg-emerald-50 text-emerald-900' : 'bg-amber-50 text-amber-900'}`}>
+            {here ? 'Gets the colours' : 'Keeps its own colours'}
+          </span>
+          {onlySome && (
+            <div className="w-full">
+              {covering ? (
+                <p className="text-[11px] text-zinc-600">
+                  Part of <code className="font-mono">{covering}</code>.
+                </p>
+              ) : pages.includes(pathname) ? (
+                <button type="button" className={`${btn} w-full`} onClick={() => remove(pathname)}>
+                  Leave this page alone
+                </button>
+              ) : (
+                <button type="button" className={`${btnPrimary} w-full`} onClick={() => add(pathname)}>
+                  Colour this page
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {onlySome && (
+          <>
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-semibold text-zinc-700">Pages that get the colours</p>
+              {pages.length ? (
+                <ul className="space-y-1">
+                  {pages.map((p) => (
+                    <li key={p} className="flex items-center justify-between gap-2 rounded-lg border border-zinc-200 px-2.5 py-1.5">
+                      <span className="min-w-0 truncate font-mono text-[11px] text-zinc-900">
+                        {p}
+                        {p.endsWith('/*') && <span className="ml-1.5 font-sans text-zinc-500">and every page under it</span>}
+                      </span>
+                      <button type="button" onClick={() => remove(p)} aria-label={`Remove ${p}`} className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-zinc-600 cursor-pointer hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900">
+                        <X className="w-3.5 h-3.5" aria-hidden="true" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="rounded-lg bg-amber-50 p-2.5 text-[11px] text-amber-900">No pages yet, so the colours show nowhere. Add one below.</p>
+              )}
+            </div>
+
+            <form onSubmit={addDraft} className="space-y-1.5">
+              <label htmlFor={inputId} className="block text-[11px] font-semibold text-zinc-700">Add a page</label>
+              <div className="flex gap-2">
+                <input
+                  id={inputId}
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  placeholder="/pricing or /blog/*"
+                  className={`${field} font-mono text-xs`}
+                  aria-describedby={`${inputId}-hint`}
+                  aria-invalid={Boolean(error)}
+                />
+                <button type="submit" className={`${btn} shrink-0`} disabled={!draft.trim()}>
+                  <Plus className="w-3.5 h-3.5" aria-hidden="true" /> Add
+                </button>
+              </div>
+              <p id={`${inputId}-hint`} className={`text-[11px] ${error ? 'text-red-700' : 'text-zinc-600'}`} role={error ? 'alert' : undefined}>
+                {error ?? 'End with /* for a whole section: /blog/* is /blog and every page under it.'}
+              </p>
+            </form>
+
+            {suggestions.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-semibold text-zinc-700">Found on your site</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {suggestions.map((p) => (
+                    <button key={p} type="button" onClick={() => add(p)} className="inline-flex max-w-full items-center gap-1 rounded-full border border-zinc-300 px-2 py-0.5 font-mono text-[11px] text-zinc-800 cursor-pointer hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900">
+                      <Plus className="w-3 h-3 shrink-0" aria-hidden="true" />
+                      <span className="truncate">{p}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-zinc-600">Pages this one links to, and pages you’ve opened. Open more of your site and they show up here.</p>
+              </div>
+            )}
+          </>
+        )}
+
+        {configPages && (
+          <p className="rounded-lg bg-sky-50 p-2.5 text-[11px] text-sky-900">
+            Your site’s config colours {configPages.length === 1 ? 'one page' : `${configPages.length} pages`}: {configPages.join(', ')}.
+            {scopeChosen && (
+              <>
+                {' '}
+                <button type="button" onClick={() => setScope(null)} className="font-semibold underline underline-offset-2 cursor-pointer">
+                  Go back to it
+                </button>
+              </>
+            )}
+          </p>
+        )}
+      </section>
+
+      {onlySome && pages.length > 0 && (
+        <section className="space-y-2">
+          <p className="text-xs font-semibold text-zinc-900">Make it the same for every visitor</p>
+          <p className="text-[11px] text-zinc-600">What you choose here is saved on this device. Add this to your colorsbymax config and everyone gets it.</p>
+          <CopyBlock label="Your config" text={pagesSnippet(pages)} />
+          <CopyBlock label="Or ask Claude, Cursor or Copilot" text={pagesPrompt(pages)} copyLabel="Copy prompt" />
+        </section>
+      )}
+
+      <section className="rounded-xl border border-dashed border-zinc-300 p-3">
+        <p className="text-xs font-semibold text-zinc-900">Coming to Studio</p>
+        <ul className="mt-1.5 list-disc space-y-1 pl-4 text-[11px] text-zinc-600">
+          <li>Colour only some parts of a page: the header, hero, cards, buttons or footer.</li>
+          <li>Point and click anything on the page to give it a colour.</li>
+          <li>Save it all as a prompt that colours your site exactly the way you set it up.</li>
+        </ul>
+      </section>
     </div>
   )
 }

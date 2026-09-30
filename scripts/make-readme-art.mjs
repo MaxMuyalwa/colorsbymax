@@ -127,7 +127,7 @@ const hero = `
     ${miniSite(PICKS.ocean, 548, 96, -2)}
     ${button(810, 246)}
   </g>
-  <text x="46" y="92" ${FONT} font-size="54" font-weight="800" fill="#ffffff" letter-spacing="-1">colorsbymax<tspan font-size="20" dy="-26" font-weight="600">™</tspan></text>
+  <text x="46" y="92" ${FONT} font-size="54" font-weight="800" fill="#ffffff" letter-spacing="-1">colorsbymax</text>
   <text x="48" y="122" ${FONT} font-size="15" font-weight="600" letter-spacing="1.5" fill="#cbd5e1">BY MRMAXDESIGNS</text>
   <text x="48" y="170" ${FONT} font-size="25" font-weight="700" fill="#ffffff">Re-colour any website, live.</text>
   <text x="48" y="200" ${FONT} font-size="15" fill="#e2e8f0">720 themes · WCAG contrast checks · works with your coding agent</text>

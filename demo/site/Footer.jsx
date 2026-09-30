@@ -143,7 +143,7 @@ export function Footer({ home = '' }) {
 
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-on-secondary/15 pt-6 text-sm">
             <p>
-              © {new Date().getFullYear()} <a href={MRMAX} className="font-semibold underline-offset-4 hover:underline">mrmaxdesigns</a> · colorsbymax™ is MIT licensed
+              © {new Date().getFullYear()} <a href={MRMAX} className="font-semibold underline-offset-4 hover:underline">mrmaxdesigns</a> · colorsbymax is MIT licensed
             </p>
             <span className="flex flex-wrap items-center gap-x-5 gap-y-2">
               <button type="button" onClick={openFeedback} className="cursor-pointer font-semibold underline-offset-4 hover:underline">

@@ -1,6 +1,6 @@
 # Third-party notices
 
-colorsbymax™ includes material from the following projects. Their licences require these notices to ship with every copy of the product.
+colorsbymax includes material from the following projects. Their licences require these notices to ship with every copy of the product.
 
 ## nice-color-palettes
 

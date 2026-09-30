@@ -28,7 +28,7 @@ export function Wordmark({ className = '' }) {
     <span className={`inline-flex items-baseline font-display font-bold tracking-tight ${className}`}>
       <LogoMark className="mr-[-0.28em] h-[1.3em] w-auto shrink-0 self-baseline" />
       <span>
-        colors<span className="text-gradient">by</span>max<span className="align-super text-[0.55em] font-medium">™</span>
+        colors<span className="text-gradient">by</span>max
       </span>
     </span>
   )
