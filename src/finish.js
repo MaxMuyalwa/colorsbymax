@@ -13,9 +13,11 @@ const tokenLines = (tokens, indent) => TOKEN_KEYS.map((k) => `${indent}'${k}': '
 /**
  * Code that makes the chosen colours the site's default and hides the switcher in production.
  * @param {'auto' | 'provider'} kind  the one-line setup (autoMount) or ThemeProvider
+ * @param {'subtle' | 'balanced' | 'colourful'} [style]  the colour style to keep with them
  */
-export function keepSnippet(kind, name, tokens, prod = VITE_PROD) {
-  const theme = `defaultTheme: {\n    name: ${JSON.stringify(name)},\n    tokens: {\n${tokenLines(tokens, '      ')}\n    },\n  },\n  // Hides the colour button in production; set to false to bring it back.\n  hidden: ${prod},`
+export function keepSnippet(kind, name, tokens, prod = VITE_PROD, style = null) {
+  const styleLine = style ? `\n  // How boldly the colours paint the site: 'subtle', 'balanced' or 'colourful'.\n  colourStyle: '${style}',` : ''
+  const theme = `defaultTheme: {\n    name: ${JSON.stringify(name)},\n    tokens: {\n${tokenLines(tokens, '      ')}\n    },\n  },${styleLine}\n  // Hides the colour button in production; set to false to bring it back.\n  hidden: ${prod},`
   if (kind === 'auto') {
     return `// Replace \`import 'colorsbymax/auto'\` with:\nimport { autoMount } from 'colorsbymax/auto'\n\nautoMount({\n  ${theme}\n})`
   }
@@ -25,8 +27,8 @@ export function keepSnippet(kind, name, tokens, prod = VITE_PROD) {
 /** The theme as `--color-*` variables on :root. */
 export const cssSnippet = (tokens) => `:root {\n${TOKEN_KEYS.map((k) => `  --color-${k}: ${tokens[k]};`).join('\n')}\n}`
 
-export const keepPrompt = (name, tokens) =>
-  `Update my colorsbymax setup so the colours I chose become my site's default and the colour switcher is hidden in production. In the colorsbymax config (the autoMount({...}) call, or the config passed to <ThemeProvider>), set defaultTheme to { name: ${JSON.stringify(name)}, tokens: ${JSON.stringify(tokens)} } and set hidden: ${VITE_PROD} (use ${NODE_PROD} if this isn't a Vite project). If the site uses import 'colorsbymax/auto', replace it with import { autoMount } from 'colorsbymax/auto' and an autoMount({...}) call with that config. Don't change anything else.`
+export const keepPrompt = (name, tokens, style = null) =>
+  `Update my colorsbymax setup so the colours I chose become my site's default and the colour switcher is hidden in production. In the colorsbymax config (the autoMount({...}) call, or the config passed to <ThemeProvider>), set defaultTheme to { name: ${JSON.stringify(name)}, tokens: ${JSON.stringify(tokens)} }${style ? `, set colourStyle: '${style}'` : ''} and set hidden: ${VITE_PROD} (use ${NODE_PROD} if this isn't a Vite project). If the site uses import 'colorsbymax/auto', replace it with import { autoMount } from 'colorsbymax/auto' and an autoMount({...}) call with that config. Don't change anything else.`
 
 export const BRING_BACK_PROMPT =
   "Show the colorsbymax colour switcher again in production: in its config (the autoMount({...}) call or the config passed to <ThemeProvider>), set hidden to false or remove the hidden line. Don't change anything else."

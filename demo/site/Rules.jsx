@@ -103,7 +103,8 @@ export function Rules() {
                   ['#ffffff', white, 'White'],
                   ['#111111', dark, 'Dark'],
                 ].map(([c, r, label]) => (
-                  <div key={label} className="rounded-xl bg-primary p-3 text-center" style={{ outline: r >= Math.max(white, dark) ? '2px solid var(--color-ink)' : undefined, outlineOffset: 2 }}>
+                  // A deliberate comparison: colorsbymax's contrast guard leaves both samples as they are.
+                  <div key={label} data-colorsbymax-contrast="keep" className="rounded-xl bg-primary p-3 text-center" style={{ outline: r >= Math.max(white, dark) ? '2px solid var(--color-ink)' : undefined, outlineOffset: 2 }}>
                     <span className="block font-display text-2xl font-bold" style={{ color: c }}>
                       Aa
                     </span>

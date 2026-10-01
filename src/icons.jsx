@@ -57,3 +57,6 @@ export const ToggleRight = icon('toggle-right', [["circle",{"cx":"15","cy":"12",
 export const LibraryBig = icon('library-big', [["rect",{"width":"8","height":"18","x":"3","y":"3","rx":"1"}],["path",{"d":"M7 3v18"}],["path",{"d":"M20.4 18.9c.2.5-.1 1.1-.6 1.3l-1.9.7c-.5.2-1.1-.1-1.3-.6L11.1 5.1c-.2-.5.1-1.1.6-1.3l1.9-.7c.5-.2 1.1.1 1.3.6Z"}]])
 export const Minus = icon('minus', [["path",{"d":"M5 12h14"}]])
 export const Plus = icon('plus', [["path",{"d":"M5 12h14"}],["path",{"d":"M12 5v14"}]])
+export const MousePointerClick = icon('mouse-pointer-click', [["path",{"d":"M14 4.1 12 6"}],["path",{"d":"m5.1 8-2.9-.8"}],["path",{"d":"m6 12-1.9 2"}],["path",{"d":"M7.2 2.2 8 5.1"}],["path",{"d":"M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z"}]])
+export const ArrowUpLeft = icon('arrow-up-left', [["path",{"d":"M7 17V7h10"}],["path",{"d":"M17 17 7 7"}]])
+export const ArrowDownRight = icon('arrow-down-right', [["path",{"d":"m7 7 10 10"}],["path",{"d":"M17 7v10H7"}]])

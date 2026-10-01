@@ -41,9 +41,9 @@ const FEATURE_INFO = {
   importExport: ['Import / export', 'Sharing palettes, and palettes from files.'],
   audit: ['Audit', 'Points out what won’t look right on the page.'],
   addToSite: ['Add to site', 'The light and dark switch for a visitor’s own site.'],
-  colourStyle: ['Subtle / Colourful', 'The switch for how boldly a theme paints.'],
+  colourStyle: ['Subtle / Balanced / Colourful', 'The switch for how boldly a theme paints the site.'],
   colourCount: ['Colours per theme', '− and + for how many colours a theme uses.'],
-  studio: ['Studio', 'Going deeper: choosing which pages the colours go on.'],
+  studio: ['Studio', 'Going deeper: point and click to colour any part, and choosing which pages get the colours.'],
 }
 const sectionFromHash = () => SECTIONS.find((s) => s.id === location.hash.slice(1))?.id ?? 'overview'
 

@@ -64,7 +64,7 @@ export function withoutAppliedTheme(fn) {
   document.head.appendChild(freeze)
 
   // The re-colouring engine's swaps and its Colourful style.
-  const applied = [...document.querySelectorAll('style[data-colorsbymax="recolour"], style[data-colorsbymax="vivid"]')]
+  const applied = [...document.querySelectorAll('style[data-colorsbymax="recolour"], style[data-colorsbymax="vivid"], style[data-colorsbymax="guard"]')]
   for (const sheet of applied) sheet.disabled = true
 
   const style = document.documentElement.style

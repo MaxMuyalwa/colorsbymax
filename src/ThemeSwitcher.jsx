@@ -4,6 +4,7 @@ import { Palette } from './icons.jsx'
 import { BURST_TIME, Burst } from './burst.jsx'
 import ThemePanel from './ThemePanel.jsx'
 import AuditLayer from './AuditLayer.jsx'
+import StudioLayer from './StudioLayer.jsx'
 import { runAudit } from './audit.js'
 import { useTheme } from './ThemeProvider.jsx'
 import { SettingsContext, loadSettings, saveSettings } from './settings.js'
@@ -70,7 +71,7 @@ export default function ThemeSwitcher() {
 }
 
 function Switcher() {
-  const { issues, storageKey, tokens, position: requested, setLogoColouring, setColourStyle, setPaletteDefault, features, intro, mode, modeSetting, setMode, settingDefaults } = useTheme()
+  const { issues, storageKey, tokens, position: requested, setLogoColouring, setColourStyle, setColourStrength, setImageTints, setPaletteDefault, features, intro, mode, modeSetting, setMode, settingDefaults } = useTheme()
   const position = CORNERS[requested] ? requested : 'bottom-right'
   const [open, setOpen] = useState(false)
 
@@ -102,12 +103,16 @@ function Switcher() {
   }, [burst])
   const [settings, setSettings] = useState(() => loadSettings(storageKey, settingDefaults))
   useEffect(() => setLogoColouring(settings.colourLogo), [settings.colourLogo, setLogoColouring])
-  useEffect(() => setColourStyle(settings.colourStyle), [settings.colourStyle, setColourStyle])
+  useEffect(() => setColourStyle(features.colourStyle ? settings.colourStyle : settingDefaults.colourStyle), [settings.colourStyle, features.colourStyle, settingDefaults.colourStyle, setColourStyle])
   useEffect(() => setPaletteDefault(settings.paletteSize), [settings.paletteSize, setPaletteDefault])
+  useEffect(() => setColourStrength(settings.colourStrength), [settings.colourStrength, setColourStrength])
+  useEffect(() => setImageTints(settings.imageTints), [settings.imageTints, setImageTints])
 
   // The page audit (the panel's Audit button): findings pinned to the page until it's closed.
   // It re-runs by itself when the colours or settings change, and on Re-check.
   const [auditOn, setAuditOn] = useState(false)
+  // Studio's point and click: the panel steps aside while parts of the page are picked.
+  const [picking, setPicking] = useState(false)
   const [findings, setFindings] = useState([])
   const recheck = useCallback(() => {
     // After the new colours have been applied and laid out.
@@ -293,7 +298,7 @@ function Switcher() {
       showCustom: settings.showCustom && features.custom,
       showOverrides: settings.showOverrides && features.overrides,
       showImportExport: settings.showImportExport && features.importExport,
-      colourStyle: features.colourStyle ? settings.colourStyle : 'colourful',
+      colourStyle: features.colourStyle ? settings.colourStyle : settingDefaults.colourStyle,
     },
     mode,
     audit: {
@@ -306,6 +311,15 @@ function Switcher() {
           setOpen(false) // so the page, and the audit's notes on it, can be seen
           setAuditOn(true)
         }
+      },
+    },
+    studio: {
+      picking,
+      start() {
+        setAuditOn(false)
+        setFindings([])
+        setOpen(false)
+        setPicking(true)
       },
     },
     update: ({ mode: nextMode, ...patch }) => {
@@ -448,6 +462,14 @@ function Switcher() {
             }}
             onAction={(action) => {
               if (action === 'colour-logo') settingsApi.update({ colourLogo: true })
+            }}
+          />
+        )}
+        {picking && features.studio && (
+          <StudioLayer
+            onDone={() => {
+              setPicking(false)
+              setOpen(true)
             }}
           />
         )}

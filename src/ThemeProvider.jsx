@@ -1,11 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { checkTheme, fixAll, suggestFix } from './contrast.js'
 import { loadLibrary } from './library.js'
-import { DARK_SUFFIX, isDarkTheme, subtleTokens, toDark } from './modes.js'
+import { DARK_SUFFIX, accentTokens, inMode, isDarkTheme, toDark, vividTokens } from './modes.js'
+import { createGuard } from './guard.js'
+import { imageColours, tintOf } from './images.js'
 import { baseId, clampColours, coloursFor, reducePalette } from './palette.js'
 import { LOGO_SELECTOR, createRecolourer, usesColourTokens } from './recolour.js'
 import { collectColors, detectSiteName, inferRoles, suggestThemes } from './scan.js'
 import { MAX_SEEN, cleanPages, cleanScope, inScope, usePathname } from './scope.js'
+import { MAX_PAINTS, cleanPaints, pageOf, paintCss } from './studio.js'
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, usePrefersDark } from './settings.js'
 import { DEFAULT_STORAGE_KEY, loadState, sanitizeTokens, saveState } from './storage.js'
 import { BASE_TOKENS, PRESETS, TOKEN_KEYS, completeTokens } from './tokens.js'
@@ -50,10 +53,15 @@ const newId = () => `custom-${Date.now().toString(36)}-${Math.random().toString(
  *   `hidden: import.meta.env.PROD` to keep it out of production once the colours are chosen.
  * @property {'bottom-right' | 'bottom-left' | 'top-left' | 'top-right'} [position]  Where the colour
  *   button starts (default 'bottom-right'). 'top-right' sits under a floating nav bar.
- * @property {'colourful' | 'subtle'} [colourStyle]  How boldly a re-coloured site takes a theme, for a
- *   first-time visitor. 'colourful' (default) paints the page's parts by role, as a designer would:
- *   header, hero, alternating sections, cards, buttons, links, headings and footer. 'subtle' only
- *   swaps the colours the site already has. Visitors can switch in the panel.
+ * @property {'subtle' | 'balanced' | 'colourful'} [colourStyle]  How boldly the site takes a theme, for a
+ *   first-time visitor. 'subtle' keeps the site's own backgrounds, cards and text and brings the theme
+ *   in on buttons, links and highlights. 'balanced' is the theme as designed, every colour in its role
+ *   (the default on a site painted with the --color-* variables). 'colourful' is an overhaul: tinted
+ *   backgrounds, and the page's parts painted by role as a designer would (header, hero, sections,
+ *   headings, cards, buttons, links and footer; the default on a site colorsbymax re-colours).
+ *   Visitors can switch in the panel.
+ * @property {number} [colourStrength]  How strongly Colourful paints for a first-time visitor, 0 (a light
+ *   wash) to 100 (bold); default 50. Visitors can change it in the panel.
  * @property {Partial<Record<keyof typeof FEATURES, boolean>>} [features]  Parts of the panel to switch off
  *   for everyone, e.g. { scan: false, audit: false } (all on by default). Unlike the rest of the
  *   config it's read live, so a site can change it after loading (from its own settings).
@@ -98,6 +106,9 @@ function resolveSite(config, pageColours) {
 
 /** @param {{ config?: ColorsByMaxConfig, children: import('react').ReactNode }} props */
 /** Parts of the panel a site can switch off for everyone (config `features`). All on by default. */
+/** How boldly a site can take a theme, from least to most. */
+export const COLOUR_STYLES = ['subtle', 'balanced', 'colourful']
+
 export const FEATURES = {
   picks: true, // Max's picks
   library: true, // the theme library
@@ -155,15 +166,33 @@ export function ThemeProvider({ config = {}, children }) {
     setState((s) => (s.seen[0] === pathname ? s : { ...s, seen: [pathname, ...s.seen.filter((p) => p !== pathname)].slice(0, MAX_SEEN) }))
   }, [pathname])
 
+  // Studio's point and click: parts of pages given their own colours, drawn on the page they were
+  // picked on. On a page left out of the theme, they keep the exact colours that were picked.
+  const paints = features.studio ? state.paints : []
+  const pagePaintCss = useMemo(() => {
+    const byPage = {}
+    for (const p of paints) (byPage[pageOf(p)] ??= []).push(p)
+    // '*': changes for every page of the site.
+    const css = Object.fromEntries(Object.entries(byPage).map(([page, list]) => [page, paintCss(list, page === '*' || inScope(scope, page))]))
+    return Object.keys(css).length ? css : null
+  }, [paints, scope])
   useLayoutEffect(() => {
-    if (here) applyTokens(tokens)
-    else removeTokens()
-    saveState(storageKey, { ...state, activeId: base.id }, tokens, scope)
-  }, [tokens, state, base.id, storageKey, here, scope])
+    document.querySelectorAll('style[data-colorsbymax="studio-early"]').forEach((el) => el.remove())
+    const css = (pagePaintCss?.['*'] ?? '') + (pagePaintCss?.[pathname] ?? '')
+    if (!css) return
+    const style = document.createElement('style')
+    style.dataset.colorsbymax = 'studio'
+    style.textContent = css
+    document.head.append(style)
+    return () => style.remove()
+  }, [pagePaintCss, pathname])
 
   // Re-colouring for sites that don't paint with the token variables. Layout effects run after
   // the children have rendered, so the engine sees the site's content.
   const recolourMode = initialConfig.recolour ?? 'auto'
+  // Whether colorsbymax re-colours this site (it doesn't paint with the variables), known up front
+  // for the style a first-time visitor starts in.
+  const [recolours] = useState(() => recolourMode === true || (recolourMode === 'auto' && !usesColourTokens()))
   const recolourer = useRef(null)
   useLayoutEffect(() => {
     if (recolourMode === false || (recolourMode === 'auto' && usesColourTokens())) return
@@ -183,25 +212,32 @@ export function ThemeProvider({ config = {}, children }) {
     () => ({
       ...DEFAULT_SETTINGS,
       colourLogo: Boolean(initialConfig.colourLogo),
-      colourStyle: initialConfig.colourStyle === 'subtle' ? 'subtle' : 'colourful',
+      colourStrength: Number.isFinite(initialConfig.colourStrength) ? Math.min(100, Math.max(0, initialConfig.colourStrength)) : DEFAULT_SETTINGS.colourStrength,
+      // A re-coloured site starts Colourful (on its own it barely changes); one painted with the
+      // variables starts Balanced, the theme exactly as it's designed for it.
+      colourStyle: COLOUR_STYLES.includes(initialConfig.colourStyle) ? initialConfig.colourStyle : recolours ? 'colourful' : 'balanced',
       mode: ['light', 'dark', 'system'].includes(initialConfig.defaultMode) ? initialConfig.defaultMode : DEFAULT_SETTINGS.mode,
     }),
-    [initialConfig],
+    [initialConfig, recolours],
   )
   const [logoColouring, setLogoColouring] = useState(() => loadSettings(storageKey, settingDefaults).colourLogo)
   useLayoutEffect(() => {
     recolourer.current?.setLogoColouring(logoColouring)
   }, [logoColouring, pageColours])
-  // Colourful or Subtle (a visitor setting): how boldly a re-coloured site takes the theme.
+  // Subtle, Balanced or Colourful (a visitor setting): how boldly the site takes the theme.
   const [colourStyle, setColourStyle] = useState(() => loadSettings(storageKey, settingDefaults).colourStyle)
+  // Colourful's strength, and whether it tints with the site's own picture colours (visitor settings).
+  const [colourStrength, setColourStrength] = useState(() => loadSettings(storageKey, settingDefaults).colourStrength)
+  const [imageTints, setImageTints] = useState(() => loadSettings(storageKey, settingDefaults).imageTints)
+  // The colours in the site's logo and pictures, read once the page and its pictures have loaded.
+  const [pictureColours, setPictureColours] = useState([])
+  const vividOpts = useMemo(
+    () => ({ strength: colourStrength / 100, tint: imageTints ? tintOf(pictureColours) : null }),
+    [colourStrength, imageTints, pictureColours],
+  )
   useLayoutEffect(() => {
-    recolourer.current?.setColourful(colourStyle === 'colourful')
-  }, [colourStyle, pageColours])
-  // On a site painted with the tokens, Subtle calms the page's backgrounds, cards and tints and
-  // keeps the theme's colour for buttons, links and highlights. (Runs after the plain apply above.)
-  useLayoutEffect(() => {
-    if (!pageColours && here) applyTokens(colourStyle === 'subtle' ? subtleTokens(tokens) : tokens)
-  }, [tokens, state, colourStyle, pageColours, here])
+    recolourer.current?.setColourful(colourStyle === 'colourful' ? true : colourStyle === 'subtle' ? 'accents' : false, vividOpts)
+  }, [colourStyle, pageColours, vividOpts])
   useLayoutEffect(() => {
     if (logoColouring || pageColours || !here) return
     const style = document.createElement('style')
@@ -215,9 +251,6 @@ export function ThemeProvider({ config = {}, children }) {
   // defaultTheme in the config is chosen colours, which do need applying.)
   const pageLook = base.id === 'site-original' || (base.id === defaultTheme.id && !initialConfig.defaultTheme)
   const original = pageLook && !Object.keys(state.overrides).length
-  useLayoutEffect(() => {
-    recolourer.current?.apply(original || !here ? null : tokens)
-  }, [tokens, original, pageColours, here])
 
   // Scrollbars in the theme's colours. The rule reads the token variables, so it follows every
   // theme change by itself, and :where() keeps it weaker than any scrollbar styling the site has.
@@ -270,6 +303,53 @@ export function ThemeProvider({ config = {}, children }) {
   const mode = modeSetting === 'system' ? (prefersDark ? 'dark' : 'light') : modeSetting
   const modeRef = useRef(mode)
   modeRef.current = mode
+
+  // What the page shows, in the visitor's colour style: Subtle keeps the site's own backgrounds and
+  // text (in this mode) with the theme on its accents; Balanced is the theme; Colourful tints it.
+  const siteTokens = useMemo(() => inMode(defaultTheme, mode).tokens, [defaultTheme, mode])
+  const applied = useMemo(
+    () => (colourStyle === 'subtle' ? accentTokens(tokens, siteTokens) : colourStyle === 'colourful' ? vividTokens(tokens, vividOpts) : tokens),
+    [tokens, siteTokens, colourStyle, vividOpts],
+  )
+  useEffect(() => {
+    if (colourStyle !== 'colourful' || !imageTints) return
+    const read = () => setPictureColours((old) => {
+      const next = imageColours()
+      return next.join() === old.join() ? old : next
+    })
+    const timer = setTimeout(read, 400)
+    window.addEventListener('load', read)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('load', read)
+    }
+  }, [colourStyle, imageTints, pathname])
+  useLayoutEffect(() => {
+    if (here) applyTokens(applied)
+    else removeTokens()
+    saveState(storageKey, { ...state, activeId: base.id }, applied, scope, pagePaintCss)
+  }, [applied, state, base.id, storageKey, here, scope, pagePaintCss])
+  // A re-coloured site swaps its colours for these, and Colourful paints its parts by role too.
+  useLayoutEffect(() => {
+    recolourer.current?.apply(original || !here ? null : applied)
+  }, [applied, original, pageColours, here])
+  // A site painted with the variables is designed with them, so every style works through them
+  // alone; painting its parts by role on top would fight that design.
+  //
+  // The contrast guard, on every site and in every style: once the colours are on the page, any
+  // text or icon they made hard to read is brought back up to WCAG (see guard.js).
+  const guard = useRef(null)
+  useEffect(() => {
+    const g = createGuard()
+    guard.current = g
+    return () => {
+      g.stop()
+      guard.current = null
+    }
+  }, [])
+  useEffect(() => {
+    guard.current?.check(here ? applied : null)
+  }, [applied, here, pathname, colourStyle, pageColours, logoColouring, pagePaintCss])
   const setMode = useCallback(
     (next) => {
       if (!['light', 'dark', 'system'].includes(next)) return
@@ -354,8 +434,17 @@ export function ThemeProvider({ config = {}, children }) {
     recolouring: Boolean(pageColours),
     /** Turns re-colouring of the site's logo on or off (the switcher's "Colour the logo" setting). */
     setLogoColouring,
-    /** Sets how boldly a re-coloured site takes the theme: 'colourful' or 'subtle'. */
+    /** Sets how boldly the site takes the theme: 'subtle', 'balanced' or 'colourful'. */
     setColourStyle,
+    colourStyle,
+    /** Colourful's strength (0 to 100) and image tints, set from the switcher's settings. */
+    setColourStrength,
+    setImageTints,
+    /** The main colours of the site's logo and pictures, and the one Colourful tints with (or null). */
+    pictureColours,
+    pictureTint: imageTints ? tintOf(pictureColours) : null,
+    /** The colours as the page shows them, in the visitor's colour style. */
+    appliedTokens: applied,
     /** Which parts of the panel are on (config `features`). */
     features,
     /** Where the colours go: { mode: 'all' | 'pages', pages }, and whether this page gets them. */
@@ -369,6 +458,21 @@ export function ThemeProvider({ config = {}, children }) {
     setScope: (next) => setState((s) => ({ ...s, scope: next === null ? null : cleanScope(next) })),
     /** Pages of the site this visitor has opened, newest first. */
     seenPages: state.seen,
+    /** Parts of pages coloured in Studio by pointing and clicking. */
+    paints: state.paints,
+    /** Adds a paint, or updates the one with its id; one with no colours left is removed. */
+    savePaint: (paint) =>
+      setState((s) => {
+        const [clean] = cleanPaints([paint])
+        const rest = s.paints.filter((p) => p.id !== paint.id)
+        if (!clean || !Object.keys(clean.props).length) return { ...s, paints: rest }
+        const at = s.paints.findIndex((p) => p.id === paint.id)
+        const paints = at < 0 ? [...rest, clean].slice(-MAX_PAINTS) : s.paints.map((p) => (p.id === paint.id ? clean : p))
+        return { ...s, paints }
+      }),
+    removePaint: (id) => setState((s) => ({ ...s, paints: s.paints.filter((p) => p.id !== id) })),
+    /** Clears Studio's colours, on one page or everywhere. */
+    clearPaints: (page = null) => setState((s) => ({ ...s, paints: page ? s.paints.filter((p) => p.page !== page) : [] })),
     /** How many colours a theme uses (5 to 10): its own count, or the visitor's default. */
     coloursOf,
     /** Sets one theme's colour count (light and dark share it). */

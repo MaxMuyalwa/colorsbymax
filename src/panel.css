@@ -8,6 +8,7 @@
 @source "./ThemeSwitcher.jsx";
 @source "./ThemePanel.jsx";
 @source "./AuditLayer.jsx";
+@source "./StudioLayer.jsx";
 
 /* Start from a clean slate: nothing the host page sets inherits into the panel. */
 :host {

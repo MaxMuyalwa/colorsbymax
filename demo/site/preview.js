@@ -3,6 +3,8 @@
 // It keeps its own copy of the visitor's colorsbymax state, so opening the panel or browsing
 // themes in here never changes their real one.
 
+import { inScope, normalPath } from '../../src/scope.js'
+
 /** 'desktop', 'phone', or null when this is the page itself. */
 export const PREVIEW = new URLSearchParams(location.search).get('preview')
 
@@ -15,6 +17,19 @@ export function previewConfig(config) {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
       if (key.startsWith(FROM)) localStorage.setItem(TO + key.slice(FROM.length), localStorage.getItem(key))
+    }
+    // The copy is the page it sits in, whatever its address: coloured exactly when that page is
+    // (Studio's "only some pages"), with that page's Studio changes.
+    const state = JSON.parse(localStorage.getItem(TO) || 'null')
+    if (state) {
+      const page = normalPath(window.parent.location.pathname) ?? '/'
+      const here = normalPath(location.pathname) ?? '/'
+      const coloured = inScope(state.where ?? state.scope, page)
+      state.scope = coloured ? null : { mode: 'pages', pages: [] }
+      state.where = coloured ? null : state.scope
+      state.paints = (state.paints ?? []).filter((p) => p.everywhere || p.page === page).map((p) => (p.everywhere ? p : { ...p, page: here }))
+      state.paintCss = state.paintCss ? { ...(state.paintCss['*'] ? { '*': state.paintCss['*'] } : {}), ...(state.paintCss[page] ? { [here]: state.paintCss[page] } : {}) } : null
+      localStorage.setItem(TO, JSON.stringify(state))
     }
     // The colour button in its usual corner, and a roomier panel (as if dragged wider) so its
     // header and theme cards read well when scaled down.

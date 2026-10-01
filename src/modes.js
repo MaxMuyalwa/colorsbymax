@@ -130,3 +130,57 @@ export function subtleTokens(t) {
   }
   return out
 }
+
+// ------------------------------------------------------------------ colour styles
+// How boldly a site takes a theme: Subtle keeps the site's own look and brings the theme in on
+// its accents, Balanced is the theme as it's designed, and Colourful is an overhaul.
+
+/** What Subtle keeps from the site: its backgrounds, cards, text, borders and status colours. */
+const SITE_KEYS = ['background', 'surface', 'border', 'shadow', 'ink', 'ink-secondary', 'ink-muted', 'success', 'warning', 'danger', 'info', 'app-background', 'app-input', 'app-border', 'app-shadow-dark', 'app-shadow-light', 'app-ink', 'app-ink-muted']
+
+/**
+ * Subtle: the site's own backgrounds, cards and text stay (in the current mode), and the theme
+ * comes in on what you'd change to try a new colour: buttons, links, highlights, tints and charts.
+ * Every pairing is then checked, and anything hard to read nudged until it reads.
+ * @param {import('./tokens.js').ThemeTokens} theme
+ * @param {import('./tokens.js').ThemeTokens} site  the site's own colours, in the same mode
+ */
+export function accentTokens(theme, site) {
+  const out = { ...theme }
+  for (const key of SITE_KEYS) if (site[key]) out[key] = site[key]
+  return { ...out, ...fixAll(out) }
+}
+
+const tintTowards = (colour, base, amount) => {
+  const [r, g, b] = hexToRgb(colour)
+  const [br, bg, bb] = hexToRgb(base)
+  return rgbToHex([r * amount + br * (1 - amount), g * amount + bg * (1 - amount), b * amount + bb * (1 - amount)])
+}
+
+/**
+ * Colourful: an overhaul. The page and its cards take a clear tint of the brand colours (soft in
+ * light mode, deeper in dark), borders and tints lean towards them, and colorsbymax paints the
+ * page's parts by role on top (see vivid.js). Text is checked against every new background.
+ */
+export function vividTokens(t, { strength = 0.5, tint = null } = {}) {
+  // Strength runs from a light wash (0) to bold (1); a tint from the site's pictures colours the
+  // washes in place of the theme's brand colours.
+  const k = Math.min(1, Math.max(0, strength))
+  const lerp = (a, b) => a + (b - a) * k
+  const dark = isDarkTheme(t)
+  const wash = tint ?? t.primary
+  const deep = t['primary-dark']
+  const out = {
+    ...t,
+    background: tintTowards(wash, t.background, dark ? lerp(0.05, 0.2) : lerp(0.035, 0.16)),
+    surface: tintTowards(tint ?? t['primary-alt'], t.surface, dark ? lerp(0.04, 0.16) : lerp(0.02, 0.09)),
+    border: tintTowards(wash, t.border, lerp(0.15, 0.45)),
+    secondary: tintTowards(wash, t.secondary, lerp(0.12, 0.4)),
+    'app-background': tintTowards(wash, t['app-background'] ?? t.background, dark ? lerp(0.05, 0.2) : lerp(0.035, 0.16)),
+    // Headings and text take a hint of the brand, more as it gets bolder; still checked below.
+    ink: tintTowards(deep, t.ink, lerp(0.08, 0.4)),
+    'ink-secondary': tintTowards(deep, t['ink-secondary'], lerp(0.08, 0.35)),
+    shadow: tintTowards(t.primary, t.shadow, lerp(0.1, 0.35)),
+  }
+  return { ...out, ...fixAll(out) }
+}

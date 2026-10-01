@@ -72,7 +72,7 @@ export function usesColourTokens() {
 }
 
 // Any CSS colour → { hex, alpha }, via a 1×1 canvas that understands everything the browser does.
-function createParser() {
+export function createParser() {
   const ctx = Object.assign(document.createElement('canvas'), { width: 1, height: 1 }).getContext('2d', { willReadFrequently: true })
   const cache = new Map()
   return (css) => {
@@ -104,6 +104,8 @@ export function createRecolourer({ colourful = false } = {}) {
   vividSheet.dataset.colorsbymax = 'vivid'
   document.head.append(vividSheet)
   let vivid = colourful
+  // Colourful's strength and image tint (vivid.js).
+  let vividOpts = {}
 
   // The site's colours as a full token set, from the same analysis the site scan uses.
   const { roles } = inferRoles(collectColors())
@@ -362,12 +364,16 @@ export function createRecolourer({ colourful = false } = {}) {
     apply(tokens) {
       theme = tokens
       sheet.textContent = tokens ? [...entries.values()].map(rule).join('') + logoRules() : ''
-      vividSheet.textContent = tokens && vivid ? vividCss(tokens) : ''
+      vividSheet.textContent = tokens && vivid ? vividCss(tokens, { ...vividOpts, accents: vivid === 'accents' }) : ''
     },
-    /** Colourful (true) paints the page's parts by role; Subtle (false) only swaps its colours. */
-    setColourful(on) {
+    /**
+     * How the page's parts are painted by role on top of the swaps: true (Colourful) all of them,
+     * 'accents' (Subtle) only buttons, links, badges and highlights, false (Balanced) none.
+     */
+    setColourful(on, opts = {}) {
       vivid = on
-      vividSheet.textContent = theme && vivid ? vividCss(theme) : ''
+      vividOpts = opts
+      vividSheet.textContent = theme && vivid ? vividCss(theme, { ...vividOpts, accents: vivid === 'accents' }) : ''
     },
     /** Whether the logo is re-coloured with the rest (off keeps it in its own colours). */
     setLogoColouring(on) {

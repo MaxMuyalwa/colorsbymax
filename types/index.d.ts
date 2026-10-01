@@ -96,12 +96,15 @@ export interface ColorsByMaxConfig {
    */
   colourLogo?: boolean
   /**
-   * How boldly a re-coloured site (one that doesn't paint with the --color-* variables) takes a
-   * theme, for a first-time visitor. 'colourful' (default) paints the page's parts by role, as a
-   * designer would: header, hero, alternating sections, cards, buttons, links, headings and footer.
-   * 'subtle' only swaps the colours the site already has. Visitors can switch in the panel.
+   * How boldly the site takes a theme, for a first-time visitor. 'subtle' keeps the site's own
+   * backgrounds, cards and text and brings the theme in on buttons, links and highlights.
+   * 'balanced' is the theme as designed (the default on a site painted with the --color-*
+   * variables). 'colourful' is an overhaul: tinted backgrounds, and the page's parts painted by role
+   * as a designer would (the default on a site colorsbymax re-colours). Visitors can switch in the panel.
    */
-  colourStyle?: 'colourful' | 'subtle'
+  colourStyle?: 'subtle' | 'balanced' | 'colourful'
+  /** How strongly Colourful paints for a first-time visitor, 0 (a light wash) to 100 (bold). Default 50. */
+  colourStrength?: number
   /**
    * Parts of the panel to switch off for everyone, e.g. `{ scan: false, audit: false }`. All are on
    * by default. Unlike the rest of the config it's read live, so a site can change it after loading.
@@ -238,8 +241,12 @@ export interface PanelSettings {
   libraryCollapsed: boolean
   /** Whether themes re-colour the site's logo too. Off (the default) keeps its own colours. */
   colourLogo: boolean
-  /** On a re-coloured site: 'colourful' paints its parts by role, 'subtle' only swaps its colours. */
-  colourStyle: 'colourful' | 'subtle'
+  /** How boldly the site takes a theme: its own look with the theme's accents, the theme as designed, or an overhaul. */
+  colourStyle: 'subtle' | 'balanced' | 'colourful'
+  /** How strongly Colourful paints, 0 (a light wash) to 100 (bold). */
+  colourStrength: number
+  /** Whether Colourful tints the page with colours from the site's own pictures. */
+  imageTints: boolean
   /** Hidden on this device (from the finish screen); Alt+Shift+C or ?colorsbymax brings it back. */
   hideButton: boolean
 }

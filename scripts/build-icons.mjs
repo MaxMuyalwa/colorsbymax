@@ -14,7 +14,7 @@ import { pathToFileURL } from 'node:url'
 const ICONS = [
   'AlertTriangle', 'ArrowLeft', 'Check', 'CheckCircle2', 'ChevronRight', 'Copy', 'Download', 'Globe',
   'ImageUp', 'Loader2', 'Monitor', 'Moon', 'Paintbrush', 'Palette', 'RotateCcw', 'ScanLine', 'Settings',
-  'Shuffle', 'Sun', 'Trash2', 'Upload', 'UserRound', 'Wand2', 'X', 'ScanSearch', 'Contrast', 'ClipboardPaste', 'ToggleRight', 'LibraryBig', 'Minus', 'Plus',
+  'Shuffle', 'Sun', 'Trash2', 'Upload', 'UserRound', 'Wand2', 'X', 'ScanSearch', 'Contrast', 'ClipboardPaste', 'ToggleRight', 'LibraryBig', 'Minus', 'Plus', 'MousePointerClick', 'ArrowUpLeft', 'ArrowDownRight',
 ]
 
 const require = createRequire(import.meta.url)

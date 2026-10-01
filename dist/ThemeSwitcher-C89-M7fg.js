@@ -1033,139 +1033,78 @@ function toDark(theme) {
 * @param {'light' | 'dark'} mode
 */
 var inMode = (theme, mode) => mode === "dark" && !theme.custom ? toDark(theme) : theme;
-var QUIET = [
+/** What Subtle keeps from the site: its backgrounds, cards, text, borders and status colours. */
+var SITE_KEYS = [
 	"background",
 	"surface",
-	"secondary",
-	"accent",
 	"border",
+	"shadow",
+	"ink",
+	"ink-secondary",
+	"ink-muted",
+	"success",
+	"warning",
+	"danger",
+	"info",
 	"app-background",
 	"app-input",
-	"app-border"
+	"app-border",
+	"app-shadow-dark",
+	"app-shadow-light",
+	"app-ink",
+	"app-ink-muted"
 ];
-var ON_QUIET = {
-	secondary: "on-secondary",
-	accent: "on-accent"
-};
 /**
-* The Subtle style on a site painted with the colour tokens: the page's backgrounds, cards,
-* borders and tints go nearly neutral (same lightness, a hint of the hue), so the theme's colour
-* stays on what matters: buttons, links, headings, highlights and charts.
+* Subtle: the site's own backgrounds, cards and text stay (in the current mode), and the theme
+* comes in on what you'd change to try a new colour: buttons, links, highlights, tints and charts.
+* Every pairing is then checked, and anything hard to read nudged until it reads.
+* @param {import('./tokens.js').ThemeTokens} theme
+* @param {import('./tokens.js').ThemeTokens} site  the site's own colours, in the same mode
 */
-function subtleTokens(t) {
-	const out = { ...t };
-	for (const key of QUIET) {
-		if (!t[key]) continue;
-		const [h, s, l] = hslOf$4(t[key]);
-		out[key] = hsl$1(h, s * .18, l);
-	}
-	for (const [bg, fg] of Object.entries(ON_QUIET)) {
-		if (!out[bg] || !out[fg] || contrastRatio(out[fg], out[bg]) >= 4.5) continue;
-		out[fg] = contrastRatio(t.ink, out[bg]) >= 4.5 ? t.ink : luminance(out[bg]) > .4 ? "#000000" : "#ffffff";
-	}
-	return out;
+function accentTokens(theme, site) {
+	const out = { ...theme };
+	for (const key of SITE_KEYS) if (site[key]) out[key] = site[key];
+	return {
+		...out,
+		...fixAll(out)
+	};
 }
-/** The ten, in the order a card shows them. */
-var SWATCH_KEYS = [
-	"primary",
-	"primary-alt",
-	"primary-dark",
-	"secondary",
-	"background",
-	"ink",
-	"data-1",
-	"data-2",
-	"data-3",
-	"data-4"
-];
-var CHART = [
-	"data-1",
-	"data-2",
-	"data-3",
-	"data-4"
-];
-var HIDDEN_CHART = [
-	"data-5",
-	"data-6",
-	"data-7",
-	"data-8"
-];
-var hslOf$3 = (hex) => rgbToHsl(hexToRgb(hex));
-var hueGap$1 = (a, b) => {
-	const d = Math.abs(a - b);
-	return Math.min(d, 360 - d);
-};
-var clampColours = (n) => Math.min(10, Math.max(5, Math.round(Number(n) || 10)));
-/** How far a colour's hue is from the theme's brand colours (0 = one of them); greys fit anything. */
-function misfit(tokens, key) {
-	const [h, s] = hslOf$3(tokens[key]);
-	if (s < .15) return 0;
-	const brand = ["primary", "primary-alt"].map((k) => hslOf$3(tokens[k])).filter(([, bs]) => bs >= .15);
-	if (!brand.length) return 90;
-	return Math.min(...brand.map(([bh]) => hueGap$1(h, bh)));
-}
-/** The swatch keys a theme keeps at `count` colours, in card order. */
-function paletteKeys(tokens, count = 10) {
-	const n = clampColours(count);
-	if (n >= 10) return SWATCH_KEYS;
-	const extras = ["secondary", ...[...CHART].sort((a, b) => misfit(tokens, a) - misfit(tokens, b))];
-	const kept = /* @__PURE__ */ new Set([
-		"primary",
-		"primary-alt",
-		"primary-dark",
-		"background",
-		"ink",
-		...extras.slice(0, n - 5)
+var tintTowards = (colour, base, amount) => {
+	const [r, g, b] = hexToRgb(colour);
+	const [br, bg, bb] = hexToRgb(base);
+	return rgbToHex([
+		r * amount + br * (1 - amount),
+		g * amount + bg * (1 - amount),
+		b * amount + bb * (1 - amount)
 	]);
-	return SWATCH_KEYS.filter((k) => kept.has(k));
-}
-/** Same hue and saturation as `hex`, at lightness `l`. */
-var atLightness = (hex, l) => {
-	const [h, s] = hslOf$3(hex);
-	return rgbToHex(hslToRgb([
-		h,
-		s,
-		l
-	]));
 };
 /**
-* A theme's tokens using only `count` of its colours. Chart colours that go are painted with
-* the ones that stay (brand colours first), at their own lightness so charts keep their
-* contrast; a soft tint that goes becomes a tint of the brand colour. The colours it replaces are
-* then run through the contrast fixes (lightness only), so a smaller palette still reads.
+* Colourful: an overhaul. The page and its cards take a clear tint of the brand colours (soft in
+* light mode, deeper in dark), borders and tints lean towards them, and colorsbymax paints the
+* page's parts by role on top (see vivid.js). Text is checked against every new background.
 */
-function reducePalette(tokens, count = 10) {
-	const n = clampColours(count);
-	if (n >= 10) return tokens;
-	const kept = new Set(paletteKeys(tokens, n));
-	const out = { ...tokens };
-	const replaced = /* @__PURE__ */ new Set();
-	const pool = [
-		"primary",
-		"primary-alt",
-		...CHART.filter((k) => kept.has(k))
-	].map((k) => tokens[k]);
-	[...CHART.filter((k) => !kept.has(k)), ...HIDDEN_CHART].forEach((key, i) => {
-		if (!tokens[key]) return;
-		out[key] = atLightness(pool[i % pool.length], hslOf$3(tokens[key])[2]);
-		replaced.add(key);
-	});
-	if (!kept.has("secondary")) {
-		out.secondary = mix(tokens.primary, tokens.background, .14);
-		out["on-secondary"] = [
-			tokens["on-secondary"],
-			tokens["primary-dark"],
-			tokens.ink
-		].find((c) => c && contrastRatio(c, out.secondary) >= 4.5) ?? tokens.ink;
-		replaced.add("secondary").add("on-secondary");
-	}
-	for (const [key, value] of Object.entries(fixAll(out))) if (replaced.has(key)) out[key] = value;
-	return out;
+function vividTokens(t, { strength = .5, tint = null } = {}) {
+	const k = Math.min(1, Math.max(0, strength));
+	const lerp = (a, b) => a + (b - a) * k;
+	const dark = isDarkTheme(t);
+	const wash = tint ?? t.primary;
+	const deep = t["primary-dark"];
+	const out = {
+		...t,
+		background: tintTowards(wash, t.background, dark ? lerp(.05, .2) : lerp(.035, .16)),
+		surface: tintTowards(tint ?? t["primary-alt"], t.surface, dark ? lerp(.04, .16) : lerp(.02, .09)),
+		border: tintTowards(wash, t.border, lerp(.15, .45)),
+		secondary: tintTowards(wash, t.secondary, lerp(.12, .4)),
+		"app-background": tintTowards(wash, t["app-background"] ?? t.background, dark ? lerp(.05, .2) : lerp(.035, .16)),
+		ink: tintTowards(deep, t.ink, lerp(.08, .4)),
+		"ink-secondary": tintTowards(deep, t["ink-secondary"], lerp(.08, .35)),
+		shadow: tintTowards(t.primary, t.shadow, lerp(.1, .35))
+	};
+	return {
+		...out,
+		...fixAll(out)
+	};
 }
-/** A theme's saved colour count: its own, or the visitor's default for every theme. */
-var coloursFor = (sizes, themeId, fallback = 10) => clampColours(sizes?.[baseId(themeId)] ?? fallback);
-/** Light and dark versions of a theme share one count. */
-var baseId = (id) => String(id).replace(/~dark$/, "");
 //#endregion
 //#region src/scan.js
 /** Elements beyond this count are ignored so scanning stays fast on huge pages. */
@@ -1216,7 +1155,7 @@ function withoutAppliedTheme(fn) {
 	const freeze = document.createElement("style");
 	freeze.textContent = "*,*::before,*::after{transition:none!important}";
 	document.head.appendChild(freeze);
-	const applied = [...document.querySelectorAll("style[data-colorsbymax=\"recolour\"], style[data-colorsbymax=\"vivid\"]")];
+	const applied = [...document.querySelectorAll("style[data-colorsbymax=\"recolour\"], style[data-colorsbymax=\"vivid\"], style[data-colorsbymax=\"guard\"]")];
 	for (const sheet of applied) sheet.disabled = true;
 	const style = document.documentElement.style;
 	const saved = [];
@@ -1437,6 +1376,1019 @@ function suggestThemes(scan, siteName, library = []) {
 	}));
 	return [...themes, ...matches];
 }
+/** A path as colorsbymax compares it: no query or hash, no trailing slash (but "/" for the home page). */
+function normalPath(input) {
+	if (typeof input !== "string") return null;
+	let p = input.trim().split(/[?#]/)[0];
+	if (!p) return null;
+	try {
+		if (/^https?:\/\//i.test(p)) {
+			const url = new URL(p);
+			if (url.origin !== location.origin) return null;
+			p = url.pathname;
+		}
+	} catch {
+		return null;
+	}
+	if (!p.startsWith("/")) p = `/${p}`;
+	const section = p.endsWith("/*");
+	p = p.replace(/\/\*$/, "").replace(/\/+/g, "/").replace(/\/$/, "");
+	if (!/^[\w\-./~%@+:]*$/.test(p) || p.length > 200) return null;
+	return section ? `${p}/*` : p || "/";
+}
+/** A clean list of pages: valid, without duplicates, at most MAX_PAGES. */
+var cleanPages = (list) => [...new Set((Array.isArray(list) ? list : []).map(normalPath).filter(Boolean))].slice(0, 50);
+/**
+* The scope a visitor chose, or null for none (the site's `pages` config, else the whole site).
+* @returns {{ mode: 'all' | 'pages', pages: string[] } | null}
+*/
+function cleanScope(input) {
+	if (!input || typeof input !== "object") return null;
+	return {
+		mode: input.mode === "pages" ? "pages" : "all",
+		pages: cleanPages(input.pages)
+	};
+}
+/** Whether a page gets the colours. */
+var pageMatches = (page, path) => page.endsWith("/*") ? path === page.slice(0, -2) || path.startsWith(page.slice(0, -1)) : path === page;
+var inScope = (scope, path) => !scope || scope.mode !== "pages" || scope.pages.some((p) => pageMatches(p, path));
+var NAVIGATE = "colorsbymax:navigate";
+var WATCHED = Symbol.for("colorsbymax.history");
+function watchHistory() {
+	if (history[WATCHED]) return;
+	history[WATCHED] = true;
+	for (const method of ["pushState", "replaceState"]) {
+		const original = history[method];
+		history[method] = function(...args) {
+			const result = original.apply(this, args);
+			window.dispatchEvent(new Event(NAVIGATE));
+			return result;
+		};
+	}
+}
+/** The current page's path, following a single-page app's navigation too. */
+function usePathname() {
+	const [path, setPath] = useState(() => normalPath(location.pathname) ?? "/");
+	useEffect(() => {
+		watchHistory();
+		const update = () => setPath(normalPath(location.pathname) ?? "/");
+		window.addEventListener(NAVIGATE, update);
+		window.addEventListener("popstate", update);
+		update();
+		return () => {
+			window.removeEventListener(NAVIGATE, update);
+			window.removeEventListener("popstate", update);
+		};
+	}, []);
+	return path;
+}
+var FILE = /\.(?!html?$)[a-z0-9]{2,5}$/i;
+/** The site's pages this page links to (its nav, footer and so on), for Studio to offer. */
+function linkedPages(max = 30) {
+	const found = /* @__PURE__ */ new Set();
+	for (const a of document.querySelectorAll("a[href]")) {
+		if (a.closest("colorsbymax-root, [data-colorsbymax]")) continue;
+		const href = a.getAttribute("href");
+		if (!href || /^(mailto|tel|javascript):/i.test(href) || href.startsWith("#")) continue;
+		let url;
+		try {
+			url = new URL(href, location.href);
+		} catch {
+			continue;
+		}
+		if (url.origin !== location.origin || FILE.test(url.pathname)) continue;
+		const path = normalPath(url.pathname);
+		if (path) found.add(path);
+		if (found.size >= max) break;
+	}
+	return [...found];
+}
+/** The config line that gives every visitor these pages. */
+var pagesSnippet = (pages) => `// Add to your colorsbymax config (the autoMount({...}) call, or the config passed to <ThemeProvider>):\npages: ${JSON.stringify(pages, null, 2)},`;
+var pagesPrompt = (pages) => `In my colorsbymax config (the autoMount({...}) call, or the config passed to <ThemeProvider>), set pages: ${JSON.stringify(pages)} so the theme only colours those pages and every other page keeps its own colours. A path ending in /* covers that section and every page under it. If the site uses import 'colorsbymax/auto', replace it with import { autoMount } from 'colorsbymax/auto' and an autoMount({ pages: [...] }) call. Don't change anything else.`;
+/** The theme colours offered as swatches, in order. */
+var SWATCH_TOKENS = [
+	"primary",
+	"primary-alt",
+	"primary-dark",
+	"secondary",
+	"accent",
+	"on-primary",
+	"background",
+	"surface",
+	"ink",
+	"ink-muted",
+	"data-1",
+	"data-2",
+	"data-3"
+];
+var PROPS = [
+	{
+		key: "background",
+		label: "Background"
+	},
+	{
+		key: "text",
+		label: "Text"
+	},
+	{
+		key: "border",
+		label: "Border"
+	}
+];
+var SKIP$3 = "colorsbymax-root, [data-colorsbymax], script, style, noscript, template, head";
+var CONTROLS = "a, button, [role=\"button\"], input, select, textarea, label, summary";
+/** The part of the page a pointer event is over: the control it's in, or the element itself. */
+function pickTarget(e) {
+	if (e.composedPath?.().some((n) => n.localName === "colorsbymax-root")) return null;
+	let el = e.target;
+	if (!(el instanceof Element)) return null;
+	el = el.closest("svg") ?? el;
+	if (el === document.documentElement || el === document.body || el.closest(SKIP$3)) return null;
+	return el.closest(CONTROLS) ?? el;
+}
+/** The element around this one, skipping wrappers exactly its size; null at the top. */
+function parentOf(el) {
+	const r = el.getBoundingClientRect();
+	let p = el.parentElement;
+	while (p && p !== document.body) {
+		const q = p.getBoundingClientRect();
+		if (Math.abs(q.width - r.width) > 2 || Math.abs(q.height - r.height) > 2) return p;
+		p = p.parentElement;
+	}
+	return null;
+}
+var shown = (el) => {
+	if (el.closest(SKIP$3)) return false;
+	const r = el.getBoundingClientRect();
+	return r.width > 1 && r.height > 1;
+};
+var sameSize = (a, b) => {
+	const r = a.getBoundingClientRect();
+	const q = b.getBoundingClientRect();
+	return Math.abs(q.width - r.width) <= 2 && Math.abs(q.height - r.height) <= 2;
+};
+/**
+* The first part inside this one (the first holding words, else the first shown), past wrappers
+* exactly its size; null when it holds only its own words, so it is the text itself.
+*/
+function childOf(el) {
+	let node = el;
+	for (let depth = 0; depth < 10; depth++) {
+		const kids = [...node.children].filter(shown);
+		if (!kids.length) return node === el ? null : node;
+		const next = kids.find((k) => k.innerText?.trim()) ?? kids[0];
+		if (!sameSize(next, el)) return next.closest("svg") ?? next;
+		node = next;
+	}
+	return null;
+}
+var validId = (id) => /^[A-Za-z][\w-]*$/.test(id) && !/\d{4,}|^(radix|headlessui|react|:r)/i.test(id);
+/** A selector for exactly this element: its place under the nearest element with a steady id. */
+function selectorFor(el) {
+	const parts = [];
+	let node = el;
+	while (node && node.nodeType === 1) {
+		if (node === document.body) {
+			parts.unshift("body");
+			break;
+		}
+		if (node.id && validId(node.id) && document.querySelectorAll(`#${CSS.escape(node.id)}`).length === 1) {
+			parts.unshift(`#${CSS.escape(node.id)}`);
+			break;
+		}
+		const tag = node.localName;
+		const parent = node.parentElement;
+		if (!parent) break;
+		const same = [...parent.children].filter((c) => c.localName === tag);
+		parts.unshift(same.length > 1 ? `${tag}:nth-of-type(${same.indexOf(node) + 1})` : tag);
+		node = parent;
+	}
+	return parts.join(" > ");
+}
+/** A selector for every part like this one: the same tag and classes, or its siblings of that tag. */
+function similarSelector(el) {
+	const classes = [...el.classList].filter((c) => !/^(cbm|colorsbymax)/.test(c)).slice(0, 8);
+	if (classes.length) return `${el.localName}${classes.map((c) => `.${CSS.escape(c)}`).join("")}`;
+	const path = selectorFor(el).split(" > ");
+	path[path.length - 1] = el.localName;
+	return path.join(" > ");
+}
+var count = (selector) => {
+	try {
+		return document.querySelectorAll(selector).length;
+	} catch {
+		return 0;
+	}
+};
+var TEXT_TAGS = /* @__PURE__ */ new Set([
+	"p",
+	"span",
+	"li",
+	"small",
+	"strong",
+	"em",
+	"b",
+	"i",
+	"label",
+	"blockquote",
+	"figcaption",
+	"dd",
+	"dt",
+	"td",
+	"th",
+	"code",
+	"time"
+]);
+var LANDMARKS = {
+	header: "Header",
+	nav: "Navigation",
+	footer: "Footer",
+	aside: "Sidebar",
+	main: "Main area",
+	section: "Section",
+	form: "Form"
+};
+function looksLikeButton(el) {
+	const cs = getComputedStyle(el);
+	const filled = toHex(cs.backgroundColor) !== null;
+	const bordered = parseFloat(cs.borderTopWidth) > 0;
+	return (filled || bordered) && parseFloat(cs.paddingLeft) >= 6 && cs.display !== "inline";
+}
+/** What kind of part it is, in plain words: Button, Link, Heading, Card and so on. */
+function kindOf(el) {
+	const tag = el.localName;
+	if (tag === "button" || el.getAttribute("role") === "button" || tag === "input" && [
+		"button",
+		"submit",
+		"reset"
+	].includes(el.type)) return "Button";
+	if (tag === "a") return looksLikeButton(el) ? "Button" : "Link";
+	if (/^h[1-6]$/.test(tag)) return "Heading";
+	if ([
+		"img",
+		"svg",
+		"picture",
+		"video",
+		"canvas"
+	].includes(tag)) return tag === "svg" ? "Icon" : "Image";
+	if ([
+		"input",
+		"select",
+		"textarea"
+	].includes(tag)) return "Field";
+	if (LANDMARKS[tag]) return LANDMARKS[tag];
+	if (TEXT_TAGS.has(tag)) return "Text";
+	const cs = getComputedStyle(el);
+	const r = el.getBoundingClientRect();
+	if (r.width > window.innerWidth * .85 && r.height > 160) return "Section";
+	if ((parseFloat(cs.borderTopWidth) > 0 || cs.boxShadow !== "none" || parseFloat(cs.borderTopLeftRadius) >= 6) && el.children.length) return "Card";
+	if (!el.children.length && el.textContent.trim()) return "Text";
+	return "Box";
+}
+var trimText = (s, max = 48) => {
+	const t = (s ?? "").replace(/\s+/g, " ").trim();
+	return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+};
+/** Its words (or a picture's description), to recognise it by. */
+var textOf = (el) => trimText(el.getAttribute("aria-label") || el.getAttribute("alt") || el.innerText || el.getAttribute("title") || "");
+function* ancestors(el) {
+	for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) yield node;
+}
+/** The words to know a part by: a card or section by its heading, anything else by its own text. */
+function nameText(el, kind) {
+	if ([
+		"Card",
+		"Section",
+		"Box",
+		"Header",
+		"Footer",
+		"Sidebar",
+		"Main area",
+		"Form",
+		"Navigation"
+	].includes(kind)) {
+		const heading = el.querySelector("h1, h2, h3, h4, h5, h6");
+		if (heading) return trimText(heading.innerText);
+	}
+	return textOf(el);
+}
+/** Where it is on the page: "in the header", "in the “Pricing” section". */
+function whereOf(el) {
+	const landmark = [...ancestors(el)].find((a) => [
+		"footer",
+		"nav",
+		"aside"
+	].includes(a.localName) || a.localName === "header" && a.getBoundingClientRect().height < 220);
+	if (landmark) return {
+		header: "in the header",
+		footer: "in the footer",
+		nav: "in the navigation",
+		aside: "in the sidebar"
+	}[landmark.localName];
+	const section = el.parentElement?.closest("section, article, header, [id]:not(body):not(#root):not(#app):not(#__next)");
+	if (section) {
+		const heading = section.querySelector("h1, h2, h3");
+		if (heading && heading !== el && trimText(heading.innerText, 40)) return `in the “${trimText(heading.innerText, 40)}” section`;
+		return "in a section";
+	}
+	return "";
+}
+/** Everything Studio needs about a picked element. */
+function describe$1(el) {
+	const one = selectorFor(el);
+	const similar = similarSelector(el);
+	const likeIt = count(similar);
+	const cs = getComputedStyle(el);
+	const kind = kindOf(el);
+	return {
+		el,
+		one,
+		similar: likeIt > 1 && similar !== one ? similar : null,
+		likeIt,
+		kind,
+		text: nameText(el, kind),
+		where: whereOf(el),
+		hasBorder: parseFloat(cs.borderTopWidth) > 0
+	};
+}
+var canvas = null;
+var rgbaCache = /* @__PURE__ */ new Map();
+/**
+* Any CSS colour the browser understands (rgb, hex, oklch, color(srgb …), color-mix and the rest)
+* as [r, g, b, alpha], read back from a pixel so every format comes out the same way.
+*/
+function rgbaOf(colour) {
+	if (!colour || colour === "transparent") return [
+		0,
+		0,
+		0,
+		0
+	];
+	const cached = rgbaCache.get(colour);
+	if (cached) return cached;
+	let out = [
+		0,
+		0,
+		0,
+		0
+	];
+	const m = colour.match(/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:[\s,/]+([\d.]+%?))?\s*\)$/);
+	if (m) {
+		const alpha = m[4] == null ? 1 : m[4].endsWith("%") ? parseFloat(m[4]) / 100 : Number(m[4]);
+		out = [
+			Number(m[1]),
+			Number(m[2]),
+			Number(m[3]),
+			alpha
+		];
+	} else try {
+		canvas ??= Object.assign(document.createElement("canvas"), {
+			width: 1,
+			height: 1
+		}).getContext("2d", { willReadFrequently: true });
+		canvas.clearRect(0, 0, 1, 1);
+		canvas.fillStyle = colour;
+		canvas.fillRect(0, 0, 1, 1);
+		const [r, g, b, a] = canvas.getImageData(0, 0, 1, 1).data;
+		out = [
+			r,
+			g,
+			b,
+			a / 255
+		];
+	} catch {
+		out = [
+			0,
+			0,
+			0,
+			0
+		];
+	}
+	if (rgbaCache.size > 500) rgbaCache.clear();
+	rgbaCache.set(colour, out);
+	return out;
+}
+var hexOfRgb = (rgb) => `#${rgb.map((n) => Math.round(Math.min(255, Math.max(0, n))).toString(16).padStart(2, "0")).join("")}`;
+/** `top` (with its alpha) laid over the solid colour `under`. */
+var over$1 = ([r, g, b, a], under) => under.map((u, i) => [
+	r,
+	g,
+	b
+][i] * a + u * (1 - a));
+/** Any CSS colour as #rrggbb, or null when it's mostly see-through. */
+function toHex(colour) {
+	const [r, g, b, a] = rgbaOf(colour);
+	return a < .5 ? null : hexOfRgb([
+		r,
+		g,
+		b
+	]);
+}
+/** The page's own backdrop: the root's or body's background, else white. */
+function pageBackdrop() {
+	for (const node of [document.body, document.documentElement]) {
+		const [r, g, b, a] = rgbaOf(getComputedStyle(node).backgroundColor);
+		if (a > .5) return [
+			r,
+			g,
+			b
+		];
+	}
+	return [
+		255,
+		255,
+		255
+	];
+}
+/**
+* The solid colour an element's text sits on: its own background and every see-through one
+* behind it, laid over each other down to the first solid one (or the page). Background
+* pictures and gradients aren't counted.
+*/
+function backgroundRgb(el) {
+	const layers = [];
+	for (let node = el; node && node.nodeType === 1; node = node.parentElement) {
+		const rgba = rgbaOf(getComputedStyle(node).backgroundColor);
+		if (rgba[3] > .01) layers.push(rgba);
+		if (rgba[3] > .99) break;
+	}
+	let colour = layers.at(-1)?.[3] > .99 ? layers.pop().slice(0, 3) : pageBackdrop();
+	for (const layer of layers.reverse()) colour = over$1(layer, colour);
+	return colour;
+}
+/** An element's text colour as it shows: faded by its own alpha and any see-through parents. */
+function textRgb(el, background = backgroundRgb(el)) {
+	let [r, g, b, a] = rgbaOf(getComputedStyle(el).color);
+	for (let node = el; node && node.nodeType === 1; node = node.parentElement) a *= Number(getComputedStyle(node).opacity) || 0;
+	return over$1([
+		r,
+		g,
+		b,
+		a
+	], background);
+}
+/** Text against its background right now: the ratio, both colours, and what it needs to pass. */
+function readability(el) {
+	const bg = backgroundRgb(el);
+	const text = hexOfRgb(textRgb(el, bg));
+	const background = hexOfRgb(bg);
+	const cs = getComputedStyle(el);
+	const size = parseFloat(cs.fontSize);
+	const large = size >= 24 || size >= 18.6 && Number(cs.fontWeight) >= 700;
+	return {
+		ratio: contrastRatio(text, background),
+		text,
+		background,
+		need: large ? 3 : 4.5
+	};
+}
+/** Elements under `root` (itself included) that hold their own words. */
+function textHolders(root, max) {
+	const out = [];
+	const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: (n) => n.nodeValue.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT });
+	const seen = /* @__PURE__ */ new Set();
+	for (let n = walker.nextNode(); n && out.length < max; n = walker.nextNode()) {
+		const el = n.parentElement;
+		if (!el || seen.has(el) || el.closest(SKIP$3)) continue;
+		seen.add(el);
+		const r = el.getBoundingClientRect();
+		if (r.width < 1 || r.height < 1 || getComputedStyle(el).visibility === "hidden") continue;
+		out.push(el);
+	}
+	return out;
+}
+/**
+* How readable the text in a part is: every piece of text in it (and in every part like it, when
+* they change together), with the ones that are hard to read.
+*/
+function checkText(roots, max = 60) {
+	const results = roots.flatMap((root) => textHolders(root, max)).slice(0, max).map((el) => ({
+		el,
+		...readability(el)
+	}));
+	return {
+		checked: results.length,
+		failing: results.filter((r) => r.ratio < r.need),
+		worst: results.reduce((w, r) => !w || r.ratio / r.need < w.ratio / w.need ? r : w, null)
+	};
+}
+/**
+* The best text colour for a background: the theme colour that reads best, or black or white
+* when no theme colour is readable enough.
+*/
+function bestText(background, tokens, need = 4.5) {
+	const seen = /* @__PURE__ */ new Set();
+	const best = TOKEN_KEYS.filter((token) => !token.startsWith("app-") && tokens[token] && !seen.has(tokens[token]) && seen.add(tokens[token])).map((token) => ({
+		token,
+		hex: tokens[token],
+		ratio: contrastRatio(tokens[token], background)
+	})).sort((a, b) => b.ratio - a.ratio)[0];
+	if (best && best.ratio >= need) return best;
+	const black = contrastRatio("#000000", background);
+	const white = contrastRatio("#ffffff", background);
+	return black >= white ? {
+		hex: "#000000",
+		ratio: black
+	} : {
+		hex: "#ffffff",
+		ratio: white
+	};
+}
+var cleanColour = (v) => {
+	if (!v || typeof v !== "object") return null;
+	const hex = normalizeHex(v.hex);
+	if (TOKEN_KEYS.includes(v.token)) return {
+		token: v.token,
+		...hex ? { hex } : {}
+	};
+	return hex ? { hex } : null;
+};
+var cleanSelector = (s) => typeof s === "string" && s.length <= 600 && !/[{}<;]/.test(s) ? s : null;
+var cleanString = (s, max) => typeof s === "string" ? s.slice(0, max) : "";
+/** Keeps only well-formed paints (they come back from storage). */
+function cleanPaints(list) {
+	if (!Array.isArray(list)) return [];
+	const out = [];
+	for (const p of list) {
+		if (!p || typeof p !== "object" || typeof p.id !== "string") continue;
+		const page = normalPath(p.page);
+		const one = cleanSelector(p.one);
+		if (!page || !one) continue;
+		const props = Object.fromEntries(PROPS.map(({ key }) => [key, cleanColour(p.props?.[key])]).filter(([, v]) => v));
+		out.push({
+			id: p.id.slice(0, 40),
+			page,
+			one,
+			similar: cleanSelector(p.similar),
+			all: Boolean(p.all && cleanSelector(p.similar)),
+			everywhere: Boolean(p.everywhere && cleanSelector(p.similar)),
+			likeIt: Number.isInteger(p.likeIt) ? p.likeIt : 1,
+			kind: cleanString(p.kind, 30) || "Part",
+			text: cleanString(p.text, 60),
+			where: cleanString(p.where, 80),
+			hasBorder: Boolean(p.hasBorder),
+			props
+		});
+		if (out.length >= 80) break;
+	}
+	return out;
+}
+var selectorOf = (paint) => (paint.all || paint.everywhere) && paint.similar ? paint.similar : paint.one;
+/** The page a paint is drawn on, or '*' for one that goes on every page. */
+var pageOf = (paint) => paint.everywhere ? "*" : paint.page;
+/** A colour for the stylesheet: the theme's variable where it follows the theme, else its hex. */
+var cssValue = (v, themed) => v.token && themed ? `var(--color-${v.token}${v.hex ? `, ${v.hex}` : ""})` : v.hex ?? `var(--color-${v.token})`;
+/** The stylesheet for some paints. `themed`: the page takes the theme, so swatches follow it. */
+function paintCss(paints, themed = true) {
+	return paints.map((p) => {
+		const sel = `html ${selectorOf(p)}`;
+		const rules = [];
+		const { background, text, border } = p.props;
+		if (background) rules.push(`${sel}{background:${cssValue(background, themed)}!important}`);
+		if (text) rules.push(`${sel},${sel} *{color:${cssValue(text, themed)}!important}`);
+		if (border) rules.push(`${sel}{border-color:${cssValue(border, themed)}!important${p.hasBorder ? "" : ";border-width:1px!important;border-style:solid!important"}}`);
+		return rules.join("");
+	}).join("");
+}
+var hexOf = (v, tokens) => v.token ? tokens[v.token] : v.hex;
+var nameOf = (v, tokens) => v.token ? `${hexOf(v, tokens)} (the theme's ${TOKEN_LABELS[v.token]?.toLowerCase() ?? v.token} colour, var(--color-${v.token}))` : v.hex;
+var partName = (p) => {
+	const kind = p.kind.toLowerCase();
+	return [p.text ? `the ${kind} “${p.text}”` : `${[
+		"header",
+		"footer",
+		"navigation",
+		"sidebar",
+		"main area"
+	].includes(kind) ? "the" : "a"} ${kind}`, p.where].filter(Boolean).join(" ");
+};
+var groupByPage = (paints) => paints.reduce((m, p) => m.set(pageOf(p), [...m.get(pageOf(p)) ?? [], p]), /* @__PURE__ */ new Map());
+var onPage = (page) => page === "*" ? "On every page of the site" : `On the page ${page}`;
+/** A prompt for Claude, Cursor or Copilot that makes the changes in the site's code. */
+function paintsPrompt(paints, tokens) {
+	return `Make these colour changes in my site's code. I picked them in colorsbymax Studio by clicking on the page. Find each part in the code from its description and words (the CSS selector is only a hint), and change only what's listed; keep everything else the same. Where the site already has a colour variable or theme setting for a colour, use that instead of hard-coding the hex.\n\n${[...groupByPage(paints)].map(([page, list]) => {
+		const lines = list.map((p, i) => {
+			const who = p.everywhere ? `${partName(p)}, and every ${p.kind.toLowerCase()} like it on every page (it's a shared component, so change it where it's defined)` : p.all && p.similar ? `${partName(p)}, and every ${p.kind.toLowerCase()} like it (${p.likeIt} on the page)` : partName(p);
+			const changes = PROPS.filter(({ key }) => p.props[key]).map(({ key, label }) => `${label.toLowerCase()} ${nameOf(p.props[key], tokens)}`);
+			return `${i + 1}. ${who[0].toUpperCase()}${who.slice(1)} (CSS selector: ${selectorOf(p)}): ${changes.join("; ")}.`;
+		});
+		return `${onPage(page)}:\n${lines.join("\n")}`;
+	}).join("\n\n")}`;
+}
+/** The changes as plain CSS, with the theme's colours as hex. */
+function paintsCssExport(paints, tokens) {
+	return [...groupByPage(paints)].map(([page, list]) => {
+		const rules = list.flatMap((p) => {
+			const sel = selectorOf(p);
+			const { background, text, border } = p.props;
+			return [
+				`/* ${partName(p)} */`,
+				...background ? [`${sel} { background: ${hexOf(background, tokens)}; }`] : [],
+				...text ? [`${sel}, ${sel} * { color: ${hexOf(text, tokens)}; }`] : [],
+				...border ? [`${sel} { ${p.hasBorder ? "border-color:" : "border: 1px solid"} ${hexOf(border, tokens)}; }`] : []
+			];
+		});
+		return `/* colorsbymax Studio, ${page === "*" ? "on every page" : `on ${page}`} */\n${rules.join("\n")}`;
+	}).join("\n\n");
+}
+//#endregion
+//#region src/guard.js
+var FIX = "data-cbm-fix";
+var SKIP$2 = "colorsbymax-root, [data-colorsbymax], [data-colorsbymax-contrast=\"keep\"], script, style, noscript, template, head, [aria-hidden=\"true\"], :disabled";
+var MAX_CHECKED = 1500;
+var WAIT = 150;
+var hex = (rgb) => `#${rgb.map((n) => Math.round(Math.min(255, Math.max(0, n))).toString(16).padStart(2, "0")).join("")}`;
+var over = ([r, g, b, a], under) => under.map((u, i) => [
+	r,
+	g,
+	b
+][i] * a + u * (1 - a));
+var hasGradient = (cs) => cs.backgroundImage && cs.backgroundImage !== "none" && /gradient/.test(cs.backgroundImage);
+/** Elements that hold words of their own, and icons drawn in the text colour. */
+function holders() {
+	const out = [];
+	const seen = /* @__PURE__ */ new Set();
+	const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, { acceptNode: (n) => n.nodeValue.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT });
+	for (let n = walker.nextNode(); n && out.length < MAX_CHECKED; n = walker.nextNode()) {
+		const el = n.parentElement;
+		if (!el || seen.has(el)) continue;
+		seen.add(el);
+		out.push(el);
+	}
+	for (const svg of document.querySelectorAll("svg")) {
+		if (out.length >= MAX_CHECKED) break;
+		const cs = getComputedStyle(svg);
+		if ([cs.fill, cs.stroke].some((v) => v && v !== "none") && !seen.has(svg)) out.push(svg);
+	}
+	return out.filter((el) => {
+		if (el.closest(SKIP$2)) return false;
+		const r = el.getBoundingClientRect();
+		return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden";
+	});
+}
+/**
+* The solid colours an element's text could sit on: its background with every see-through one
+* behind it laid over each other, or each colour of a gradient behind it.
+*/
+function backgroundsOf(el, cache) {
+	if (cache.has(el)) return cache.get(el);
+	const cs = getComputedStyle(el);
+	let result;
+	if (hasGradient(cs)) {
+		const stops = (cs.backgroundImage.match(COLOR_IN_GRADIENT) ?? []).map(rgbaOf).filter((c) => c[3] > .05);
+		const under = el.parentElement ? backgroundsOf(el.parentElement, cache) : [[
+			255,
+			255,
+			255
+		]];
+		result = stops.length ? stops.flatMap((stop) => under.map((u) => over(stop, u))) : under;
+	} else {
+		const own = rgbaOf(cs.backgroundColor);
+		if (own[3] > .99) result = [own.slice(0, 3)];
+		else {
+			const under = el.parentElement && el !== document.documentElement ? backgroundsOf(el.parentElement, cache) : [[
+				255,
+				255,
+				255
+			]];
+			result = own[3] > .01 ? under.map((u) => over(own, u)) : under;
+		}
+	}
+	cache.set(el, result);
+	return result;
+}
+/** How readable each element is right now: its worst ratio, what it needs, its colour and backgrounds. */
+function readAll(elements) {
+	const cache = /* @__PURE__ */ new Map();
+	const out = /* @__PURE__ */ new Map();
+	for (const el of elements) {
+		const cs = getComputedStyle(el);
+		const bgs = backgroundsOf(el, cache).slice(0, 6);
+		const colour = rgbaOf(cs.color);
+		if (colour[3] < .05) continue;
+		const texts = bgs.map((bg) => hex(over(colour, bg)));
+		const ratio = Math.min(...bgs.map((bg, i) => contrastRatio(texts[i], hex(bg))));
+		const size = parseFloat(cs.fontSize);
+		const large = el.localName === "svg" || size >= 24 || size >= 18.6 && Number(cs.fontWeight) >= 700;
+		out.set(el, {
+			ratio,
+			need: large ? 3 : 4.5,
+			text: texts[0],
+			bgs: bgs.map(hex)
+		});
+	}
+	return out;
+}
+/** Reads with transitions held, so colours that animate report where they're going. */
+function steady(fn) {
+	const freeze = document.createElement("style");
+	freeze.textContent = "*,*::before,*::after{transition:none!important}";
+	document.head.append(freeze);
+	try {
+		return fn();
+	} finally {
+		freeze.remove();
+	}
+}
+/**
+* The colour a hard-to-read element should take. Its own colour first, made lighter or darker
+* until it reads, so a green "Paid" stays green and a red "Failed" red; else the theme's nearest
+* colour that reads, else the strongest.
+*/
+function fixFor({ text, bgs }, target, tokens) {
+	const worstOf = (c) => Math.min(...bgs.map((bg) => contrastRatio(c, bg)));
+	const start = lightness(text);
+	const found = [-1, 1].map((dir) => {
+		for (let l = start; l >= 0 && l <= 1; l += dir * .02) if (worstOf(withLightness(text, l)) >= target) return {
+			l,
+			c: withLightness(text, l)
+		};
+		return null;
+	}).filter(Boolean).sort((a, b) => Math.abs(a.l - start) - Math.abs(b.l - start))[0];
+	if (found) return found.c;
+	const pool = [
+		...new Set([
+			"ink",
+			"ink-secondary",
+			"on-primary",
+			"on-secondary",
+			"on-accent",
+			"background",
+			"surface",
+			"primary",
+			"primary-dark"
+		].map((k) => tokens[k]).filter(Boolean)),
+		"#ffffff",
+		"#000000"
+	];
+	const worst = (c) => Math.min(...bgs.map((bg) => contrastRatio(c, bg)));
+	const passing = pool.filter((c) => worst(c) >= target);
+	if (passing.length) return passing.reduce((a, c) => deltaE(c, text) < deltaE(a, text) ? c : a);
+	return pool.reduce((a, c) => worst(c) > worst(a) ? c : a);
+}
+/** Starts the guard. `check(tokens)` asks for a check soon; `stop()` takes its fixes away. */
+function createGuard() {
+	const sheet = document.createElement("style");
+	sheet.dataset.colorsbymax = "guard";
+	document.head.append(sheet);
+	let tokens = null;
+	let timer = 0;
+	const run = () => {
+		timer = 0;
+		if (!tokens || !document.body) return;
+		sheet.textContent = "";
+		for (const el of document.querySelectorAll(`[${FIX}]`)) el.removeAttribute(FIX);
+		const elements = holders();
+		const now = steady(() => readAll(elements));
+		const rules = [];
+		let n = 0;
+		for (const [el, reading] of now) {
+			const target = reading.need;
+			if (reading.ratio >= target - .05) continue;
+			const id = `g${(n++).toString(36)}`;
+			el.setAttribute(FIX, id);
+			const colour = fixFor(reading, target, tokens);
+			rules.push(`[${FIX}="${id}"]{color:${colour}!important${el.localName === "svg" ? `;fill:${getComputedStyle(el).fill === "none" ? "none" : colour}!important` : ""}}`);
+		}
+		sheet.textContent = rules.join("");
+	};
+	const schedule = () => {
+		clearTimeout(timer);
+		timer = setTimeout(() => window.requestIdleCallback ? requestIdleCallback(run, { timeout: 300 }) : run(), WAIT);
+	};
+	const isOurs = (node) => node.closest?.("colorsbymax-root, [data-colorsbymax]");
+	const observer = new MutationObserver((records) => {
+		const colourVars = (style) => (style ?? "").includes("--color-");
+		if (records.some((r) => {
+			if (r.type === "childList") return [...r.addedNodes].some((node) => node.nodeType === 1 && !isOurs(node));
+			const style = r.target.getAttribute("style");
+			return style !== r.oldValue && (colourVars(style) || colourVars(r.oldValue));
+		})) schedule();
+	});
+	observer.observe(document.body, {
+		subtree: true,
+		childList: true,
+		attributes: true,
+		attributeFilter: ["style"],
+		attributeOldValue: true
+	});
+	window.addEventListener("load", schedule);
+	return {
+		/** Checks the page soon against these colours (the ones the page now shows). */
+		check(next) {
+			tokens = next;
+			schedule();
+		},
+		stop() {
+			clearTimeout(timer);
+			observer.disconnect();
+			window.removeEventListener("load", schedule);
+			sheet.remove();
+			for (const el of document.querySelectorAll(`[${FIX}]`)) el.removeAttribute(FIX);
+		}
+	};
+}
+/** Images are scaled down to at most this many pixels on their longest side before sampling. */
+var SAMPLE_SIZE = 200;
+/** PDF pages read, from the first. */
+var MAX_PDF_PAGES = 3;
+/** Colours closer than this (CIE76 ΔE) count as one. */
+var MERGE_DELTA_E = 12;
+/** Colours covering less than this share of the sampled pixels are ignored. */
+var MIN_SHARE = .004;
+/** How close (CIE76 ΔE) a colour must be to a mix of two others to count as their edge blend. */
+var BLEND_DELTA_E = 6;
+var HEX_IN_TEXT = /#([0-9a-f]{6}|[0-9a-f]{3})\b/gi;
+var hslOf$3 = (hex) => rgbToHsl(hexToRgb(hex));
+/**
+* The main colours in an image or PDF, most important first.
+* @param {File} file
+* @param {{ loadPdf?: (() => Promise<any>) | null }} [options]  PDF support, from 'colorsbymax/pdf'
+* @returns {Promise<{ colours: string[], from: 'image' | 'pdf-text' | 'pdf' }>}
+*/
+async function coloursFromFile(file, { loadPdf = null } = {}) {
+	if (file.size > 26214400) throw new Error("That file is over 25 MB. Try a smaller one.");
+	if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
+		if (!loadPdf) throw new Error("PDFs aren’t supported on this site. Try an image of the palette instead.");
+		return coloursFromPdf(file, loadPdf);
+	}
+	if (!file.type.startsWith("image/")) throw new Error(`Choose an image (PNG, JPG, WebP, SVG…)${loadPdf ? " or a PDF" : ""}.`);
+	const bitmap = await loadImage(file);
+	return {
+		colours: dominantColours([pixelsOf$1(bitmap, bitmap.width, bitmap.height)]),
+		from: "image"
+	};
+}
+function loadImage(file) {
+	return new Promise((resolve, reject) => {
+		const url = URL.createObjectURL(file);
+		const img = new Image();
+		img.onload = () => {
+			URL.revokeObjectURL(url);
+			resolve(img);
+		};
+		img.onerror = () => {
+			URL.revokeObjectURL(url);
+			reject(/* @__PURE__ */ new Error("Couldn’t read that image. Try a PNG or JPG."));
+		};
+		img.src = url;
+	});
+}
+/** Draws a source scaled down to SAMPLE_SIZE and returns its RGBA pixels. */
+function pixelsOf$1(source, width, height) {
+	const scale = Math.min(1, SAMPLE_SIZE / Math.max(width, height));
+	const canvas = document.createElement("canvas");
+	canvas.width = Math.max(1, Math.round(width * scale));
+	canvas.height = Math.max(1, Math.round(height * scale));
+	const ctx = canvas.getContext("2d", { willReadFrequently: true });
+	ctx.imageSmoothingEnabled = false;
+	ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+	return ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+}
+/**
+* Buckets pixels into a coarse colour grid, then folds similar buckets together and keeps the
+* ones covering a real share of the picture.
+* @param {Uint8ClampedArray[]} pixelSets
+*/
+function dominantColours(pixelSets) {
+	const buckets = /* @__PURE__ */ new Map();
+	let total = 0;
+	for (const data of pixelSets) for (let i = 0; i < data.length; i += 4) {
+		if (data[i + 3] < 128) continue;
+		const key = data[i] >> 3 << 10 | data[i + 1] >> 3 << 5 | data[i + 2] >> 3;
+		let b = buckets.get(key);
+		if (!b) buckets.set(key, b = {
+			r: 0,
+			g: 0,
+			b: 0,
+			n: 0
+		});
+		b.r += data[i];
+		b.g += data[i + 1];
+		b.b += data[i + 2];
+		b.n++;
+		total++;
+	}
+	const merged = [];
+	for (const b of [...buckets.values()].sort((x, y) => y.n - x.n)) {
+		const hex = rgbToHex([
+			b.r / b.n,
+			b.g / b.n,
+			b.b / b.n
+		].map(Math.round));
+		const into = merged.find((m) => deltaE(m.hex, hex) < MERGE_DELTA_E);
+		if (into) into.n += b.n;
+		else merged.push({
+			hex,
+			n: b.n
+		});
+	}
+	const kept = [];
+	for (const m of merged.filter((m) => m.n / total >= MIN_SHARE).sort((a, b) => b.n - a.n)) if (!isEdgeBlend(m, kept)) kept.push(m);
+	return kept.slice(0, 8).map((m) => m.hex);
+}
+/**
+* True for a colour that is just the anti-aliased edge between two much more common ones:
+* it sits on the line between them and covers far less of the picture.
+*/
+function isEdgeBlend(m, kept) {
+	for (const a of kept) for (const b of kept) {
+		if (a === b || m.n * 3 > Math.min(a.n, b.n)) continue;
+		for (let t = .15; t <= .85; t += .05) if (deltaE(m.hex, mix(a.hex, b.hex, t)) < BLEND_DELTA_E) return true;
+	}
+	return false;
+}
+async function coloursFromPdf(file, loadPdf) {
+	let pdfjs;
+	try {
+		pdfjs = await loadPdf();
+	} catch {
+		throw new Error("Couldn’t load the PDF reader. Check your connection and try again.");
+	}
+	const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
+	let doc;
+	try {
+		doc = await task.promise;
+	} catch {
+		throw new Error("Couldn’t open that PDF. It may be damaged or password-protected.");
+	}
+	try {
+		const written = [];
+		const pixelSets = [];
+		for (let n = 1; n <= Math.min(MAX_PDF_PAGES, doc.numPages); n++) {
+			const page = await doc.getPage(n);
+			const text = await page.getTextContent();
+			for (const item of text.items) for (const m of (item.str ?? "").matchAll(HEX_IN_TEXT)) written.push(expandHex(m[1]));
+			const base = page.getViewport({ scale: 1 });
+			const viewport = page.getViewport({ scale: Math.min(2, 400 / Math.max(base.width, base.height)) });
+			const canvas = document.createElement("canvas");
+			canvas.width = Math.ceil(viewport.width);
+			canvas.height = Math.ceil(viewport.height);
+			await page.render({
+				canvas,
+				canvasContext: canvas.getContext("2d"),
+				viewport
+			}).promise;
+			pixelSets.push(pixelsOf$1(canvas, canvas.width, canvas.height));
+		}
+		const distinct = [];
+		for (const hex of written) if (!distinct.some((d) => deltaE(d, hex) < 2)) distinct.push(hex);
+		if (distinct.length >= 2) return {
+			colours: distinct.slice(0, 8),
+			from: "pdf-text"
+		};
+		return {
+			colours: dominantColours(pixelSets),
+			from: "pdf"
+		};
+	} finally {
+		task.destroy();
+	}
+}
+var expandHex = (h) => `#${(h.length === 3 ? h.replace(/./g, (c) => c + c) : h).toLowerCase()}`;
+/**
+* Assigns a palette's colours to theme roles: the most vivid becomes primary, a very light one
+* the page background, a very dark one the text, and every colour feeds the data set.
+* @param {string[]} colours  most important first
+*/
+function rolesFromPalette(colours) {
+	const info = colours.map((hex, i) => {
+		const [h, s, l] = hslOf$3(hex);
+		return {
+			hex,
+			h,
+			s,
+			l,
+			score: s * (1 - Math.abs(l - .5) * 1.4) * (1 - i * .04)
+		};
+	});
+	const accents = info.filter((c) => c.s >= .2 && c.l >= .15 && c.l <= .85).sort((a, b) => b.score - a.score);
+	const byLight = [...info].sort((a, b) => b.l - a.l);
+	const roles = {};
+	const background = byLight.find((c) => c.l >= .93);
+	if (background) roles.background = background.hex;
+	const bg = roles.background ?? "#ffffff";
+	const ink = [...byLight].reverse().find((c) => c.l <= .25 && contrastRatio(c.hex, bg) >= 7);
+	if (ink) roles.ink = ink.hex;
+	const primary = accents[0] ?? [...info].sort((a, b) => Math.abs(a.l - .45) - Math.abs(b.l - .45))[0];
+	roles.primary = primary.hex;
+	const hueDist = (a, b) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b));
+	const alt = accents.find((c) => c !== primary && hueDist(c.h, primary.h) >= 20) ?? accents.find((c) => c !== primary);
+	if (alt) roles["primary-alt"] = alt.hex;
+	const tint = info.find((c) => c.l >= .8 && c.l < .93 && c.s >= .1);
+	if (tint) roles.secondary = tint.hex;
+	[...accents, ...info.filter((c) => !accents.includes(c) && c !== background && c !== ink)].slice(0, 8).forEach((c, i) => roles[`data-${i + 1}`] = c.hex);
+	return roles;
+}
+/** A complete theme built around a palette, adjusted to pass contrast. */
+function themeFromPalette(colours) {
+	const tokens = themeFromRoles(rolesFromPalette(colours));
+	return {
+		...tokens,
+		...fixAll(tokens)
+	};
+}
 //#endregion
 //#region src/vivid.js
 var ZONE = "data-cbm-z";
@@ -1499,6 +2451,34 @@ function pageParts() {
 	return parts.filter((p) => p.getBoundingClientRect().height > 30);
 }
 var hasButton = (el) => el.querySelector("button, [role=\"button\"], input[type=\"submit\"], a[class*=\"btn\" i], a[class*=\"button\" i]");
+var PRICE = /(^|[\s(])([$€£¥₹]|USD|EUR|GBP|ZMW|K|R)\s?\d[\d,.]*|\d[\d,.]*\s?(\/\s?(mo|month|yr|year|user)\b|per (month|year|user|seat)\b)/i;
+var QUOTE_HINT = /testimonial|review|quote|customer-stor/i;
+var ownText$1 = (el) => [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(" ").trim();
+var area = (el) => {
+	const r = el.getBoundingClientRect();
+	return r.width * r.height;
+};
+/**
+* What a section of the page is, beyond its place: a pricing table (two or more prices), testimonials
+* (quotes, or named that way), an image-led section (pictures fill much of it) or a form. Null for
+* an ordinary section.
+*/
+function sectionKind(part) {
+	let prices = 0;
+	for (const el of part.querySelectorAll("*")) {
+		if (el.children.length > 3) continue;
+		if (PRICE.test(ownText$1(el)) && ++prices >= 2) return "pricing";
+	}
+	const named = `${part.id} ${part.className?.baseVal ?? part.className ?? ""}`;
+	const quotes = part.querySelectorAll("blockquote, q, [class*=\"testimonial\" i], [class*=\"review\" i]").length;
+	const quoted = [...part.querySelectorAll("p")].filter((p) => /^["“”«]/.test(p.textContent.trim())).length;
+	if (QUOTE_HINT.test(named) || quotes >= 1 || quoted >= 2) return "quotes";
+	const fields = part.querySelectorAll("input:not([type=hidden]):not([type=checkbox]):not([type=radio]), textarea, select").length;
+	if (part.querySelector("form") && fields >= 2) return "form";
+	const pictures = [...part.querySelectorAll("img, picture, video, svg[width], [style*=\"background-image\"]")].filter((m) => area(m) > 19200);
+	if (pictures.length && pictures.reduce((sum, m) => sum + area(m), 0) >= area(part) * .22) return "media";
+	return null;
+}
 /** Marks the page's header, hero, sections, closing call to action and footer. */
 function markZones() {
 	for (const el of document.querySelectorAll(`[${ZONE}]`)) el.removeAttribute(ZONE);
@@ -1516,7 +2496,14 @@ function markZones() {
 	if (footer) footer.setAttribute(ZONE, "footer");
 	if (hero) hero.setAttribute(ZONE, "hero");
 	if (cta) cta.setAttribute(ZONE, "cta");
-	body.filter((p) => p !== hero && p !== cta).forEach((p, i) => i % 2 === 0 && p.setAttribute("data-cbm-z", "tint"));
+	const plain = [];
+	for (const p of body) {
+		if (p === hero || p === cta) continue;
+		const kind = sectionKind(p);
+		if (kind) p.setAttribute(ZONE, kind);
+		else plain.push(p);
+	}
+	plain.forEach((p, i) => i % 2 === 0 && p.setAttribute("data-cbm-z", "tint"));
 }
 /** What an element paints over: 'primary' (a brand-coloured band), 'secondary' (the footer), or 'page'. */
 var zoneOf = (el) => {
@@ -1556,7 +2543,9 @@ function rolesOf(el, cs, ownFill, under) {
 		return roles;
 	}
 	if (name === "a") {
-		roles.push(el.closest(`nav, [data-cbm-z="header"]`) ? "navlink" : zone === "page" ? "link" : "link-on");
+		const inNav = el.closest(`nav, [${ZONE}="header"]`);
+		roles.push(inNav ? "navlink" : zone === "page" ? "link" : "link-on");
+		if (inNav && (el.getAttribute("aria-current") || /\b(active|current|is-active|selected)\b/.test(el.className?.baseVal ?? el.className ?? ""))) roles.push("navlink-on");
 		return roles;
 	}
 	if (/^h[1-3]$/.test(name) && zone === "page") roles.push("head");
@@ -1573,7 +2562,7 @@ function rolesOf(el, cs, ownFill, under) {
 	if (zone !== "page") return roles;
 	if (name === "th") roles.push("th");
 	else if (name === "blockquote") roles.push("quote");
-	else if (name === "pre" || name === "code" && el.parentElement?.localName !== "pre") roles.push("code");
+	else if (name === "pre" || name === "code" && el.parentElement?.localName !== "pre" && !allBorders(getComputedStyle(el.parentElement))) roles.push("code");
 	else if (name === "hr") roles.push("rule");
 	else if (name === "mark") roles.push("mark");
 	const blockish = [
@@ -1591,8 +2580,28 @@ function rolesOf(el, cs, ownFill, under) {
 	].includes(name)) {
 		const r = el.getBoundingClientRect();
 		const parent = el.parentElement?.getBoundingClientRect();
-		if (r.height >= 56 && parent && r.width <= parent.width * .96 && el.textContent.trim()) roles.push("card");
+		if (r.height >= 56 && parent && r.width <= parent.width * .96 && el.textContent.trim()) {
+			roles.push("card");
+			const section = el.closest(`[${ZONE}]`)?.getAttribute(ZONE);
+			const words = el.innerText || el.textContent;
+			if (section === "pricing" && PRICE.test(words)) {
+				roles.push("plan");
+				if (/most popular|popular|recommended|best value|best deal|our pick/i.test(words) || filled && deltaE(ownFill, under) > 20) roles.push("plan-top");
+			}
+			if (section === "quotes") roles.push("quote-card");
+		}
 	}
+	const section = el.closest(`[${ZONE}]`)?.getAttribute(ZONE);
+	if (section === "media" && [
+		"img",
+		"picture",
+		"video"
+	].includes(name)) {
+		const r = el.getBoundingClientRect();
+		if (r.width * r.height > 19200) roles.push("media");
+	}
+	if (section === "form" && name === "form" && !roles.includes("card")) roles.push("form-box");
+	if (name === "label" && !roles.includes("btn") && !roles.includes("btn2")) roles.push("label");
 	const tinted = Boolean(ownFill) && deltaE(ownFill, under) > 2;
 	if (!blockish && tinted && radius >= 6 && el.textContent.trim().length <= 30 && !el.querySelector("div, p")) roles.push("badge");
 	return roles;
@@ -1600,20 +2609,39 @@ function rolesOf(el, cs, ownFill, under) {
 var readsOn = (fg, bgs, min) => bgs.every((bg) => contrastRatio(fg, bg) >= min);
 /** The first colour that reads on every background, else the theme's plain text colour. */
 var firstReadable = (candidates, bgs, min) => candidates.find((c) => c && readsOn(c, bgs, min)) ?? candidates[candidates.length - 1];
-/** The Colourful stylesheet for a theme's tokens. */
-function vividCss(t) {
+/** Roles Subtle paints: the accents only (buttons, links, badges, highlights), never backgrounds. */
+var ACCENT_ROLES = /* @__PURE__ */ new Set([
+	"link",
+	"hl",
+	"badge",
+	"mark",
+	"btn",
+	"btn-in",
+	"btn2",
+	"btn2-in"
+]);
+/**
+* The stylesheet that paints the page by role for a theme's tokens. `accents` keeps to the
+* accents (Subtle): no zones, backgrounds, cards or headings, and a button on a brand band is an
+* ordinary button, since the band isn't painted.
+*/
+function vividCss(t, { accents = false, strength = .5, tint: imageTint = null } = {}) {
+	const k = Math.min(1, Math.max(0, strength));
+	const lerp = (a, b) => a + (b - a) * k;
 	const bg = t.background;
-	const tint = mix(t.secondary, bg, .55);
-	const glow = mix(t.primary, bg, .16);
-	const glowAlt = mix(t["primary-alt"], bg, .12);
+	const tint = imageTint ? mix(imageTint, bg, lerp(.07, .26)) : mix(t.secondary, bg, lerp(.3, .85));
+	const glow = mix(imageTint ?? t.primary, bg, lerp(.07, .3));
+	const glowAlt = mix(t["primary-alt"], bg, lerp(.05, .22));
+	const quotesBg = mix(imageTint ?? t["primary-alt"], bg, lerp(.05, .18));
 	const pageBgs = [
 		bg,
 		t.surface,
 		tint,
-		glow
+		glow,
+		quotesBg
 	];
 	const ink = firstReadable([t.ink], pageBgs, MIN_TEXT);
-	const head = firstReadable([t["primary-dark"], ink], pageBgs, MIN_LARGE);
+	const head = k < .2 ? ink : firstReadable([t["primary-dark"], ink], pageBgs, MIN_LARGE);
 	const link = firstReadable([
 		t.primary,
 		t["primary-dark"],
@@ -1632,8 +2660,13 @@ function vividCss(t) {
 		"#000000"
 	], [t.primary], MIN_TEXT);
 	const band = readsOn(onPrimary, [t.primary, bandEnd], MIN_TEXT) ? `linear-gradient(135deg,${t.primary},${bandEnd})` : t.primary;
-	const footerBg = t.secondary;
-	const onSecondary = firstReadable([t["on-secondary"], ink], [footerBg], MIN_TEXT);
+	const footerBg = k < .3 ? tint : k > .75 ? mix(t.primary, bg, .72) : t.secondary;
+	const onSecondary = firstReadable([
+		t["on-secondary"],
+		ink,
+		"#ffffff",
+		"#000000"
+	], [footerBg], MIN_TEXT);
 	const btnHover = mix(t["primary-dark"], t.primary, .22);
 	const onBtnHover = firstReadable([
 		onPrimary,
@@ -1641,7 +2674,7 @@ function vividCss(t) {
 		"#000000"
 	], [btnHover], MIN_TEXT);
 	const quiet = firstReadable([t["on-secondary"], ink], [t.secondary], MIN_TEXT);
-	const badgeBg = mix(t.primary, t.surface, .2);
+	const badgeBg = mix(t.primary, t.surface, lerp(.12, .32));
 	const badgeInk = firstReadable([
 		t["primary-dark"],
 		t["on-secondary"],
@@ -1650,15 +2683,20 @@ function vividCss(t) {
 	const hlGradient = readsOn(t.primary, [bg, glow], MIN_LARGE) && readsOn(t["primary-alt"], [bg, glow], MIN_LARGE);
 	const shadow = `0 18px 40px -22px ${t.shadow}`;
 	const move = "transition:background-color .25s,color .25s,border-color .25s,box-shadow .25s,transform .25s!important";
-	const r = (role, css) => `[${ROLE}~="${role}"]{${css}}`;
+	const sel = (role) => accents && role === "btn" ? `[${ROLE}~="btn"],[${ROLE}~="btn-inv"]` : accents && role === "btn-in" ? `[${ROLE}~="btn-in"],[${ROLE}~="btn-inv-in"]` : `[${ROLE}~="${role}"]`;
+	const r = (role, css) => accents && !ACCENT_ROLES.has(role) ? "" : `${sel(role)}{${css}}`;
 	const imp = (decls) => decls.map((d) => `${d}!important`).join(";");
 	return [
 		`html{accent-color:${t.primary}}`,
 		`::selection{background:${mix(t.primary, bg, .28)}}`,
 		`[${ROLE}] li::marker,li[${ROLE}]::marker{color:${t.primary}}`,
-		r("z-header", imp([`background-color:${t.surface}`, `border-bottom-color:${t.border}`])),
+		r("z-header", imp([`background-color:${k > .75 ? mix(t.primary, t.surface, .12) : t.surface}`, `border-bottom-color:${t.border}`])),
 		r("z-hero", imp([`background-color:${bg}`, `background-image:radial-gradient(120% 85% at 50% -10%,${glow} 0%,transparent 62%),radial-gradient(60% 60% at 100% 100%,${glowAlt} 0%,transparent 70%)`])),
 		r("z-tint", imp([`background-color:${tint}`])),
+		r("z-pricing", imp([`background-color:${bg}`, `background-image:radial-gradient(90% 70% at 50% 0%,${glow} 0%,transparent 70%)`])),
+		r("z-quotes", imp([`background-color:${quotesBg}`])),
+		r("z-media", imp([`background-color:${bg}`])),
+		r("z-form", imp([`background-color:${tint}`])),
 		r("z-cta", imp([
 			`background-color:${t.primary}`,
 			`background-image:${band}`,
@@ -1688,17 +2726,32 @@ function vividCss(t) {
 		`[${ROLE}~="link"]:hover{${imp([`color:${linkHover}`, `text-decoration-color:${linkHover}`])}}`,
 		r("link-on", imp(["color:inherit", "text-decoration-color:currentColor"])),
 		r("navlink", imp([`color:${firstReadable([t["ink-secondary"], ink], [t.surface, bg], MIN_TEXT)}`, move])),
-		`[${ROLE}~="navlink"]:hover{${imp([`color:${navHover}`])}}`,
+		!accents && `[data-cbm-v~="navlink"]:hover{${imp([`color:${navHover}`])}}`,
+		r("navlink-on", imp([`color:${navHover}`, `box-shadow:inset 0 -2px 0 ${t.primary}`])),
 		r("card", imp([
 			`background-color:${t.surface}`,
 			`border-color:${t.border}`,
 			move
 		])),
-		`[${ROLE}~="card"]:hover{${imp([
+		!accents && `[data-cbm-v~="card"]:hover{${imp([
 			`border-color:${t.primary}`,
 			`box-shadow:${shadow}`,
 			"transform:translateY(-2px)"
 		])}}`,
+		r("plan", imp([`background-color:${t.surface}`, `border-color:${t.border}`])),
+		r("plan-top", imp([`border-color:${t.primary}`, `box-shadow:0 0 0 2px ${t.primary},${shadow}`])),
+		r("quote-card", imp([`background-color:${t.surface}`, `box-shadow:inset 4px 0 0 ${t.primary},${shadow}`])),
+		r("media", imp([`box-shadow:0 22px 50px -28px ${t.shadow}`])),
+		r("form-box", imp([
+			`background-color:${t.surface}`,
+			`border-color:${t.border}`,
+			`box-shadow:${shadow}`
+		])),
+		r("label", imp([`color:${firstReadable([t["ink-secondary"], ink], [
+			t.surface,
+			tint,
+			bg
+		], MIN_TEXT)}`])),
 		r("badge", imp([
 			`background-color:${badgeBg}`,
 			`color:${badgeInk}`,
@@ -1710,7 +2763,7 @@ function vividCss(t) {
 			`color:${ink}`,
 			move
 		])),
-		`[${ROLE}~="field"]:focus{${imp([
+		!accents && `[data-cbm-v~="field"]:focus{${imp([
 			`border-color:${t.primary}`,
 			`outline:2px solid ${mix(t.primary, bg, .35)}`,
 			"outline-offset:1px"
@@ -1732,7 +2785,7 @@ function vividCss(t) {
 			`box-shadow:0 8px 20px -10px ${t.primary}`,
 			move
 		])),
-		`[${ROLE}~="btn"]:hover{${imp([
+		`${accents ? `[${ROLE}~="btn"]:hover,[${ROLE}~="btn-inv"]:hover` : `[${ROLE}~="btn"]:hover`}{${imp([
 			`background-color:${btnHover}`,
 			`border-color:${btnHover}`,
 			`color:${onBtnHover}`,
@@ -1760,13 +2813,13 @@ function vividCss(t) {
 			`border-color:${onPrimary}`,
 			move
 		])),
-		`[${ROLE}~="btn-inv"]:hover{${imp(["transform:translateY(-1px)", `box-shadow:0 10px 24px -12px ${t.shadow}`])}}`,
+		!accents && `[data-cbm-v~="btn-inv"]:hover{${imp(["transform:translateY(-1px)", `box-shadow:0 10px 24px -12px ${t.shadow}`])}}`,
 		r("btn-inv-in", imp([`color:${firstReadable([
 			t.primary,
 			t["primary-dark"],
 			ink
 		], [onPrimary], MIN_TEXT)}`]))
-	].join("\n");
+	].filter(Boolean).join("\n");
 }
 //#endregion
 //#region src/recolour.js
@@ -1890,6 +2943,7 @@ function createRecolourer({ colourful = false } = {}) {
 	vividSheet.dataset.colorsbymax = "vivid";
 	document.head.append(vividSheet);
 	let vivid = colourful;
+	let vividOpts = {};
 	const { roles } = inferRoles(collectColors());
 	const site = themeFromRoles(roles);
 	const plain = !roles.primary;
@@ -2129,12 +3183,22 @@ function createRecolourer({ colourful = false } = {}) {
 		apply(tokens) {
 			theme = tokens;
 			sheet.textContent = tokens ? [...entries.values()].map(rule).join("") + logoRules() : "";
-			vividSheet.textContent = tokens && vivid ? vividCss(tokens) : "";
+			vividSheet.textContent = tokens && vivid ? vividCss(tokens, {
+				...vividOpts,
+				accents: vivid === "accents"
+			}) : "";
 		},
-		/** Colourful (true) paints the page's parts by role; Subtle (false) only swaps its colours. */
-		setColourful(on) {
+		/**
+		* How the page's parts are painted by role on top of the swaps: true (Colourful) all of them,
+		* 'accents' (Subtle) only buttons, links, badges and highlights, false (Balanced) none.
+		*/
+		setColourful(on, opts = {}) {
 			vivid = on;
-			vividSheet.textContent = theme && vivid ? vividCss(theme) : "";
+			vividOpts = opts;
+			vividSheet.textContent = theme && vivid ? vividCss(theme, {
+				...vividOpts,
+				accents: vivid === "accents"
+			}) : "";
 		},
 		/** Whether the logo is re-coloured with the rest (off keeps it in its own colours). */
 		setLogoColouring(on) {
@@ -2157,96 +3221,146 @@ function createRecolourer({ colourful = false } = {}) {
 		}
 	};
 }
-/** A path as colorsbymax compares it: no query or hash, no trailing slash (but "/" for the home page). */
-function normalPath(input) {
-	if (typeof input !== "string") return null;
-	let p = input.trim().split(/[?#]/)[0];
-	if (!p) return null;
+//#endregion
+//#region src/images.js
+var SAMPLE = 48;
+var MAX_PICTURES = 8;
+var shownArea = (img) => {
+	const r = img.getBoundingClientRect();
+	return r.width > 0 && r.height > 0 ? r.width * r.height : 0;
+};
+/** A picture's pixels, scaled down; null when it can't be read (another site's, not loaded). */
+function pixelsOf(img) {
 	try {
-		if (/^https?:\/\//i.test(p)) {
-			const url = new URL(p);
-			if (url.origin !== location.origin) return null;
-			p = url.pathname;
-		}
+		const w = img.naturalWidth;
+		const h = img.naturalHeight;
+		const scale = Math.min(1, SAMPLE / Math.max(w, h));
+		const canvas = document.createElement("canvas");
+		canvas.width = Math.max(1, Math.round(w * scale));
+		canvas.height = Math.max(1, Math.round(h * scale));
+		const ctx = canvas.getContext("2d", { willReadFrequently: true });
+		ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+		return ctx.getImageData(0, 0, canvas.width, canvas.height).data;
 	} catch {
 		return null;
 	}
-	if (!p.startsWith("/")) p = `/${p}`;
-	const section = p.endsWith("/*");
-	p = p.replace(/\/\*$/, "").replace(/\/+/g, "/").replace(/\/$/, "");
-	if (!/^[\w\-./~%@+:]*$/.test(p) || p.length > 200) return null;
-	return section ? `${p}/*` : p || "/";
 }
-/** A clean list of pages: valid, without duplicates, at most MAX_PAGES. */
-var cleanPages = (list) => [...new Set((Array.isArray(list) ? list : []).map(normalPath).filter(Boolean))].slice(0, 50);
+/** The main colours in the site's logo and biggest pictures, most used first. */
+function imageColours() {
+	const pictures = [...document.images].filter((img) => img.complete && img.naturalWidth >= 24 && shownArea(img) && !img.closest("colorsbymax-root, [data-colorsbymax]"));
+	const logos = pictures.filter((img) => img.closest(LOGO_SELECTOR));
+	const photos = pictures.filter((img) => !logos.includes(img)).sort((a, b) => shownArea(b) - shownArea(a)).slice(0, MAX_PICTURES);
+	const sets = [...logos.slice(0, 2), ...photos].map(pixelsOf).filter(Boolean);
+	return sets.length ? dominantColours(sets) : [];
+}
+/** The picture colour to tint with: the most used one with real colour in it (no greys, black or white). */
+function tintOf(colours) {
+	return colours.find((hex) => {
+		const [, s, l] = rgbToHsl(hexToRgb(hex));
+		return s >= .22 && l > .18 && l < .85;
+	}) ?? null;
+}
+/** The ten, in the order a card shows them. */
+var SWATCH_KEYS = [
+	"primary",
+	"primary-alt",
+	"primary-dark",
+	"secondary",
+	"background",
+	"ink",
+	"data-1",
+	"data-2",
+	"data-3",
+	"data-4"
+];
+var CHART = [
+	"data-1",
+	"data-2",
+	"data-3",
+	"data-4"
+];
+var HIDDEN_CHART = [
+	"data-5",
+	"data-6",
+	"data-7",
+	"data-8"
+];
+var hslOf$1 = (hex) => rgbToHsl(hexToRgb(hex));
+var hueGap$1 = (a, b) => {
+	const d = Math.abs(a - b);
+	return Math.min(d, 360 - d);
+};
+var clampColours = (n) => Math.min(10, Math.max(5, Math.round(Number(n) || 10)));
+/** How far a colour's hue is from the theme's brand colours (0 = one of them); greys fit anything. */
+function misfit(tokens, key) {
+	const [h, s] = hslOf$1(tokens[key]);
+	if (s < .15) return 0;
+	const brand = ["primary", "primary-alt"].map((k) => hslOf$1(tokens[k])).filter(([, bs]) => bs >= .15);
+	if (!brand.length) return 90;
+	return Math.min(...brand.map(([bh]) => hueGap$1(h, bh)));
+}
+/** The swatch keys a theme keeps at `count` colours, in card order. */
+function paletteKeys(tokens, count = 10) {
+	const n = clampColours(count);
+	if (n >= 10) return SWATCH_KEYS;
+	const extras = ["secondary", ...[...CHART].sort((a, b) => misfit(tokens, a) - misfit(tokens, b))];
+	const kept = /* @__PURE__ */ new Set([
+		"primary",
+		"primary-alt",
+		"primary-dark",
+		"background",
+		"ink",
+		...extras.slice(0, n - 5)
+	]);
+	return SWATCH_KEYS.filter((k) => kept.has(k));
+}
+/** Same hue and saturation as `hex`, at lightness `l`. */
+var atLightness = (hex, l) => {
+	const [h, s] = hslOf$1(hex);
+	return rgbToHex(hslToRgb([
+		h,
+		s,
+		l
+	]));
+};
 /**
-* The scope a visitor chose, or null for none (the site's `pages` config, else the whole site).
-* @returns {{ mode: 'all' | 'pages', pages: string[] } | null}
+* A theme's tokens using only `count` of its colours. Chart colours that go are painted with
+* the ones that stay (brand colours first), at their own lightness so charts keep their
+* contrast; a soft tint that goes becomes a tint of the brand colour. The colours it replaces are
+* then run through the contrast fixes (lightness only), so a smaller palette still reads.
 */
-function cleanScope(input) {
-	if (!input || typeof input !== "object") return null;
-	return {
-		mode: input.mode === "pages" ? "pages" : "all",
-		pages: cleanPages(input.pages)
-	};
-}
-/** Whether a page gets the colours. */
-var pageMatches = (page, path) => page.endsWith("/*") ? path === page.slice(0, -2) || path.startsWith(page.slice(0, -1)) : path === page;
-var inScope = (scope, path) => !scope || scope.mode !== "pages" || scope.pages.some((p) => pageMatches(p, path));
-var NAVIGATE = "colorsbymax:navigate";
-var WATCHED = Symbol.for("colorsbymax.history");
-function watchHistory() {
-	if (history[WATCHED]) return;
-	history[WATCHED] = true;
-	for (const method of ["pushState", "replaceState"]) {
-		const original = history[method];
-		history[method] = function(...args) {
-			const result = original.apply(this, args);
-			window.dispatchEvent(new Event(NAVIGATE));
-			return result;
-		};
+function reducePalette(tokens, count = 10) {
+	const n = clampColours(count);
+	if (n >= 10) return tokens;
+	const kept = new Set(paletteKeys(tokens, n));
+	const out = { ...tokens };
+	const replaced = /* @__PURE__ */ new Set();
+	const pool = [
+		"primary",
+		"primary-alt",
+		...CHART.filter((k) => kept.has(k))
+	].map((k) => tokens[k]);
+	[...CHART.filter((k) => !kept.has(k)), ...HIDDEN_CHART].forEach((key, i) => {
+		if (!tokens[key]) return;
+		out[key] = atLightness(pool[i % pool.length], hslOf$1(tokens[key])[2]);
+		replaced.add(key);
+	});
+	if (!kept.has("secondary")) {
+		out.secondary = mix(tokens.primary, tokens.background, .14);
+		out["on-secondary"] = [
+			tokens["on-secondary"],
+			tokens["primary-dark"],
+			tokens.ink
+		].find((c) => c && contrastRatio(c, out.secondary) >= 4.5) ?? tokens.ink;
+		replaced.add("secondary").add("on-secondary");
 	}
+	for (const [key, value] of Object.entries(fixAll(out))) if (replaced.has(key)) out[key] = value;
+	return out;
 }
-/** The current page's path, following a single-page app's navigation too. */
-function usePathname() {
-	const [path, setPath] = useState(() => normalPath(location.pathname) ?? "/");
-	useEffect(() => {
-		watchHistory();
-		const update = () => setPath(normalPath(location.pathname) ?? "/");
-		window.addEventListener(NAVIGATE, update);
-		window.addEventListener("popstate", update);
-		update();
-		return () => {
-			window.removeEventListener(NAVIGATE, update);
-			window.removeEventListener("popstate", update);
-		};
-	}, []);
-	return path;
-}
-var FILE = /\.(?!html?$)[a-z0-9]{2,5}$/i;
-/** The site's pages this page links to (its nav, footer and so on), for Studio to offer. */
-function linkedPages(max = 30) {
-	const found = /* @__PURE__ */ new Set();
-	for (const a of document.querySelectorAll("a[href]")) {
-		if (a.closest("colorsbymax-root, [data-colorsbymax]")) continue;
-		const href = a.getAttribute("href");
-		if (!href || /^(mailto|tel|javascript):/i.test(href) || href.startsWith("#")) continue;
-		let url;
-		try {
-			url = new URL(href, location.href);
-		} catch {
-			continue;
-		}
-		if (url.origin !== location.origin || FILE.test(url.pathname)) continue;
-		const path = normalPath(url.pathname);
-		if (path) found.add(path);
-		if (found.size >= max) break;
-	}
-	return [...found];
-}
-/** The config line that gives every visitor these pages. */
-var pagesSnippet = (pages) => `// Add to your colorsbymax config (the autoMount({...}) call, or the config passed to <ThemeProvider>):\npages: ${JSON.stringify(pages, null, 2)},`;
-var pagesPrompt = (pages) => `In my colorsbymax config (the autoMount({...}) call, or the config passed to <ThemeProvider>), set pages: ${JSON.stringify(pages)} so the theme only colours those pages and every other page keeps its own colours. A path ending in /* covers that section and every page under it. If the site uses import 'colorsbymax/auto', replace it with import { autoMount } from 'colorsbymax/auto' and an autoMount({ pages: [...] }) call. Don't change anything else.`;
+/** A theme's saved colour count: its own, or the visitor's default for every theme. */
+var coloursFor = (sizes, themeId, fallback = 10) => clampColours(sizes?.[baseId(themeId)] ?? fallback);
+/** Light and dark versions of a theme share one count. */
+var baseId = (id) => String(id).replace(/~dark$/, "");
 //#endregion
 //#region src/settings.js
 /**
@@ -2264,8 +3378,10 @@ var pagesPrompt = (pages) => `In my colorsbymax config (the autoMount({...}) cal
 * @property {boolean} libraryCollapsed  Whether the library's category chips are folded away
 * @property {boolean} colourLogo  Whether themes re-colour the site's logo too (off keeps its own colours)
 * @property {number} paletteSize  How many of a theme's ten colours every theme uses (5 to 10; 5 to start, the core ones)
-* @property {'colourful' | 'subtle'} colourStyle  On a re-coloured site: 'colourful' paints its parts by role
-*   (header, hero, sections, cards, buttons, footer), 'subtle' only swaps the colours it already has
+* @property {'subtle' | 'balanced' | 'colourful'} colourStyle  How boldly the site takes a theme: 'subtle'
+*   keeps its own backgrounds and text, 'balanced' is the theme as designed, 'colourful' an overhaul
+* @property {number} colourStrength  How strongly Colourful paints, 0 (a light wash) to 100 (bold)
+* @property {boolean} imageTints  Whether Colourful tints the page with colours from the site's own pictures
 * @property {boolean} hideButton  Hidden on this device from the finish screen (Alt+Shift+C brings it back)
 */
 /** @type {PanelSettings} */
@@ -2284,6 +3400,8 @@ var DEFAULT_SETTINGS = {
 	colourLogo: false,
 	colourStyle: "colourful",
 	paletteSize: 5,
+	colourStrength: 50,
+	imageTints: true,
 	hideButton: false
 };
 /** Size presets offered in settings; dragging an edge gives a custom size instead. */
@@ -2323,7 +3441,13 @@ function loadSettings(storageKey, defaults = DEFAULT_SETTINGS) {
 			"dark",
 			"system"
 		].includes(out.mode)) out.mode = defaults.mode;
-		if (!["colourful", "subtle"].includes(out.colourStyle)) out.colourStyle = defaults.colourStyle;
+		if (![
+			"subtle",
+			"balanced",
+			"colourful"
+		].includes(out.colourStyle)) out.colourStyle = defaults.colourStyle;
+		if (!Number.isFinite(out.colourStrength) || out.colourStrength < 0 || out.colourStrength > 100) out.colourStrength = defaults.colourStrength;
+		if (typeof out.imageTints !== "boolean") out.imageTints = defaults.imageTints;
 		if (!Number.isInteger(out.paletteSize) || out.paletteSize < 5 || out.paletteSize > 10) out.paletteSize = defaults.paletteSize;
 		const size = (v) => typeof v === "number" && v > 0 && v < 1e4;
 		out.panelWidth = size(saved.panelWidth) ? saved.panelWidth : null;
@@ -2381,6 +3505,7 @@ var VERSION = 1;
 * @property {{ mode: 'all' | 'pages', pages: string[] } | null} scope  Where the colours go, chosen in
 *   Studio (null: the site's `pages` config, else the whole site)
 * @property {string[]} seen  Pages of the site this visitor has opened, newest first, for Studio
+* @property {object[]} paints  Parts of pages coloured by pointing and clicking in Studio
 */
 /** @returns {ThemeState} */
 var initialState = (defaultId) => ({
@@ -2391,7 +3516,8 @@ var initialState = (defaultId) => ({
 	scanned: null,
 	paletteSizes: {},
 	scope: null,
-	seen: []
+	seen: [],
+	paints: []
 });
 /** Keeps only known token keys with valid hex values. */
 function sanitizeTokens(input) {
@@ -2449,7 +3575,8 @@ function loadState(storageKey, defaultTheme) {
 			scanned,
 			paletteSizes: Object.fromEntries(Object.entries(data.paletteSizes && typeof data.paletteSizes === "object" ? data.paletteSizes : {}).filter(([id, n]) => typeof id === "string" && Number.isInteger(n) && n >= 5 && n <= 10)),
 			scope: cleanScope(data.scope),
-			seen: cleanPages(data.seen).filter((p) => !p.endsWith("/*")).slice(0, 30)
+			seen: cleanPages(data.seen).filter((p) => !p.endsWith("/*")).slice(0, 30),
+			paints: cleanPaints(data.paints)
 		};
 	} catch {
 		return fresh;
@@ -2458,15 +3585,17 @@ function loadState(storageKey, defaultTheme) {
 /**
 * Persists state plus the fully resolved tokens, so the pre-paint script can apply
 * them without knowing about presets, and the pages they go on (`where`, from Studio or the
-* site's `pages` config), so it leaves the other pages alone.
+* site's `pages` config), so it leaves the other pages alone; and Studio's stylesheet for each
+* page with parts coloured by pointing and clicking (`paintCss`), so those show at once too.
 */
-function saveState(storageKey, state, resolved, where = null) {
+function saveState(storageKey, state, resolved, where = null, paintCss = null) {
 	try {
 		window.localStorage.setItem(storageKey, JSON.stringify({
 			v: VERSION,
 			...state,
 			resolved,
-			where: where?.mode === "pages" ? where : null
+			where: where?.mode === "pages" ? where : null,
+			paintCss
 		}));
 	} catch {}
 }
@@ -2498,7 +3627,7 @@ function saveButtonPosition(storageKey, position) {
 * avoiding a flash of the default. Embed it as a classic (non-module) <script>.
 */
 function prePaintScript(storageKey = DEFAULT_STORAGE_KEY) {
-	return `(function(){try{var s=JSON.parse(localStorage.getItem(${JSON.stringify(storageKey)})||'null');var t=s&&s.v===${VERSION}&&s.resolved;if(!t||typeof t!=='object')return;var w=s.where;if(w&&Object.prototype.toString.call(w.pages)==='[object Array]'){var p=location.pathname.replace(/\\/+$/,'')||'/',ok=false;for(var i=0;i<w.pages.length;i++){var g=String(w.pages[i]);if(g.slice(-2)==='/*'?(p===g.slice(0,-2)||p.indexOf(g.slice(0,-1))===0):p===g){ok=true;break}}if(!ok)return}var d=document.documentElement.style;for(var k in t){var v=t[k];if(/^[a-z0-9-]+$/.test(k)&&/^#[0-9a-f]{6}$/i.test(v))d.setProperty('--color-'+k,v)}}catch(e){}})()`;
+	return `(function(){try{var s=JSON.parse(localStorage.getItem(${JSON.stringify(storageKey)})||'null');if(!s||s.v!==${VERSION})return;var p=location.pathname.replace(/\\/+$/,'')||'/';var pc=s.paintCss||{},c=(typeof pc['*']==='string'?pc['*']:'')+(typeof pc[p]==='string'?pc[p]:'');if(c){var e=document.createElement('style');e.setAttribute('data-colorsbymax','studio-early');e.textContent=c;(document.head||document.documentElement).appendChild(e)}var t=s.resolved;if(!t||typeof t!=='object')return;var w=s.where;if(w&&Object.prototype.toString.call(w.pages)==='[object Array]'){var ok=false;for(var i=0;i<w.pages.length;i++){var g=String(w.pages[i]);if(g.slice(-2)==='/*'?(p===g.slice(0,-2)||p.indexOf(g.slice(0,-1))===0):p===g){ok=true;break}}if(!ok)return}var d=document.documentElement.style;for(var k in t){var v=t[k];if(/^[a-z0-9-]+$/.test(k)&&/^#[0-9a-f]{6}$/i.test(v))d.setProperty('--color-'+k,v)}}catch(e){}})()`;
 }
 //#endregion
 //#region src/ThemeProvider.jsx
@@ -2515,7 +3644,7 @@ var removeTokens = () => {
 };
 /** Scrollbar thumb: the theme's primary, softened towards its page background. */
 var SCROLLBAR_THUMB = "color-mix(in srgb, var(--color-primary) 55%, var(--color-background))";
-var newId = () => `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+var newId$1 = () => `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 /**
 * @typedef {Object} ColorsByMaxConfig
 * @property {string} [siteName]      Shown as the first theme group, e.g. "Tsungi"
@@ -2538,10 +3667,15 @@ var newId = () => `custom-${Date.now().toString(36)}-${Math.random().toString(36
 *   `hidden: import.meta.env.PROD` to keep it out of production once the colours are chosen.
 * @property {'bottom-right' | 'bottom-left' | 'top-left' | 'top-right'} [position]  Where the colour
 *   button starts (default 'bottom-right'). 'top-right' sits under a floating nav bar.
-* @property {'colourful' | 'subtle'} [colourStyle]  How boldly a re-coloured site takes a theme, for a
-*   first-time visitor. 'colourful' (default) paints the page's parts by role, as a designer would:
-*   header, hero, alternating sections, cards, buttons, links, headings and footer. 'subtle' only
-*   swaps the colours the site already has. Visitors can switch in the panel.
+* @property {'subtle' | 'balanced' | 'colourful'} [colourStyle]  How boldly the site takes a theme, for a
+*   first-time visitor. 'subtle' keeps the site's own backgrounds, cards and text and brings the theme
+*   in on buttons, links and highlights. 'balanced' is the theme as designed, every colour in its role
+*   (the default on a site painted with the --color-* variables). 'colourful' is an overhaul: tinted
+*   backgrounds, and the page's parts painted by role as a designer would (header, hero, sections,
+*   headings, cards, buttons, links and footer; the default on a site colorsbymax re-colours).
+*   Visitors can switch in the panel.
+* @property {number} [colourStrength]  How strongly Colourful paints for a first-time visitor, 0 (a light
+*   wash) to 100 (bold); default 50. Visitors can change it in the panel.
 * @property {Partial<Record<keyof typeof FEATURES, boolean>>} [features]  Parts of the panel to switch off
 *   for everyone, e.g. { scan: false, audit: false } (all on by default). Unlike the rest of the
 *   config it's read live, so a site can change it after loading (from its own settings).
@@ -2599,6 +3733,12 @@ function resolveSite(config, pageColours) {
 }
 /** @param {{ config?: ColorsByMaxConfig, children: import('react').ReactNode }} props */
 /** Parts of the panel a site can switch off for everyone (config `features`). All on by default. */
+/** How boldly a site can take a theme, from least to most. */
+var COLOUR_STYLES$1 = [
+	"subtle",
+	"balanced",
+	"colourful"
+];
 var FEATURES = {
 	picks: true,
 	library: true,
@@ -2662,22 +3802,25 @@ function ThemeProvider({ config = {}, children }) {
 			seen: [pathname, ...s.seen.filter((p) => p !== pathname)].slice(0, 30)
 		});
 	}, [pathname]);
+	const paints = features.studio ? state.paints : [];
+	const pagePaintCss = useMemo(() => {
+		const byPage = {};
+		for (const p of paints) (byPage[pageOf(p)] ??= []).push(p);
+		const css = Object.fromEntries(Object.entries(byPage).map(([page, list]) => [page, paintCss(list, page === "*" || inScope(scope, page))]));
+		return Object.keys(css).length ? css : null;
+	}, [paints, scope]);
 	useLayoutEffect(() => {
-		if (here) applyTokens(tokens);
-		else removeTokens();
-		saveState(storageKey, {
-			...state,
-			activeId: base.id
-		}, tokens, scope);
-	}, [
-		tokens,
-		state,
-		base.id,
-		storageKey,
-		here,
-		scope
-	]);
+		document.querySelectorAll("style[data-colorsbymax=\"studio-early\"]").forEach((el) => el.remove());
+		const css = (pagePaintCss?.["*"] ?? "") + (pagePaintCss?.[pathname] ?? "");
+		if (!css) return;
+		const style = document.createElement("style");
+		style.dataset.colorsbymax = "studio";
+		style.textContent = css;
+		document.head.append(style);
+		return () => style.remove();
+	}, [pagePaintCss, pathname]);
 	const recolourMode = initialConfig.recolour ?? "auto";
+	const [recolours] = useState(() => recolourMode === true || recolourMode === "auto" && !usesColourTokens());
 	const recolourer = useRef(null);
 	useLayoutEffect(() => {
 		if (recolourMode === false || recolourMode === "auto" && usesColourTokens()) return;
@@ -2692,29 +3835,36 @@ function ThemeProvider({ config = {}, children }) {
 	const settingDefaults = useMemo(() => ({
 		...DEFAULT_SETTINGS,
 		colourLogo: Boolean(initialConfig.colourLogo),
-		colourStyle: initialConfig.colourStyle === "subtle" ? "subtle" : "colourful",
+		colourStrength: Number.isFinite(initialConfig.colourStrength) ? Math.min(100, Math.max(0, initialConfig.colourStrength)) : DEFAULT_SETTINGS.colourStrength,
+		colourStyle: COLOUR_STYLES$1.includes(initialConfig.colourStyle) ? initialConfig.colourStyle : recolours ? "colourful" : "balanced",
 		mode: [
 			"light",
 			"dark",
 			"system"
 		].includes(initialConfig.defaultMode) ? initialConfig.defaultMode : DEFAULT_SETTINGS.mode
-	}), [initialConfig]);
+	}), [initialConfig, recolours]);
 	const [logoColouring, setLogoColouring] = useState(() => loadSettings(storageKey, settingDefaults).colourLogo);
 	useLayoutEffect(() => {
 		recolourer.current?.setLogoColouring(logoColouring);
 	}, [logoColouring, pageColours]);
 	const [colourStyle, setColourStyle] = useState(() => loadSettings(storageKey, settingDefaults).colourStyle);
+	const [colourStrength, setColourStrength] = useState(() => loadSettings(storageKey, settingDefaults).colourStrength);
+	const [imageTints, setImageTints] = useState(() => loadSettings(storageKey, settingDefaults).imageTints);
+	const [pictureColours, setPictureColours] = useState([]);
+	const vividOpts = useMemo(() => ({
+		strength: colourStrength / 100,
+		tint: imageTints ? tintOf(pictureColours) : null
+	}), [
+		colourStrength,
+		imageTints,
+		pictureColours
+	]);
 	useLayoutEffect(() => {
-		recolourer.current?.setColourful(colourStyle === "colourful");
-	}, [colourStyle, pageColours]);
-	useLayoutEffect(() => {
-		if (!pageColours && here) applyTokens(colourStyle === "subtle" ? subtleTokens(tokens) : tokens);
+		recolourer.current?.setColourful(colourStyle === "colourful" ? true : colourStyle === "subtle" ? "accents" : false, vividOpts);
 	}, [
-		tokens,
-		state,
 		colourStyle,
 		pageColours,
-		here
+		vividOpts
 	]);
 	useLayoutEffect(() => {
 		if (logoColouring || pageColours || !here) return;
@@ -2730,14 +3880,6 @@ function ThemeProvider({ config = {}, children }) {
 		here
 	]);
 	const original = (base.id === "site-original" || base.id === defaultTheme.id && !initialConfig.defaultTheme) && !Object.keys(state.overrides).length;
-	useLayoutEffect(() => {
-		recolourer.current?.apply(original || !here ? null : tokens);
-	}, [
-		tokens,
-		original,
-		pageColours,
-		here
-	]);
 	const themeScrollbars = config.scrollbars !== false;
 	useLayoutEffect(() => {
 		if (!themeScrollbars) return;
@@ -2787,6 +3929,74 @@ function ThemeProvider({ config = {}, children }) {
 	const mode = modeSetting === "system" ? prefersDark ? "dark" : "light" : modeSetting;
 	const modeRef = useRef(mode);
 	modeRef.current = mode;
+	const siteTokens = useMemo(() => inMode(defaultTheme, mode).tokens, [defaultTheme, mode]);
+	const applied = useMemo(() => colourStyle === "subtle" ? accentTokens(tokens, siteTokens) : colourStyle === "colourful" ? vividTokens(tokens, vividOpts) : tokens, [
+		tokens,
+		siteTokens,
+		colourStyle,
+		vividOpts
+	]);
+	useEffect(() => {
+		if (colourStyle !== "colourful" || !imageTints) return;
+		const read = () => setPictureColours((old) => {
+			const next = imageColours();
+			return next.join() === old.join() ? old : next;
+		});
+		const timer = setTimeout(read, 400);
+		window.addEventListener("load", read);
+		return () => {
+			clearTimeout(timer);
+			window.removeEventListener("load", read);
+		};
+	}, [
+		colourStyle,
+		imageTints,
+		pathname
+	]);
+	useLayoutEffect(() => {
+		if (here) applyTokens(applied);
+		else removeTokens();
+		saveState(storageKey, {
+			...state,
+			activeId: base.id
+		}, applied, scope, pagePaintCss);
+	}, [
+		applied,
+		state,
+		base.id,
+		storageKey,
+		here,
+		scope,
+		pagePaintCss
+	]);
+	useLayoutEffect(() => {
+		recolourer.current?.apply(original || !here ? null : applied);
+	}, [
+		applied,
+		original,
+		pageColours,
+		here
+	]);
+	const guard = useRef(null);
+	useEffect(() => {
+		const g = createGuard();
+		guard.current = g;
+		return () => {
+			g.stop();
+			guard.current = null;
+		};
+	}, []);
+	useEffect(() => {
+		guard.current?.check(here ? applied : null);
+	}, [
+		applied,
+		here,
+		pathname,
+		colourStyle,
+		pageColours,
+		logoColouring,
+		pagePaintCss
+	]);
 	const setMode = useCallback((next) => {
 		if (![
 			"light",
@@ -2868,8 +4078,17 @@ function ThemeProvider({ config = {}, children }) {
 		recolouring: Boolean(pageColours),
 		/** Turns re-colouring of the site's logo on or off (the switcher's "Colour the logo" setting). */
 		setLogoColouring,
-		/** Sets how boldly a re-coloured site takes the theme: 'colourful' or 'subtle'. */
+		/** Sets how boldly the site takes the theme: 'subtle', 'balanced' or 'colourful'. */
 		setColourStyle,
+		colourStyle,
+		/** Colourful's strength (0 to 100) and image tints, set from the switcher's settings. */
+		setColourStrength,
+		setImageTints,
+		/** The main colours of the site's logo and pictures, and the one Colourful tints with (or null). */
+		pictureColours,
+		pictureTint: imageTints ? tintOf(pictureColours) : null,
+		/** The colours as the page shows them, in the visitor's colour style. */
+		appliedTokens: applied,
 		/** Which parts of the panel are on (config `features`). */
 		features,
 		/** Where the colours go: { mode: 'all' | 'pages', pages }, and whether this page gets them. */
@@ -2886,6 +4105,31 @@ function ThemeProvider({ config = {}, children }) {
 		})),
 		/** Pages of the site this visitor has opened, newest first. */
 		seenPages: state.seen,
+		/** Parts of pages coloured in Studio by pointing and clicking. */
+		paints: state.paints,
+		/** Adds a paint, or updates the one with its id; one with no colours left is removed. */
+		savePaint: (paint) => setState((s) => {
+			const [clean] = cleanPaints([paint]);
+			const rest = s.paints.filter((p) => p.id !== paint.id);
+			if (!clean || !Object.keys(clean.props).length) return {
+				...s,
+				paints: rest
+			};
+			const paints = s.paints.findIndex((p) => p.id === paint.id) < 0 ? [...rest, clean].slice(-80) : s.paints.map((p) => p.id === paint.id ? clean : p);
+			return {
+				...s,
+				paints
+			};
+		}),
+		removePaint: (id) => setState((s) => ({
+			...s,
+			paints: s.paints.filter((p) => p.id !== id)
+		})),
+		/** Clears Studio's colours, on one page or everywhere. */
+		clearPaints: (page = null) => setState((s) => ({
+			...s,
+			paints: page ? s.paints.filter((p) => p.page !== page) : []
+		})),
 		/** How many colours a theme uses (5 to 10): its own count, or the visitor's default. */
 		coloursOf,
 		/** Sets one theme's colour count (light and dark share it). */
@@ -2908,7 +4152,7 @@ function ThemeProvider({ config = {}, children }) {
 		issues,
 		selectTheme,
 		createCustom: (name) => {
-			const id = newId();
+			const id = newId$1();
 			setState((s) => ({
 				...s,
 				activeId: id,
@@ -3017,7 +4261,7 @@ function ThemeProvider({ config = {}, children }) {
 		},
 		/** Adds tokens as a new custom palette (missing ones filled from the site) and applies it. */
 		addPalette: (name, partialTokens) => {
-			const id = newId();
+			const id = newId$1();
 			const clean = sanitizeTokens(partialTokens);
 			setState((s) => ({
 				...s,
@@ -3284,6 +4528,15 @@ var LibraryBig = icon("library-big", [
 ]);
 var Minus = icon("minus", [["path", { "d": "M5 12h14" }]]);
 var Plus = icon("plus", [["path", { "d": "M5 12h14" }], ["path", { "d": "M12 5v14" }]]);
+var MousePointerClick = icon("mouse-pointer-click", [
+	["path", { "d": "M14 4.1 12 6" }],
+	["path", { "d": "m5.1 8-2.9-.8" }],
+	["path", { "d": "m6 12-1.9 2" }],
+	["path", { "d": "M7.2 2.2 8 5.1" }],
+	["path", { "d": "M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z" }]
+]);
+var ArrowUpLeft = icon("arrow-up-left", [["path", { "d": "M7 17V7h10" }], ["path", { "d": "M17 17 7 7" }]]);
+var ArrowDownRight = icon("arrow-down-right", [["path", { "d": "m7 7 10 10" }], ["path", { "d": "M17 7v10H7" }]]);
 //#endregion
 //#region src/burst.jsx
 var BURST_TIME = 1100;
@@ -3360,206 +4613,6 @@ function useBurst() {
 		celebrate: () => setBurst((n) => n + 1)
 	};
 }
-/** Images are scaled down to at most this many pixels on their longest side before sampling. */
-var SAMPLE_SIZE = 200;
-/** PDF pages read, from the first. */
-var MAX_PDF_PAGES = 3;
-/** Colours closer than this (CIE76 ΔE) count as one. */
-var MERGE_DELTA_E = 12;
-/** Colours covering less than this share of the sampled pixels are ignored. */
-var MIN_SHARE = .004;
-/** How close (CIE76 ΔE) a colour must be to a mix of two others to count as their edge blend. */
-var BLEND_DELTA_E = 6;
-var HEX_IN_TEXT = /#([0-9a-f]{6}|[0-9a-f]{3})\b/gi;
-var hslOf$1 = (hex) => rgbToHsl(hexToRgb(hex));
-/**
-* The main colours in an image or PDF, most important first.
-* @param {File} file
-* @param {{ loadPdf?: (() => Promise<any>) | null }} [options]  PDF support, from 'colorsbymax/pdf'
-* @returns {Promise<{ colours: string[], from: 'image' | 'pdf-text' | 'pdf' }>}
-*/
-async function coloursFromFile(file, { loadPdf = null } = {}) {
-	if (file.size > 26214400) throw new Error("That file is over 25 MB. Try a smaller one.");
-	if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
-		if (!loadPdf) throw new Error("PDFs aren’t supported on this site. Try an image of the palette instead.");
-		return coloursFromPdf(file, loadPdf);
-	}
-	if (!file.type.startsWith("image/")) throw new Error(`Choose an image (PNG, JPG, WebP, SVG…)${loadPdf ? " or a PDF" : ""}.`);
-	const bitmap = await loadImage(file);
-	return {
-		colours: dominantColours([pixelsOf(bitmap, bitmap.width, bitmap.height)]),
-		from: "image"
-	};
-}
-function loadImage(file) {
-	return new Promise((resolve, reject) => {
-		const url = URL.createObjectURL(file);
-		const img = new Image();
-		img.onload = () => {
-			URL.revokeObjectURL(url);
-			resolve(img);
-		};
-		img.onerror = () => {
-			URL.revokeObjectURL(url);
-			reject(/* @__PURE__ */ new Error("Couldn’t read that image. Try a PNG or JPG."));
-		};
-		img.src = url;
-	});
-}
-/** Draws a source scaled down to SAMPLE_SIZE and returns its RGBA pixels. */
-function pixelsOf(source, width, height) {
-	const scale = Math.min(1, SAMPLE_SIZE / Math.max(width, height));
-	const canvas = document.createElement("canvas");
-	canvas.width = Math.max(1, Math.round(width * scale));
-	canvas.height = Math.max(1, Math.round(height * scale));
-	const ctx = canvas.getContext("2d", { willReadFrequently: true });
-	ctx.imageSmoothingEnabled = false;
-	ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
-	return ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-}
-/**
-* Buckets pixels into a coarse colour grid, then folds similar buckets together and keeps the
-* ones covering a real share of the picture.
-* @param {Uint8ClampedArray[]} pixelSets
-*/
-function dominantColours(pixelSets) {
-	const buckets = /* @__PURE__ */ new Map();
-	let total = 0;
-	for (const data of pixelSets) for (let i = 0; i < data.length; i += 4) {
-		if (data[i + 3] < 128) continue;
-		const key = data[i] >> 3 << 10 | data[i + 1] >> 3 << 5 | data[i + 2] >> 3;
-		let b = buckets.get(key);
-		if (!b) buckets.set(key, b = {
-			r: 0,
-			g: 0,
-			b: 0,
-			n: 0
-		});
-		b.r += data[i];
-		b.g += data[i + 1];
-		b.b += data[i + 2];
-		b.n++;
-		total++;
-	}
-	const merged = [];
-	for (const b of [...buckets.values()].sort((x, y) => y.n - x.n)) {
-		const hex = rgbToHex([
-			b.r / b.n,
-			b.g / b.n,
-			b.b / b.n
-		].map(Math.round));
-		const into = merged.find((m) => deltaE(m.hex, hex) < MERGE_DELTA_E);
-		if (into) into.n += b.n;
-		else merged.push({
-			hex,
-			n: b.n
-		});
-	}
-	const kept = [];
-	for (const m of merged.filter((m) => m.n / total >= MIN_SHARE).sort((a, b) => b.n - a.n)) if (!isEdgeBlend(m, kept)) kept.push(m);
-	return kept.slice(0, 8).map((m) => m.hex);
-}
-/**
-* True for a colour that is just the anti-aliased edge between two much more common ones:
-* it sits on the line between them and covers far less of the picture.
-*/
-function isEdgeBlend(m, kept) {
-	for (const a of kept) for (const b of kept) {
-		if (a === b || m.n * 3 > Math.min(a.n, b.n)) continue;
-		for (let t = .15; t <= .85; t += .05) if (deltaE(m.hex, mix(a.hex, b.hex, t)) < BLEND_DELTA_E) return true;
-	}
-	return false;
-}
-async function coloursFromPdf(file, loadPdf) {
-	let pdfjs;
-	try {
-		pdfjs = await loadPdf();
-	} catch {
-		throw new Error("Couldn’t load the PDF reader. Check your connection and try again.");
-	}
-	const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
-	let doc;
-	try {
-		doc = await task.promise;
-	} catch {
-		throw new Error("Couldn’t open that PDF. It may be damaged or password-protected.");
-	}
-	try {
-		const written = [];
-		const pixelSets = [];
-		for (let n = 1; n <= Math.min(MAX_PDF_PAGES, doc.numPages); n++) {
-			const page = await doc.getPage(n);
-			const text = await page.getTextContent();
-			for (const item of text.items) for (const m of (item.str ?? "").matchAll(HEX_IN_TEXT)) written.push(expandHex(m[1]));
-			const base = page.getViewport({ scale: 1 });
-			const viewport = page.getViewport({ scale: Math.min(2, 400 / Math.max(base.width, base.height)) });
-			const canvas = document.createElement("canvas");
-			canvas.width = Math.ceil(viewport.width);
-			canvas.height = Math.ceil(viewport.height);
-			await page.render({
-				canvas,
-				canvasContext: canvas.getContext("2d"),
-				viewport
-			}).promise;
-			pixelSets.push(pixelsOf(canvas, canvas.width, canvas.height));
-		}
-		const distinct = [];
-		for (const hex of written) if (!distinct.some((d) => deltaE(d, hex) < 2)) distinct.push(hex);
-		if (distinct.length >= 2) return {
-			colours: distinct.slice(0, 8),
-			from: "pdf-text"
-		};
-		return {
-			colours: dominantColours(pixelSets),
-			from: "pdf"
-		};
-	} finally {
-		task.destroy();
-	}
-}
-var expandHex = (h) => `#${(h.length === 3 ? h.replace(/./g, (c) => c + c) : h).toLowerCase()}`;
-/**
-* Assigns a palette's colours to theme roles: the most vivid becomes primary, a very light one
-* the page background, a very dark one the text, and every colour feeds the data set.
-* @param {string[]} colours  most important first
-*/
-function rolesFromPalette(colours) {
-	const info = colours.map((hex, i) => {
-		const [h, s, l] = hslOf$1(hex);
-		return {
-			hex,
-			h,
-			s,
-			l,
-			score: s * (1 - Math.abs(l - .5) * 1.4) * (1 - i * .04)
-		};
-	});
-	const accents = info.filter((c) => c.s >= .2 && c.l >= .15 && c.l <= .85).sort((a, b) => b.score - a.score);
-	const byLight = [...info].sort((a, b) => b.l - a.l);
-	const roles = {};
-	const background = byLight.find((c) => c.l >= .93);
-	if (background) roles.background = background.hex;
-	const bg = roles.background ?? "#ffffff";
-	const ink = [...byLight].reverse().find((c) => c.l <= .25 && contrastRatio(c.hex, bg) >= 7);
-	if (ink) roles.ink = ink.hex;
-	const primary = accents[0] ?? [...info].sort((a, b) => Math.abs(a.l - .45) - Math.abs(b.l - .45))[0];
-	roles.primary = primary.hex;
-	const hueDist = (a, b) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b));
-	const alt = accents.find((c) => c !== primary && hueDist(c.h, primary.h) >= 20) ?? accents.find((c) => c !== primary);
-	if (alt) roles["primary-alt"] = alt.hex;
-	const tint = info.find((c) => c.l >= .8 && c.l < .93 && c.s >= .1);
-	if (tint) roles.secondary = tint.hex;
-	[...accents, ...info.filter((c) => !accents.includes(c) && c !== background && c !== ink)].slice(0, 8).forEach((c, i) => roles[`data-${i + 1}`] = c.hex);
-	return roles;
-}
-/** A complete theme built around a palette, adjusted to pass contrast. */
-function themeFromPalette(colours) {
-	const tokens = themeFromRoles(rolesFromPalette(colours));
-	return {
-		...tokens,
-		...fixAll(tokens)
-	};
-}
 //#endregion
 //#region src/finish.js
 /** The production check for Vite projects; other bundlers use NODE_ENV. */
@@ -3569,15 +4622,17 @@ var tokenLines = (tokens, indent) => TOKEN_KEYS.map((k) => `${indent}'${k}': '${
 /**
 * Code that makes the chosen colours the site's default and hides the switcher in production.
 * @param {'auto' | 'provider'} kind  the one-line setup (autoMount) or ThemeProvider
+* @param {'subtle' | 'balanced' | 'colourful'} [style]  the colour style to keep with them
 */
-function keepSnippet(kind, name, tokens, prod = VITE_PROD) {
-	const theme = `defaultTheme: {\n    name: ${JSON.stringify(name)},\n    tokens: {\n${tokenLines(tokens, "      ")}\n    },\n  },\n  // Hides the colour button in production; set to false to bring it back.\n  hidden: ${prod},`;
+function keepSnippet(kind, name, tokens, prod = VITE_PROD, style = null) {
+	const styleLine = style ? `\n  // How boldly the colours paint the site: 'subtle', 'balanced' or 'colourful'.\n  colourStyle: '${style}',` : "";
+	const theme = `defaultTheme: {\n    name: ${JSON.stringify(name)},\n    tokens: {\n${tokenLines(tokens, "      ")}\n    },\n  },${styleLine}\n  // Hides the colour button in production; set to false to bring it back.\n  hidden: ${prod},`;
 	if (kind === "auto") return `// Replace \`import 'colorsbymax/auto'\` with:\nimport { autoMount } from 'colorsbymax/auto'\n\nautoMount({\n  ${theme}\n})`;
 	return `// Add to the config you pass to <ThemeProvider>:\n<ThemeProvider config={{\n  ...config,\n  ${theme}\n}}>`;
 }
 /** The theme as `--color-*` variables on :root. */
 var cssSnippet = (tokens) => `:root {\n${TOKEN_KEYS.map((k) => `  --color-${k}: ${tokens[k]};`).join("\n")}\n}`;
-var keepPrompt = (name, tokens) => `Update my colorsbymax setup so the colours I chose become my site's default and the colour switcher is hidden in production. In the colorsbymax config (the autoMount({...}) call, or the config passed to <ThemeProvider>), set defaultTheme to { name: ${JSON.stringify(name)}, tokens: ${JSON.stringify(tokens)} } and set hidden: ${VITE_PROD} (use ${NODE_PROD} if this isn't a Vite project). If the site uses import 'colorsbymax/auto', replace it with import { autoMount } from 'colorsbymax/auto' and an autoMount({...}) call with that config. Don't change anything else.`;
+var keepPrompt = (name, tokens, style = null) => `Update my colorsbymax setup so the colours I chose become my site's default and the colour switcher is hidden in production. In the colorsbymax config (the autoMount({...}) call, or the config passed to <ThemeProvider>), set defaultTheme to { name: ${JSON.stringify(name)}, tokens: ${JSON.stringify(tokens)} }${style ? `, set colourStyle: '${style}'` : ""} and set hidden: ${VITE_PROD} (use ${NODE_PROD} if this isn't a Vite project). If the site uses import 'colorsbymax/auto', replace it with import { autoMount } from 'colorsbymax/auto' and an autoMount({...}) call with that config. Don't change anything else.`;
 /** @param {boolean} recolouring  true when colorsbymax was swapping the site's hard-coded colours */
 var removePrompt = (tokens, recolouring) => recolouring ? `Remove colorsbymax from this project but keep the colours it currently shows. The site's CSS uses hard-coded colours that colorsbymax was swapping at runtime, so update the site's own CSS to use this palette instead (primary is the main brand colour, background the page, ink the text): ${JSON.stringify(tokens)}. Then uninstall the colorsbymax package and delete its import (import 'colorsbymax/auto', autoMount, ThemeProvider or ThemeSwitcher) and any colorsbymax pre-paint script in index.html.` : `Remove colorsbymax from this project but keep my colours: add these CSS variables to my global stylesheet, replacing any existing --color-* values: ${cssSnippet(tokens)} Then uninstall the colorsbymax package and delete its usage (ThemeProvider, ThemeSwitcher, autoMount or import 'colorsbymax/auto') and any colorsbymax pre-paint script in index.html. Keep colorsbymax/tokens.css only if nothing else needs it.`;
 /** The switch's markup: a sun in light mode, a moon in dark. */
@@ -3913,7 +4968,8 @@ var ContrastNav = createContext(() => {});
 var PanelContext = createContext({
 	toast: () => {},
 	showGroup: () => {},
-	reveal: null
+	reveal: null,
+	confirmTheme: (run) => run()
 });
 var usePanel = () => useContext(PanelContext);
 /** How long a toast stays up, unless hovered or focused. */
@@ -3968,14 +5024,24 @@ function ThemePanel({ open = true }) {
 			at: Date.now()
 		});
 	}, []);
+	const [themeAsk, setThemeAsk] = useState(null);
+	const askedRef = useRef(false);
+	const paintCount = theme.paints.length;
+	const confirmTheme = useCallback((run) => {
+		if (!paintCount || askedRef.current) return run();
+		setView("main");
+		setThemeAsk({ run });
+	}, [paintCount]);
 	const panelApi = useMemo(() => ({
 		toast,
 		showGroup,
-		reveal
+		reveal,
+		confirmTheme
 	}), [
 		toast,
 		showGroup,
-		reveal
+		reveal,
+		confirmTheme
 	]);
 	const showView = (next, from) => {
 		returnFocus.current = from;
@@ -3986,200 +5052,299 @@ function ThemePanel({ open = true }) {
 		(returnFocus.current.isConnected ? returnFocus.current : rootRef.current?.querySelector("[data-theme-grid] button[aria-pressed=\"true\"]"))?.focus();
 		returnFocus.current = null;
 	}, [view]);
-	const resetToDefault = () => {
+	const resetToDefault = () => confirmTheme(() => {
 		theme.resetToDefault();
 		const target = inMode(theme.defaultTheme, mode);
 		if (mode === "dark") theme.selectTheme(target.id, target);
 		toast(`Back to ${target.name}, with no overrides.`);
-	};
+	});
 	return /* @__PURE__ */ jsxs(PanelContext.Provider, {
 		value: panelApi,
-		children: [/* @__PURE__ */ jsxs("div", {
-			ref: rootRef,
-			onScroll: (e) => {
-				if (open) scrollTop.current = e.currentTarget.scrollTop;
-			},
-			className: "theme-scroll @container flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain rounded-[inherit]",
-			children: [
-				/* @__PURE__ */ jsxs("header", {
-					className: "sticky top-0 z-10 flex flex-wrap items-center justify-between gap-x-3 gap-y-3.5 border-b border-zinc-200 bg-white px-4 py-3",
-					children: [/* @__PURE__ */ jsxs("div", {
-						className: "flex w-full shrink-0 items-center justify-center gap-2 @min-[520px]:w-auto @min-[520px]:justify-start",
-						children: [/* @__PURE__ */ jsx(LogoMark, {
-							tokens: theme.tokens,
-							background: mode === "dark" ? PANEL_DARK : "#ffffff",
-							className: "h-7 w-auto shrink-0"
-						}), /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx("h2", {
-							id: "theme-panel-title",
-							className: "text-base font-semibold tracking-tight",
-							children: "colorsbymax"
-						}), /* @__PURE__ */ jsx("p", {
-							className: "text-[11px] text-zinc-500",
-							children: "by mrmaxdesigns"
-						})] })]
-					}), /* @__PURE__ */ jsxs("div", {
-						className: "flex w-full items-center justify-center gap-1 @min-[520px]:ml-auto @min-[520px]:w-auto",
-						children: [
-							/* @__PURE__ */ jsx("div", {
-								role: "radiogroup",
-								"aria-label": "Theme mode",
-								className: "flex items-center rounded-lg border border-zinc-200 p-0.5",
-								children: MODES.map(({ id, label, Icon }) => {
-									const on = settings.mode === id;
-									return /* @__PURE__ */ jsx("button", {
-										type: "button",
-										role: "radio",
-										"aria-checked": on,
-										"aria-label": label,
-										"data-tip": id === "system" ? "Auto: follow this device" : label,
-										onClick: () => update({ mode: id }),
-										className: `grid h-7 w-7 place-items-center rounded-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 ${on ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"}`,
-										children: /* @__PURE__ */ jsx(Icon, {
-											className: "w-3.5 h-3.5",
-											"aria-hidden": "true"
-										})
-									}, id);
+		children: [
+			/* @__PURE__ */ jsxs("div", {
+				ref: rootRef,
+				onScroll: (e) => {
+					if (open) scrollTop.current = e.currentTarget.scrollTop;
+				},
+				className: "theme-scroll @container flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain rounded-[inherit]",
+				children: [
+					/* @__PURE__ */ jsxs("header", {
+						className: "sticky top-0 z-10 flex flex-wrap items-center justify-between gap-x-3 gap-y-3.5 border-b border-zinc-200 bg-white px-4 py-3",
+						children: [/* @__PURE__ */ jsxs("div", {
+							className: "flex w-full shrink-0 items-center justify-center gap-2 @min-[520px]:w-auto @min-[520px]:justify-start",
+							children: [/* @__PURE__ */ jsx(LogoMark, {
+								tokens: theme.tokens,
+								background: mode === "dark" ? PANEL_DARK : "#ffffff",
+								className: "h-7 w-auto shrink-0"
+							}), /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx("h2", {
+								id: "theme-panel-title",
+								className: "text-base font-semibold tracking-tight",
+								children: "colorsbymax"
+							}), /* @__PURE__ */ jsx("p", {
+								className: "text-[11px] text-zinc-500",
+								children: "by mrmaxdesigns"
+							})] })]
+						}), /* @__PURE__ */ jsxs("div", {
+							className: "flex w-full items-center justify-center gap-1 @min-[520px]:ml-auto @min-[520px]:w-auto",
+							children: [
+								/* @__PURE__ */ jsx("div", {
+									role: "radiogroup",
+									"aria-label": "Theme mode",
+									className: "flex items-center rounded-lg border border-zinc-200 p-0.5",
+									children: MODES.map(({ id, label, Icon }) => {
+										const on = settings.mode === id;
+										return /* @__PURE__ */ jsx("button", {
+											type: "button",
+											role: "radio",
+											"aria-checked": on,
+											"aria-label": label,
+											"data-tip": id === "system" ? "Auto: follow this device" : label,
+											onClick: () => update({ mode: id }),
+											className: `grid h-7 w-7 place-items-center rounded-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 ${on ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"}`,
+											children: /* @__PURE__ */ jsx(Icon, {
+												className: "w-3.5 h-3.5",
+												"aria-hidden": "true"
+											})
+										}, id);
+									})
+								}),
+								theme.features.studio && /* @__PURE__ */ jsxs("button", {
+									type: "button",
+									onClick: (e) => view === "studio" ? setView("main") : showView("studio", e.currentTarget),
+									className: `${btn} shrink-0 whitespace-nowrap px-2 ${view === "studio" ? "border-zinc-900 bg-zinc-100" : "border-transparent"}`,
+									"aria-pressed": view === "studio",
+									"aria-label": "Studio",
+									"data-tip": "Studio: go deeper and choose exactly where your colours go",
+									children: [/* @__PURE__ */ jsx(StudioMark, { className: "w-4 h-4" }), "Studio"]
+								}),
+								theme.features.addToSite && /* @__PURE__ */ jsxs("button", {
+									type: "button",
+									onClick: (e) => view === "mode-toggle" ? setView("main") : showView("mode-toggle", e.currentTarget),
+									className: `${btn} shrink-0 whitespace-nowrap px-1.5 @min-[500px]:px-2 ${view === "mode-toggle" ? "border-zinc-900 bg-zinc-100" : "border-transparent"}`,
+									"aria-pressed": view === "mode-toggle",
+									"aria-label": "Add a light and dark switch to your site",
+									"data-tip": "Add a light and dark switch to your site",
+									children: [/* @__PURE__ */ jsx(ToggleRight, {
+										className: "w-4 h-4",
+										"aria-hidden": "true"
+									}), /* @__PURE__ */ jsx("span", {
+										className: "hidden @min-[500px]:inline",
+										children: "Add to site"
+									})]
+								}),
+								theme.features.audit && /* @__PURE__ */ jsxs("button", {
+									type: "button",
+									onClick: audit.toggle,
+									className: `${btn} px-2 ${audit.on ? "border-zinc-900 bg-zinc-100" : "border-transparent"}`,
+									"aria-pressed": audit.on,
+									"data-tip": "Audit the page: point out what won’t look right with these colours",
+									children: [/* @__PURE__ */ jsx(ScanSearch, {
+										className: "w-4 h-4",
+										"aria-hidden": "true"
+									}), "Audit"]
+								}),
+								/* @__PURE__ */ jsx("button", {
+									type: "button",
+									onClick: (e) => view === "settings" ? setView("main") : showView("settings", e.currentTarget),
+									className: `${btn} px-1.5 ${view === "settings" ? "border-zinc-900 bg-zinc-100" : "border-transparent"}`,
+									"aria-label": "Panel settings",
+									"aria-pressed": view === "settings",
+									"data-tip": "Panel settings",
+									children: /* @__PURE__ */ jsx(Settings, {
+										className: "w-4 h-4",
+										"aria-hidden": "true"
+									})
 								})
-							}),
-							theme.features.studio && /* @__PURE__ */ jsxs("button", {
-								type: "button",
-								onClick: (e) => view === "studio" ? setView("main") : showView("studio", e.currentTarget),
-								className: `${btn} shrink-0 whitespace-nowrap px-2 ${view === "studio" ? "border-zinc-900 bg-zinc-100" : "border-transparent"}`,
-								"aria-pressed": view === "studio",
-								"aria-label": "Studio",
-								"data-tip": "Studio: go deeper and choose exactly where your colours go",
-								children: [/* @__PURE__ */ jsx(StudioMark, { className: "w-4 h-4" }), "Studio"]
-							}),
-							theme.features.addToSite && /* @__PURE__ */ jsxs("button", {
-								type: "button",
-								onClick: (e) => view === "mode-toggle" ? setView("main") : showView("mode-toggle", e.currentTarget),
-								className: `${btn} shrink-0 whitespace-nowrap px-1.5 @min-[500px]:px-2 ${view === "mode-toggle" ? "border-zinc-900 bg-zinc-100" : "border-transparent"}`,
-								"aria-pressed": view === "mode-toggle",
-								"aria-label": "Add a light and dark switch to your site",
-								"data-tip": "Add a light and dark switch to your site",
-								children: [/* @__PURE__ */ jsx(ToggleRight, {
-									className: "w-4 h-4",
-									"aria-hidden": "true"
-								}), /* @__PURE__ */ jsx("span", {
-									className: "hidden @min-[500px]:inline",
-									children: "Add to site"
+							]
+						})]
+					}),
+					view === "contrast" && /* @__PURE__ */ jsx(ContrastView, { onBack: () => setView("main") }),
+					view === "settings" && /* @__PURE__ */ jsx(SettingsView, { onBack: () => setView("main") }),
+					view === "finish" && /* @__PURE__ */ jsx(FinishView, { onBack: () => setView("main") }),
+					view === "mode-toggle" && /* @__PURE__ */ jsx(ModeToggleView, { onBack: () => setView("main") }),
+					view === "studio" && /* @__PURE__ */ jsx(StudioView, { onBack: () => setView("main") }),
+					/* @__PURE__ */ jsxs("div", {
+						hidden: view !== "main",
+						children: [
+							!theme.inScope && /* @__PURE__ */ jsxs("div", {
+								className: "mx-4 mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900",
+								children: [/* @__PURE__ */ jsxs("p", { children: [
+									/* @__PURE__ */ jsx("strong", {
+										className: "font-semibold",
+										children: "This page keeps its own colours."
+									}),
+									" The theme only goes on",
+									" ",
+									theme.scope.pages.length === 1 ? "one page" : `${theme.scope.pages.length} pages`,
+									" of your site."
+								] }), /* @__PURE__ */ jsxs("div", {
+									className: "mt-2 flex flex-wrap gap-2",
+									children: [/* @__PURE__ */ jsx("button", {
+										type: "button",
+										className: btnPrimary,
+										onClick: () => theme.setScope({
+											mode: "pages",
+											pages: [...theme.scope.pages, theme.pathname]
+										}),
+										children: "Colour this page too"
+									}), theme.features.studio && /* @__PURE__ */ jsxs("button", {
+										type: "button",
+										className: btn,
+										onClick: (e) => showView("studio", e.currentTarget),
+										children: [/* @__PURE__ */ jsx(StudioMark, { className: "w-3.5 h-3.5" }), " Open Studio"]
+									})]
 								})]
 							}),
-							theme.features.audit && /* @__PURE__ */ jsxs("button", {
-								type: "button",
-								onClick: audit.toggle,
-								className: `${btn} px-2 ${audit.on ? "border-zinc-900 bg-zinc-100" : "border-transparent"}`,
-								"aria-pressed": audit.on,
-								"data-tip": "Audit the page: point out what won’t look right with these colours",
-								children: [/* @__PURE__ */ jsx(ScanSearch, {
-									className: "w-4 h-4",
-									"aria-hidden": "true"
-								}), "Audit"]
+							/* @__PURE__ */ jsxs(ContrastNav.Provider, {
+								value: (from) => showView("contrast", from),
+								children: [
+									(theme.features.colourStyle || theme.features.scan) && /* @__PURE__ */ jsx(Section, {
+										title: theme.features.colourStyle ? "Colour style" : "Scan site",
+										badge: theme.features.colourStyle ? COLOUR_STYLES.find((c) => c.id === settings.colourStyle)?.label : null,
+										children: /* @__PURE__ */ jsx(StyleAndScan, {})
+									}),
+									/* @__PURE__ */ jsx(Section, {
+										title: "Preset themes",
+										badge: theme.active.name,
+										wideBadge: true,
+										children: /* @__PURE__ */ jsx(PresetGrid, {})
+									}),
+									settings.showCustom && /* @__PURE__ */ jsx(Section, {
+										title: "Custom palettes",
+										children: /* @__PURE__ */ jsx(CustomPalettes, {})
+									}),
+									settings.showOverrides && /* @__PURE__ */ jsx(Section, {
+										title: "Override a single colour",
+										badge: overrideCount ? `${overrideCount} active` : null,
+										children: /* @__PURE__ */ jsx(Overrides, {})
+									}),
+									settings.showImportExport && /* @__PURE__ */ jsx(Section, {
+										title: "Import / export",
+										children: /* @__PURE__ */ jsx(ImportExport, {})
+									})
+								]
 							}),
-							/* @__PURE__ */ jsx("button", {
-								type: "button",
-								onClick: (e) => view === "settings" ? setView("main") : showView("settings", e.currentTarget),
-								className: `${btn} px-1.5 ${view === "settings" ? "border-zinc-900 bg-zinc-100" : "border-transparent"}`,
-								"aria-label": "Panel settings",
-								"aria-pressed": view === "settings",
-								"data-tip": "Panel settings",
-								children: /* @__PURE__ */ jsx(Settings, {
-									className: "w-4 h-4",
-									"aria-hidden": "true"
+							/* @__PURE__ */ jsx("footer", {
+								className: "border-t border-zinc-200 px-4 py-3",
+								children: /* @__PURE__ */ jsxs("div", {
+									className: "flex gap-2",
+									children: [/* @__PURE__ */ jsxs("button", {
+										type: "button",
+										className: `${btn} flex-1`,
+										onClick: resetToDefault,
+										children: [/* @__PURE__ */ jsx(RotateCcw, {
+											className: "w-3.5 h-3.5",
+											"aria-hidden": "true"
+										}), "Reset to default"]
+									}), /* @__PURE__ */ jsxs("button", {
+										type: "button",
+										className: `${btnPrimary} flex-1`,
+										onClick: (e) => showView("finish", e.currentTarget),
+										children: [/* @__PURE__ */ jsx(Check, {
+											className: "w-3.5 h-3.5",
+											"aria-hidden": "true"
+										}), "I’m done"]
+									})]
 								})
 							})
 						]
+					})
+				]
+			}),
+			/* @__PURE__ */ jsx(Toasts, {
+				items: toasts,
+				onDismiss: dismiss
+			}),
+			themeAsk && /* @__PURE__ */ jsx(StudioChangesAsk, {
+				count: paintCount,
+				onKeep: (always) => {
+					askedRef.current = always;
+					themeAsk.run();
+					setThemeAsk(null);
+					toast(`Kept your ${paintCount} Studio ${paintCount === 1 ? "change" : "changes"}. Theme colours in them follow the new theme.`);
+				},
+				onClear: (always) => {
+					askedRef.current = always;
+					theme.clearPaints();
+					themeAsk.run();
+					setThemeAsk(null);
+					toast("Cleared your Studio changes. The new theme shows as it is.");
+				},
+				onCancel: () => setThemeAsk(null)
+			})
+		]
+	});
+}
+/**
+* Asked before another theme replaces the one Studio changes were made on: keep them (their theme
+* colours follow the new theme; colours picked by hand stay as they are) or clear them.
+*/
+function StudioChangesAsk({ count, onKeep, onClear, onCancel }) {
+	const [always, setAlways] = useState(false);
+	const headingId = useId();
+	const ref = useRef(null);
+	useEffect(() => ref.current?.querySelector("button")?.focus(), []);
+	return /* @__PURE__ */ jsx("div", {
+		className: "absolute inset-0 z-30 grid place-items-center rounded-[inherit] bg-zinc-900/40 p-4",
+		onKeyDown: (e) => e.key === "Escape" && (e.stopPropagation(), onCancel()),
+		children: /* @__PURE__ */ jsxs("div", {
+			ref,
+			role: "alertdialog",
+			"aria-modal": "true",
+			"aria-labelledby": headingId,
+			className: "w-full max-w-[320px] space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-2xl",
+			children: [
+				/* @__PURE__ */ jsxs("div", {
+					className: "flex items-center gap-2",
+					children: [/* @__PURE__ */ jsx(StudioMark, { className: "h-6 w-6" }), /* @__PURE__ */ jsxs("h3", {
+						id: headingId,
+						className: "text-sm font-semibold text-zinc-900",
+						children: [
+							"You have ",
+							count,
+							" Studio ",
+							count === 1 ? "change" : "changes"
+						]
 					})]
 				}),
-				view === "contrast" && /* @__PURE__ */ jsx(ContrastView, { onBack: () => setView("main") }),
-				view === "settings" && /* @__PURE__ */ jsx(SettingsView, { onBack: () => setView("main") }),
-				view === "finish" && /* @__PURE__ */ jsx(FinishView, { onBack: () => setView("main") }),
-				view === "mode-toggle" && /* @__PURE__ */ jsx(ModeToggleView, { onBack: () => setView("main") }),
-				view === "studio" && /* @__PURE__ */ jsx(StudioView, { onBack: () => setView("main") }),
+				/* @__PURE__ */ jsx("p", {
+					className: "text-xs leading-snug text-zinc-600",
+					children: "Keep them on the new theme, or clear them and see the theme as it is? Kept changes that use theme colours take the new theme’s colours; ones you picked by hand stay exactly as they are."
+				}),
 				/* @__PURE__ */ jsxs("div", {
-					hidden: view !== "main",
+					className: "grid gap-2",
 					children: [
-						!theme.inScope && /* @__PURE__ */ jsxs("div", {
-							className: "mx-4 mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900",
-							children: [/* @__PURE__ */ jsxs("p", { children: [
-								/* @__PURE__ */ jsx("strong", {
-									className: "font-semibold",
-									children: "This page keeps its own colours."
-								}),
-								" The theme only goes on",
-								" ",
-								theme.scope.pages.length === 1 ? "one page" : `${theme.scope.pages.length} pages`,
-								" of your site."
-							] }), /* @__PURE__ */ jsxs("div", {
-								className: "mt-2 flex flex-wrap gap-2",
-								children: [/* @__PURE__ */ jsx("button", {
-									type: "button",
-									className: btnPrimary,
-									onClick: () => theme.setScope({
-										mode: "pages",
-										pages: [...theme.scope.pages, theme.pathname]
-									}),
-									children: "Colour this page too"
-								}), theme.features.studio && /* @__PURE__ */ jsxs("button", {
-									type: "button",
-									className: btn,
-									onClick: (e) => showView("studio", e.currentTarget),
-									children: [/* @__PURE__ */ jsx(StudioMark, { className: "w-3.5 h-3.5" }), " Open Studio"]
-								})]
-							})]
+						/* @__PURE__ */ jsx("button", {
+							type: "button",
+							className: `${btnPrimary} py-2`,
+							onClick: () => onKeep(always),
+							children: "Keep my changes"
 						}),
-						/* @__PURE__ */ jsxs(ContrastNav.Provider, {
-							value: (from) => showView("contrast", from),
-							children: [
-								/* @__PURE__ */ jsx(Section, {
-									title: "Preset themes",
-									children: /* @__PURE__ */ jsx(PresetGrid, {})
-								}),
-								settings.showCustom && /* @__PURE__ */ jsx(Section, {
-									title: "Custom palettes",
-									children: /* @__PURE__ */ jsx(CustomPalettes, {})
-								}),
-								settings.showOverrides && /* @__PURE__ */ jsx(Section, {
-									title: "Override a single colour",
-									badge: overrideCount ? `${overrideCount} active` : null,
-									children: /* @__PURE__ */ jsx(Overrides, {})
-								}),
-								settings.showImportExport && /* @__PURE__ */ jsx(Section, {
-									title: "Import / export",
-									children: /* @__PURE__ */ jsx(ImportExport, {})
-								})
-							]
+						/* @__PURE__ */ jsx("button", {
+							type: "button",
+							className: `${btn} py-2`,
+							onClick: () => onClear(always),
+							children: "Clear them and use the theme"
 						}),
-						/* @__PURE__ */ jsx("footer", {
-							className: "border-t border-zinc-200 px-4 py-3",
-							children: /* @__PURE__ */ jsxs("div", {
-								className: "flex gap-2",
-								children: [/* @__PURE__ */ jsxs("button", {
-									type: "button",
-									className: `${btn} flex-1`,
-									onClick: resetToDefault,
-									children: [/* @__PURE__ */ jsx(RotateCcw, {
-										className: "w-3.5 h-3.5",
-										"aria-hidden": "true"
-									}), "Reset to default"]
-								}), /* @__PURE__ */ jsxs("button", {
-									type: "button",
-									className: `${btnPrimary} flex-1`,
-									onClick: (e) => showView("finish", e.currentTarget),
-									children: [/* @__PURE__ */ jsx(Check, {
-										className: "w-3.5 h-3.5",
-										"aria-hidden": "true"
-									}), "I’m done"]
-								})]
-							})
+						/* @__PURE__ */ jsx("button", {
+							type: "button",
+							className: `${btn} border-transparent py-1.5`,
+							onClick: onCancel,
+							children: "Cancel"
 						})
 					]
+				}),
+				/* @__PURE__ */ jsxs("label", {
+					className: "flex items-center gap-2 text-[11px] text-zinc-700",
+					children: [/* @__PURE__ */ jsx("input", {
+						type: "checkbox",
+						checked: always,
+						onChange: (e) => setAlways(e.target.checked),
+						className: "h-3.5 w-3.5 accent-zinc-900"
+					}), "Don’t ask again until I reload the page"]
 				})
 			]
-		}), /* @__PURE__ */ jsx(Toasts, {
-			items: toasts,
-			onDismiss: dismiss
-		})]
+		})
 	});
 }
 function Toasts({ items, onDismiss }) {
@@ -4424,12 +5589,14 @@ var WHERE = [{
 	note: "The rest keep their own colours."
 }];
 /**
-* Studio: going deeper than a theme. It starts with where the colours go, the whole site or only
-* some of its pages, read from the site itself (the pages this one links to, and the ones the
-* visitor has opened). The choice lives on this device; the code and prompt make it everyone's.
+* Studio: going deeper than a theme. Point and click any part of the page to give it its own
+* colours, and choose where the theme goes: the whole site or only some of its pages, read from
+* the site itself (the pages this one links to, and the ones the visitor has opened). Choices live
+* on this device; the prompt, CSS and config make them everyone's.
 */
 function StudioView({ onBack }) {
 	const { scope, setScope, inScope: here, pathname, configPages, scopeChosen, seenPages } = useTheme();
+	const { studio } = useSettings();
 	const { toast } = usePanel();
 	const headingRef = useRef(null);
 	const inputId = useId();
@@ -4489,9 +5656,40 @@ function StudioView({ onBack }) {
 					children: "Studio"
 				}), /* @__PURE__ */ jsx("p", {
 					className: "text-xs text-zinc-600",
-					children: "Go deeper than a theme: choose exactly where your colours go."
+					children: "Go deeper than a theme: colour any part of your site, and choose exactly where your colours go."
 				})] })]
 			}),
+			/* @__PURE__ */ jsxs("section", {
+				className: "space-y-2.5 rounded-xl border border-zinc-200 p-3",
+				children: [/* @__PURE__ */ jsxs("div", {
+					className: "flex items-start gap-2.5",
+					children: [/* @__PURE__ */ jsx("span", {
+						className: "grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-zinc-100 text-zinc-800",
+						children: /* @__PURE__ */ jsx(MousePointerClick, {
+							className: "w-4 h-4",
+							"aria-hidden": "true"
+						})
+					}), /* @__PURE__ */ jsxs("div", {
+						className: "min-w-0",
+						children: [/* @__PURE__ */ jsx("h4", {
+							className: "text-xs font-semibold text-zinc-900",
+							children: "Colour any part of the page"
+						}), /* @__PURE__ */ jsx("p", {
+							className: "text-[11px] leading-snug text-zinc-600",
+							children: "Point and click a button, a card, a heading, the footer, anything, and give it its own background, text and border. Every part like it can change at once."
+						})]
+					})]
+				}), /* @__PURE__ */ jsxs("button", {
+					type: "button",
+					className: `${btnPrimary} w-full py-2`,
+					onClick: studio.start,
+					children: [/* @__PURE__ */ jsx(MousePointerClick, {
+						className: "w-3.5 h-3.5",
+						"aria-hidden": "true"
+					}), " Point and click"]
+				})]
+			}),
+			/* @__PURE__ */ jsx(StudioChanges, {}),
 			/* @__PURE__ */ jsxs("section", {
 				"aria-labelledby": `${inputId}-where`,
 				className: "space-y-3 rounded-xl border border-zinc-200 p-3",
@@ -4709,14 +5907,155 @@ function StudioView({ onBack }) {
 				children: [/* @__PURE__ */ jsx("p", {
 					className: "text-xs font-semibold text-zinc-900",
 					children: "Coming to Studio"
-				}), /* @__PURE__ */ jsxs("ul", {
+				}), /* @__PURE__ */ jsx("ul", {
 					className: "mt-1.5 list-disc space-y-1 pl-4 text-[11px] text-zinc-600",
-					children: [
-						/* @__PURE__ */ jsx("li", { children: "Colour only some parts of a page: the header, hero, cards, buttons or footer." }),
-						/* @__PURE__ */ jsx("li", { children: "Point and click anything on the page to give it a colour." }),
-						/* @__PURE__ */ jsx("li", { children: "Save it all as a prompt that colours your site exactly the way you set it up." })
-					]
+					children: /* @__PURE__ */ jsx("li", { children: "A map of your whole site: every page and its parts, in one place." })
 				})]
+			})
+		]
+	});
+}
+/** What's been coloured by pointing and clicking, page by page, and how to keep it for good. */
+function StudioChanges() {
+	const { paints, removePaint, clearPaints, pathname, tokens } = useTheme();
+	const { studio } = useSettings();
+	const [format, setFormat] = useState("prompt");
+	if (!paints.length) return null;
+	const pages = [...new Set(paints.map(pageOf))].sort((a, b) => a === "*" ? -1 : b === "*" ? 1 : 0);
+	const colourOf = (v) => v.token ? tokens[v.token] : v.hex;
+	return /* @__PURE__ */ jsxs("section", {
+		className: "space-y-3 rounded-xl border border-zinc-200 p-3",
+		children: [
+			/* @__PURE__ */ jsxs("div", {
+				className: "flex items-center justify-between gap-2",
+				children: [/* @__PURE__ */ jsxs("h4", {
+					className: "text-xs font-semibold text-zinc-900",
+					children: ["Your changes ", /* @__PURE__ */ jsxs("span", {
+						className: "font-normal text-zinc-600",
+						children: [
+							"(",
+							paints.length,
+							")"
+						]
+					})]
+				}), /* @__PURE__ */ jsx("button", {
+					type: "button",
+					onClick: () => clearPaints(),
+					className: "text-[11px] font-medium text-zinc-600 underline underline-offset-2 cursor-pointer hover:text-zinc-900",
+					children: "Clear all"
+				})]
+			}),
+			pages.map((page) => /* @__PURE__ */ jsxs("div", {
+				className: "space-y-1",
+				children: [/* @__PURE__ */ jsxs("p", {
+					className: `text-[11px] font-semibold text-zinc-700 ${page === "*" ? "" : "font-mono"}`,
+					children: [page === "*" ? "On every page" : page, page === pathname && /* @__PURE__ */ jsx("span", {
+						className: "ml-1.5 font-sans font-normal text-zinc-500",
+						children: "(this page)"
+					})]
+				}), /* @__PURE__ */ jsx("ul", {
+					className: "space-y-1",
+					children: paints.filter((p) => pageOf(p) === page).map((p) => /* @__PURE__ */ jsxs("li", {
+						className: "flex items-center gap-2 rounded-lg border border-zinc-200 px-2.5 py-1.5",
+						children: [
+							/* @__PURE__ */ jsx("span", {
+								className: "flex shrink-0 -space-x-1",
+								children: PROPS.filter(({ key }) => p.props[key]).map(({ key, label }) => /* @__PURE__ */ jsx("span", {
+									title: label,
+									className: "h-4 w-4 rounded-full border-2 border-white",
+									style: { background: colourOf(p.props[key]) }
+								}, key))
+							}),
+							/* @__PURE__ */ jsxs("span", {
+								className: "min-w-0 flex-1 text-[11px] leading-snug text-zinc-800",
+								children: [
+									/* @__PURE__ */ jsx("span", {
+										className: "font-semibold",
+										children: p.kind
+									}),
+									p.text && /* @__PURE__ */ jsxs("span", {
+										className: "text-zinc-600",
+										children: [
+											" “",
+											p.text,
+											"”"
+										]
+									}),
+									p.everywhere ? /* @__PURE__ */ jsx("span", {
+										className: "text-zinc-600",
+										children: " and every one like it"
+									}) : p.all && p.similar && /* @__PURE__ */ jsxs("span", {
+										className: "text-zinc-600",
+										children: [
+											" and ",
+											p.likeIt - 1,
+											" like it"
+										]
+									})
+								]
+							}),
+							/* @__PURE__ */ jsx("button", {
+								type: "button",
+								onClick: () => removePaint(p.id),
+								"aria-label": `Undo the change to ${p.kind.toLowerCase()} ${p.text}`,
+								className: "grid h-6 w-6 shrink-0 place-items-center rounded-md text-zinc-600 cursor-pointer hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900",
+								children: /* @__PURE__ */ jsx(X, {
+									className: "w-3.5 h-3.5",
+									"aria-hidden": "true"
+								})
+							})
+						]
+					}, p.id))
+				})]
+			}, page)),
+			/* @__PURE__ */ jsxs("button", {
+				type: "button",
+				className: `${btn} w-full`,
+				onClick: studio.start,
+				children: [/* @__PURE__ */ jsx(MousePointerClick, {
+					className: "w-3.5 h-3.5",
+					"aria-hidden": "true"
+				}), " Colour more"]
+			}),
+			/* @__PURE__ */ jsxs("div", {
+				className: "space-y-2 border-t border-zinc-200 pt-3",
+				children: [
+					/* @__PURE__ */ jsxs("div", {
+						className: "flex items-center justify-between gap-2",
+						children: [/* @__PURE__ */ jsx("p", {
+							className: "text-xs font-semibold text-zinc-900",
+							children: "Keep them for good"
+						}), /* @__PURE__ */ jsx("div", {
+							role: "radiogroup",
+							"aria-label": "Save as",
+							className: "flex shrink-0 items-center rounded-lg border border-zinc-200 p-0.5",
+							children: [["prompt", "Prompt"], ["css", "CSS"]].map(([id, label]) => /* @__PURE__ */ jsx("button", {
+								type: "button",
+								role: "radio",
+								"aria-checked": format === id,
+								onClick: () => setFormat(id),
+								className: `h-6 rounded-md px-2 text-[11px] font-semibold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 ${format === id ? "bg-zinc-900 text-white" : "text-zinc-700 hover:bg-zinc-100"}`,
+								children: label
+							}, id))
+						})]
+					}),
+					/* @__PURE__ */ jsx("p", {
+						className: "text-[11px] text-zinc-600",
+						children: format === "prompt" ? "Recommended. Paste it into Claude, Cursor or Copilot and it makes these changes in your site’s code, using your own colour settings where you have them." : "Plain CSS for your stylesheet. The selectors come from the page as it is now, so they can break if its layout changes; the prompt holds up better."
+					}),
+					format === "prompt" ? /* @__PURE__ */ jsx(CopyBlock, {
+						label: "Prompt for your AI editor",
+						text: paintsPrompt(paints, tokens),
+						copyLabel: "Copy prompt"
+					}) : /* @__PURE__ */ jsx(CopyBlock, {
+						label: "CSS",
+						text: paintsCssExport(paints, tokens)
+					}),
+					/* @__PURE__ */ jsx("p", {
+						className: "text-[11px] text-zinc-600",
+						children: "Until then, your changes are saved on this device only."
+					})
+				]
 			})
 		]
 	});
@@ -4783,9 +6122,10 @@ var FINISH_OPTIONS = [
 * here only, or remove colorsbymax, each with code and a prompt for an AI editor. Cancel goes back.
 */
 function FinishView({ onBack }) {
-	const { tokens: themeTokens, active, recolouring } = useTheme();
+	const { tokens: themeTokens, appliedTokens, colourStyle, active, recolouring } = useTheme();
 	const { settings, update } = useSettings();
-	const tokens = !recolouring && settings.colourStyle === "subtle" ? subtleTokens(themeTokens) : themeTokens;
+	const tokens = colourStyle === "colourful" ? themeTokens : appliedTokens;
+	const style = colourStyle === "colourful" ? "colourful" : "balanced";
 	const [choice, setChoice] = useState("keep");
 	const [kind, setKind] = useState(() => document.querySelector("[data-colorsbymax=\"auto\"]") ? "auto" : "provider");
 	const headingRef = useRef(null);
@@ -4863,7 +6203,7 @@ function FinishView({ onBack }) {
 					}),
 					/* @__PURE__ */ jsx(CopyBlock, {
 						label: "Code for your site",
-						text: keepSnippet(kind, name, tokens)
+						text: keepSnippet(kind, name, tokens, "import.meta.env.PROD", style)
 					}),
 					/* @__PURE__ */ jsxs("p", {
 						className: "text-[11px] text-zinc-600",
@@ -4883,7 +6223,7 @@ function FinishView({ onBack }) {
 					}),
 					/* @__PURE__ */ jsx(CopyBlock, {
 						label: "Or ask Claude, Cursor or Copilot",
-						text: keepPrompt(name, tokens),
+						text: keepPrompt(name, tokens, style),
 						copyLabel: "Copy prompt"
 					}),
 					/* @__PURE__ */ jsxs("div", {
@@ -4990,7 +6330,7 @@ function FinishView({ onBack }) {
 					}),
 					!recolouring && /* @__PURE__ */ jsx(CopyBlock, {
 						label: "CSS for your colours",
-						text: cssSnippet(tokens)
+						text: cssSnippet(appliedTokens)
 					}),
 					/* @__PURE__ */ jsx(CopyBlock, {
 						label: "Or ask Claude, Cursor or Copilot",
@@ -5274,7 +6614,7 @@ function Toggle({ checked, onChange, label, note }) {
 		})]
 	});
 }
-function Section({ title, badge, defaultOpen = false, children }) {
+function Section({ title, badge, wideBadge = false, defaultOpen = false, children }) {
 	return /* @__PURE__ */ jsxs("details", {
 		open: defaultOpen,
 		className: "border-b border-zinc-200",
@@ -5290,7 +6630,8 @@ function Section({ title, badge, defaultOpen = false, children }) {
 					children: title
 				}),
 				badge && /* @__PURE__ */ jsx("span", {
-					className: "rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-700",
+					className: `rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-700 ${wideBadge ? "max-w-[50%] truncate" : ""}`,
+					title: wideBadge ? badge : void 0,
 					children: badge
 				})
 			]
@@ -5465,19 +6806,33 @@ function ColourStepper({ value, onChange, label, size = "sm" }) {
 }
 var PAGE_SIZE = 24;
 var NO_THEMES = [];
-var COLOUR_STYLES = [{
-	id: "subtle",
-	label: "Subtle",
-	Icon: Contrast
-}, {
-	id: "colourful",
-	label: "Colourful",
-	Icon: Paintbrush
-}];
+var COLOUR_STYLES = [
+	{
+		id: "subtle",
+		label: "Subtle",
+		Icon: Contrast
+	},
+	{
+		id: "balanced",
+		label: "Balanced",
+		Icon: Palette
+	},
+	{
+		id: "colourful",
+		label: "Colourful",
+		Icon: Paintbrush
+	}
+];
+var STYLE_NOTES = {
+	subtle: "Subtle: your site keeps its own backgrounds, cards and text. The theme comes in on buttons, links, highlights and accents.",
+	balanced: "Balanced: the theme as it’s designed, every colour in its role.",
+	colourful: "Colourful: an overhaul. Tinted backgrounds, and the theme paints your header, hero, sections, headings, cards, buttons and footer, like a designer would. Text is still checked for contrast."
+};
 function PresetGrid() {
 	const { siteName, siteThemes, presets: allPresets, customs, active, selectTheme, state, clearOverrides, tokens, recolouring, features } = useTheme();
 	const surpriseBurst = useBurst();
 	const { settings, mode, update } = useSettings();
+	const { confirmTheme } = usePanel();
 	const categoriesId = useId();
 	const [loaded, setLoaded] = useState(null);
 	const [loadError, setLoadError] = useState(false);
@@ -5607,7 +6962,7 @@ function PresetGrid() {
 		setLimit(PAGE_SIZE);
 		scrollToThemes.current = scroll;
 	};
-	const pick = (t) => selectTheme(t.id, t);
+	const pick = (t) => confirmTheme(() => selectTheme(t.id, t));
 	const surprise = () => {
 		const everything = library?.themes ?? [...siteThemes, ...presets];
 		const pool = (visible.length > 1 ? visible : everything).filter((t) => t.id !== active.id && inMode(t, mode).id !== active.id);
@@ -5622,39 +6977,6 @@ function PresetGrid() {
 		ref: wrapRef,
 		className: "space-y-3",
 		children: [
-			features.scan && /* @__PURE__ */ jsx(ScanCard, {}),
-			/* @__PURE__ */ jsxs("p", {
-				className: "text-xs text-zinc-600",
-				children: ["Current theme: ", /* @__PURE__ */ jsx("strong", {
-					className: "font-semibold text-zinc-900",
-					children: active.name
-				})]
-			}),
-			features.colourStyle && /* @__PURE__ */ jsxs("div", {
-				className: "rounded-xl border border-zinc-200 p-2.5",
-				children: [/* @__PURE__ */ jsx("div", {
-					role: "radiogroup",
-					"aria-label": "Colour style",
-					className: "grid grid-cols-2 gap-1 rounded-lg bg-zinc-100 p-1",
-					children: COLOUR_STYLES.map(({ id, label, Icon }) => {
-						const on = settings.colourStyle === id;
-						return /* @__PURE__ */ jsxs("button", {
-							type: "button",
-							role: "radio",
-							"aria-checked": on,
-							onClick: () => update({ colourStyle: id }),
-							className: `inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-md text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 ${on ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600 hover:text-zinc-900"}`,
-							children: [/* @__PURE__ */ jsx(Icon, {
-								className: "w-3.5 h-3.5",
-								"aria-hidden": "true"
-							}), label]
-						}, id);
-					})
-				}), /* @__PURE__ */ jsx("p", {
-					className: "mt-2 px-0.5 text-[11px] leading-snug text-zinc-600",
-					children: settings.colourStyle === "colourful" ? "Colourful: the theme paints your header, hero, sections, cards, buttons and footer, like a designer would." : recolouring ? "Subtle: the theme only swaps the colours your site already has." : "Subtle: calm, nearly neutral backgrounds and cards, with the theme’s colour on buttons, links and highlights."
-				})]
-			}),
 			overrideCount > 0 && /* @__PURE__ */ jsxs("p", {
 				className: "flex items-center justify-between gap-2 rounded-lg bg-zinc-100 px-3 py-2 text-xs text-zinc-700",
 				children: [
@@ -5910,6 +7232,115 @@ function PresetGrid() {
 	});
 }
 /** User-triggered site scan: reads the page's colours and adds themes built around them. */
+/**
+* Above the themes: how boldly the site takes whichever theme is on (Subtle or Colourful), and the
+* scan that builds themes from the site's own colours.
+*/
+function StyleAndScan() {
+	const { features, recolouring } = useTheme();
+	const { settings, update } = useSettings();
+	return /* @__PURE__ */ jsxs("div", {
+		className: "space-y-3",
+		children: [features.colourStyle && /* @__PURE__ */ jsxs("div", {
+			className: "rounded-xl border border-zinc-200 p-2.5",
+			children: [
+				/* @__PURE__ */ jsx("div", {
+					role: "radiogroup",
+					"aria-label": "Colour style",
+					className: "grid grid-cols-3 gap-1 rounded-lg bg-zinc-100 p-1",
+					children: COLOUR_STYLES.map(({ id, label, Icon }) => {
+						const on = settings.colourStyle === id;
+						return /* @__PURE__ */ jsxs("button", {
+							type: "button",
+							role: "radio",
+							"aria-checked": on,
+							onClick: () => update({ colourStyle: id }),
+							className: `inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-md text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 ${on ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600 hover:text-zinc-900"}`,
+							children: [/* @__PURE__ */ jsx(Icon, {
+								className: "w-3.5 h-3.5",
+								"aria-hidden": "true"
+							}), label]
+						}, id);
+					})
+				}),
+				/* @__PURE__ */ jsx("p", {
+					className: "mt-2 px-0.5 text-[11px] leading-snug text-zinc-600",
+					children: settings.colourStyle === "balanced" && recolouring ? "Balanced: every colour on your site swapped for its match in the theme." : settings.colourStyle === "colourful" && !recolouring ? "Colourful: an overhaul. Your page, cards and borders take a clear tint of the theme, and text a hint of it, wherever your design already uses colour. Text is still checked for contrast." : STYLE_NOTES[settings.colourStyle] ?? STYLE_NOTES.balanced
+				}),
+				settings.colourStyle === "colourful" && /* @__PURE__ */ jsx(ColourfulControls, {})
+			]
+		}), features.scan && /* @__PURE__ */ jsx(ScanCard, {})]
+	});
+}
+/** Colourful's strength, from a light wash to bold, and tints from the site's own pictures. */
+function ColourfulControls() {
+	const { pictureColours, pictureTint } = useTheme();
+	const { settings, update } = useSettings();
+	const id = useId();
+	const strength = settings.colourStrength;
+	const word = strength < 25 ? "A light wash" : strength < 50 ? "Soft" : strength < 75 ? "Lively" : "Bold";
+	return /* @__PURE__ */ jsxs("div", {
+		className: "mt-3 space-y-3 border-t border-zinc-200 pt-3",
+		children: [/* @__PURE__ */ jsxs("div", { children: [
+			/* @__PURE__ */ jsxs("div", {
+				className: "mb-1 flex items-center justify-between",
+				children: [/* @__PURE__ */ jsx("label", {
+					htmlFor: id,
+					className: "text-[11px] font-semibold text-zinc-700",
+					children: "Strength"
+				}), /* @__PURE__ */ jsx("span", {
+					className: "text-[11px] font-medium text-zinc-600",
+					children: word
+				})]
+			}),
+			/* @__PURE__ */ jsx("input", {
+				id,
+				type: "range",
+				min: "0",
+				max: "100",
+				step: "5",
+				value: strength,
+				onChange: (e) => update({ colourStrength: Number(e.target.value) }),
+				"aria-valuetext": word,
+				className: "w-full cursor-pointer accent-zinc-900"
+			}),
+			/* @__PURE__ */ jsxs("div", {
+				className: "flex justify-between text-[10px] text-zinc-500",
+				"aria-hidden": "true",
+				children: [/* @__PURE__ */ jsx("span", { children: "Light wash" }), /* @__PURE__ */ jsx("span", { children: "Bold" })]
+			})
+		] }), /* @__PURE__ */ jsxs("label", {
+			className: "flex cursor-pointer items-start gap-2",
+			children: [/* @__PURE__ */ jsx("input", {
+				type: "checkbox",
+				checked: settings.imageTints,
+				onChange: (e) => update({ imageTints: e.target.checked }),
+				className: "mt-0.5 h-3.5 w-3.5 shrink-0 accent-zinc-900"
+			}), /* @__PURE__ */ jsxs("span", {
+				className: "min-w-0 text-[11px] leading-snug text-zinc-700",
+				children: [
+					/* @__PURE__ */ jsx("span", {
+						className: "font-semibold text-zinc-900",
+						children: "Tint with my pictures’ colours"
+					}),
+					/* @__PURE__ */ jsx("span", {
+						className: "block text-zinc-600",
+						children: !settings.imageTints ? "The washes use the theme’s own colours." : pictureTint ? "The washes take a colour from your logo and photos, so they feel made for your site. Buttons and links keep the theme’s." : pictureColours.length ? "Your pictures are mostly greys, so the washes use the theme’s colours." : "No pictures colorsbymax can read on this page, so the washes use the theme’s colours."
+					}),
+					settings.imageTints && pictureColours.length > 0 && /* @__PURE__ */ jsx("span", {
+						className: "mt-1.5 flex items-center gap-1",
+						"aria-hidden": "true",
+						children: pictureColours.slice(0, 8).map((hex) => /* @__PURE__ */ jsx("span", {
+							"data-tip": hex,
+							className: `h-4 w-4 rounded border ${hex === pictureTint ? "border-zinc-900 ring-2 ring-zinc-900 ring-offset-1" : "border-black/15"}`,
+							style: { background: hex }
+						}, hex))
+					})
+				]
+			})]
+		})]
+	});
+}
 function ScanCard() {
 	const { siteName, scanned, runScan, clearScan } = useTheme();
 	const { toast, showGroup } = usePanel();
@@ -5943,7 +7374,7 @@ function ScanCard() {
 						children: scanned ? `Personalised for ${siteName}` : `Personalise for ${siteName}`
 					}), /* @__PURE__ */ jsx("p", {
 						className: "mt-0.5 text-[11px] text-zinc-600",
-						children: scanned ? "Themes built from this site’s colours are in its group below." : "Scan this page’s colours to get themes built around them."
+						children: scanned ? "Themes built from this site’s colours are in its group in Preset themes." : "Scan this page’s colours to get themes built around them."
 					})]
 				}), /* @__PURE__ */ jsxs("button", {
 					type: "button",
@@ -6067,7 +7498,7 @@ function ThemeCard({ theme: t, isActive, onSelect }) {
 }
 function CustomPalettes() {
 	const { customs, active, createCustom, renameCustom, deleteCustom, selectTheme, updateCustomToken, state } = useTheme();
-	const { toast } = usePanel();
+	const { toast, confirmTheme } = usePanel();
 	const savedToYours = useSavedToYours();
 	const [name, setName] = useState("");
 	const nameId = useId();
@@ -6133,7 +7564,7 @@ function CustomPalettes() {
 						}) : /* @__PURE__ */ jsx("button", {
 							type: "button",
 							className: `${btn} w-16 shrink-0`,
-							onClick: () => selectTheme(c.id),
+							onClick: () => confirmTheme(() => selectTheme(c.id)),
 							children: "Edit"
 						}),
 						/* @__PURE__ */ jsx("button", {
@@ -7040,9 +8471,9 @@ function runAudit({ logoColouring }) {
 }
 //#endregion
 //#region src/AuditLayer.jsx
-var CARD_WIDTH = 264;
-var GAP = 10;
-var EDGE$1 = 12;
+var CARD_WIDTH$1 = 264;
+var GAP$1 = 10;
+var EDGE$2 = 12;
 /** Space kept between two notes. */
 var APART = 8;
 /** A note's height before it has been measured. */
@@ -7112,13 +8543,13 @@ function AuditLayer({ findings, anchor, themeIssues, onRecheck, onClose, onActio
 		const r = rects[i];
 		if (!r || r.bottom < 0 || r.top > vh || !showsNote(f)) return null;
 		const h = heights.current[f.id] ?? GUESS_HEIGHT;
-		const below = r.bottom + GAP + h < vh || r.top < h + GAP;
-		let top = below ? r.bottom + GAP : r.top - GAP - h;
-		let left = Math.min(Math.max(r.left + r.width / 2 - CARD_WIDTH / 2, EDGE$1), vw - CARD_WIDTH - EDGE$1);
+		const below = r.bottom + GAP$1 + h < vh || r.top < h + GAP$1;
+		let top = below ? r.bottom + GAP$1 : r.top - GAP$1 - h;
+		let left = Math.min(Math.max(r.left + r.width / 2 - CARD_WIDTH$1 / 2, EDGE$2), vw - CARD_WIDTH$1 - EDGE$2);
 		for (let tries = 0; tries < placed.length + 1; tries++) {
-			const hit = placed.find((p) => left < p.left + CARD_WIDTH + APART && left + CARD_WIDTH + APART > p.left && top < p.top + p.h + APART && top + h + APART > p.top);
+			const hit = placed.find((p) => left < p.left + CARD_WIDTH$1 + APART && left + CARD_WIDTH$1 + APART > p.left && top < p.top + p.h + APART && top + h + APART > p.top);
 			if (!hit) break;
-			if (hit.left + 2 * CARD_WIDTH + APART + EDGE$1 <= vw) left = hit.left + CARD_WIDTH + APART;
+			if (hit.left + 2 * CARD_WIDTH$1 + APART + EDGE$2 <= vw) left = hit.left + CARD_WIDTH$1 + APART;
 			else top = hit.top + hit.h + APART;
 		}
 		placed.push({
@@ -7127,7 +8558,7 @@ function AuditLayer({ findings, anchor, themeIssues, onRecheck, onClose, onActio
 			h
 		});
 		const arrow = Math.min(Math.max(r.left + r.width / 2 - left, 16), 248);
-		const pointing = below ? Math.abs(top - (r.bottom + GAP)) < 2 : Math.abs(top + h - (r.top - GAP)) < 2;
+		const pointing = below ? Math.abs(top - (r.bottom + GAP$1)) < 2 : Math.abs(top + h - (r.top - GAP$1)) < 2;
 		return {
 			left: Math.round(left),
 			top: Math.round(top),
@@ -7181,7 +8612,7 @@ function AuditLayer({ findings, anchor, themeIssues, onRecheck, onClose, onActio
 					style: {
 						left: place.left,
 						top: place.top,
-						width: CARD_WIDTH
+						width: CARD_WIDTH$1
 					},
 					children: [
 						place.pointing && /* @__PURE__ */ jsx("span", {
@@ -7262,16 +8693,16 @@ function AuditBar({ anchorRect, open, hiddenCount, themeIssues, onRecheck, onClo
 	const vw = document.documentElement.clientWidth;
 	const vh = document.documentElement.clientHeight;
 	let style = {
-		right: EDGE$1,
-		bottom: EDGE$1
+		right: EDGE$2,
+		bottom: EDGE$2
 	};
 	if (anchorRect) {
 		const onRight = anchorRect.left + anchorRect.width / 2 > vw / 2;
-		const top = anchorRect.top + anchorRect.height / 2 < vh / 2 ? Math.round(anchorRect.bottom + GAP) : Math.round(anchorRect.top - GAP - size.height);
+		const top = anchorRect.top + anchorRect.height / 2 < vh / 2 ? Math.round(anchorRect.bottom + GAP$1) : Math.round(anchorRect.top - GAP$1 - size.height);
 		const left = onRight ? Math.round(anchorRect.right - size.width) : Math.round(anchorRect.left);
 		style = {
 			top,
-			left: Math.min(Math.max(EDGE$1, left), vw - size.width - EDGE$1)
+			left: Math.min(Math.max(EDGE$2, left), vw - size.width - EDGE$2)
 		};
 	}
 	return /* @__PURE__ */ jsxs("div", {
@@ -7340,8 +8771,615 @@ function AuditBar({ anchorRect, open, hiddenCount, themeIssues, onRecheck, onClo
 	});
 }
 //#endregion
+//#region src/StudioLayer.jsx
+var CARD_WIDTH = 300;
+var EDGE$1 = 12;
+var GAP = 10;
+var OUTLINE = "#6366f1";
+var stepButton = "inline-flex items-center gap-1 rounded-lg border border-zinc-300 px-2 py-1 text-[11px] font-medium text-zinc-800 cursor-pointer hover:bg-zinc-50 disabled:cursor-default disabled:opacity-45 disabled:hover:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900";
+var newId = () => `paint-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+/** Follows an element's box on screen as the page scrolls, resizes or shifts. */
+function useRect(el) {
+	const [rect, setRect] = useState(null);
+	useLayoutEffect(() => {
+		if (!el) return setRect(null);
+		let frame = 0;
+		const measure = () => {
+			frame = 0;
+			setRect(el.isConnected ? el.getBoundingClientRect() : null);
+		};
+		const schedule = () => {
+			if (!frame) frame = requestAnimationFrame(measure);
+		};
+		measure();
+		window.addEventListener("scroll", schedule, true);
+		window.addEventListener("resize", schedule);
+		const timer = setInterval(schedule, 400);
+		return () => {
+			cancelAnimationFrame(frame);
+			clearInterval(timer);
+			window.removeEventListener("scroll", schedule, true);
+			window.removeEventListener("resize", schedule);
+		};
+	}, [el]);
+	return rect;
+}
+function Outline({ rect, label, solid }) {
+	if (!rect) return null;
+	const above = rect.top > 26;
+	return /* @__PURE__ */ jsx("div", {
+		"aria-hidden": "true",
+		className: "pointer-events-none fixed z-[65] rounded-md",
+		style: {
+			left: rect.left - 3,
+			top: rect.top - 3,
+			width: rect.width + 6,
+			height: rect.height + 6,
+			outline: `2px ${solid ? "solid" : "dashed"} ${OUTLINE}`,
+			background: solid ? "transparent" : "rgb(99 102 241 / 0.08)"
+		},
+		children: /* @__PURE__ */ jsx("span", {
+			className: "absolute left-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] font-semibold text-white",
+			style: {
+				background: OUTLINE,
+				...above ? {
+					bottom: "100%",
+					marginBottom: 4
+				} : {
+					top: "100%",
+					marginTop: 4
+				}
+			},
+			children: label
+		})
+	});
+}
+function StudioLayer({ onDone }) {
+	const theme = useTheme();
+	const pathname = usePathname();
+	const [hover, setHover] = useState(null);
+	const [picked, setPicked] = useState(null);
+	const hoverRect = useRect(hover?.el ?? null);
+	const pickedRect = useRect(picked?.el ?? null);
+	const latest = useRef({});
+	const coarse = typeof matchMedia === "function" && matchMedia("(hover: none)").matches;
+	useEffect(() => {
+		const onMove = (e) => {
+			if (e.pointerType === "touch") return;
+			const el = pickTarget(e);
+			setHover((h) => h?.el === el ? h : el ? {
+				el,
+				kind: kindOf(el)
+			} : null);
+		};
+		const block = (e) => {
+			if (!pickTarget(e)) return;
+			e.preventDefault();
+			e.stopPropagation();
+			e.stopImmediatePropagation();
+		};
+		const onClick = (e) => {
+			const el = pickTarget(e);
+			if (!el) return;
+			block(e);
+			setHover(null);
+			latest.current.pick(el);
+		};
+		const onKey = (e) => {
+			if (e.key !== "Escape") return;
+			e.preventDefault();
+			if (latest.current.picked) setPicked(null);
+			else latest.current.onDone();
+		};
+		document.addEventListener("pointermove", onMove, true);
+		for (const type of [
+			"pointerdown",
+			"mousedown",
+			"mouseup",
+			"pointerup",
+			"submit",
+			"dblclick"
+		]) document.addEventListener(type, block, true);
+		document.addEventListener("click", onClick, true);
+		document.addEventListener("keydown", onKey, true);
+		document.documentElement.style.setProperty("cursor", "crosshair");
+		return () => {
+			document.removeEventListener("pointermove", onMove, true);
+			for (const type of [
+				"pointerdown",
+				"mousedown",
+				"mouseup",
+				"pointerup",
+				"submit",
+				"dblclick"
+			]) document.removeEventListener(type, block, true);
+			document.removeEventListener("click", onClick, true);
+			document.removeEventListener("keydown", onKey, true);
+			document.documentElement.style.removeProperty("cursor");
+		};
+	}, []);
+	useEffect(() => {
+		setPicked(null);
+		setHover(null);
+	}, [pathname]);
+	const trail = useRef([]);
+	const pick = (el, { stepping = false } = {}) => {
+		if (!stepping) trail.current = [];
+		const info = describe$1(el);
+		const existing = theme.paints.find((p) => p.everywhere && info.similar && p.similar === info.similar || p.page === pathname && (p.one === info.one || p.all && p.similar === info.similar));
+		setPicked({
+			...info,
+			paint: existing ?? {
+				id: newId(),
+				page: pathname,
+				one: info.one,
+				similar: info.similar,
+				likeIt: info.likeIt,
+				all: false,
+				kind: info.kind,
+				text: info.text,
+				where: info.where,
+				hasBorder: info.hasBorder,
+				props: {}
+			}
+		});
+	};
+	latest.current = {
+		pick,
+		picked,
+		onDone
+	};
+	return /* @__PURE__ */ jsxs("div", {
+		className: "theme-switcher",
+		children: [
+			/* @__PURE__ */ jsx(Outline, {
+				rect: hoverRect,
+				label: hover?.kind
+			}),
+			/* @__PURE__ */ jsx(Outline, {
+				rect: pickedRect,
+				label: picked?.kind,
+				solid: true
+			}),
+			/* @__PURE__ */ jsx("div", {
+				className: "pointer-events-none fixed inset-x-0 bottom-4 z-[70] flex justify-center px-3",
+				children: /* @__PURE__ */ jsxs("div", {
+					className: "pointer-events-auto flex max-w-full items-center gap-3 rounded-full border border-zinc-200 bg-white py-1.5 pr-1.5 pl-4 text-xs text-zinc-800 shadow-xl",
+					role: "status",
+					children: [/* @__PURE__ */ jsxs("span", {
+						className: "min-w-0",
+						children: [
+							/* @__PURE__ */ jsx("strong", {
+								className: "font-semibold text-zinc-900",
+								children: "Studio:"
+							}),
+							" ",
+							coarse ? "tap" : "click",
+							" any part of the page to colour it"
+						]
+					}), /* @__PURE__ */ jsx("button", {
+						type: "button",
+						onClick: onDone,
+						className: "shrink-0 rounded-full bg-zinc-900 px-3 py-1 text-xs font-semibold text-white cursor-pointer hover:bg-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2",
+						children: "Done"
+					})]
+				})
+			}),
+			picked && pickedRect && /* @__PURE__ */ jsx(Editor, {
+				picked,
+				rect: pickedRect,
+				canPickParent: Boolean(parentOf(picked.el)),
+				onPickParent: () => {
+					const parent = parentOf(picked.el);
+					if (!parent) return;
+					trail.current.push(picked.el);
+					pick(parent, { stepping: true });
+				},
+				canPickChild: Boolean(childOf(picked.el)),
+				onPickChild: () => {
+					const back = trail.current.pop();
+					const inner = back && back.isConnected && picked.el.contains(back) ? back : childOf(picked.el);
+					if (inner) pick(inner, { stepping: true });
+				},
+				onClose: () => setPicked(null)
+			}, picked.paint.id)
+		]
+	});
+}
+/** Where the card goes: beside the part if there's room, else below or above it, on screen. */
+function place(rect, height) {
+	const vw = window.innerWidth;
+	const vh = window.innerHeight;
+	const width = Math.min(CARD_WIDTH, vw - 24);
+	if (vw >= 700) {
+		const right = rect.right + GAP;
+		const left = rect.left - GAP - width;
+		const x = right + width <= vw - EDGE$1 ? right : left >= EDGE$1 ? left : null;
+		if (x !== null) return {
+			left: x,
+			top: Math.min(Math.max(EDGE$1, rect.top), vh - height - EDGE$1),
+			width
+		};
+	}
+	const x = Math.min(Math.max(EDGE$1, rect.left), vw - width - EDGE$1);
+	const below = rect.bottom + GAP;
+	const top = below + height <= vh - EDGE$1 ? below : rect.top - GAP - height >= EDGE$1 ? rect.top - GAP - height : vh - height - EDGE$1;
+	return {
+		left: x,
+		top: Math.max(EDGE$1, top),
+		width
+	};
+}
+function Editor({ picked, rect, onPickParent, canPickParent, onPickChild, canPickChild, onClose }) {
+	const { tokens, savePaint, removePaint, paints, inScope } = useTheme();
+	const [paint, setPaint] = useState(picked.paint);
+	const [height, setHeight] = useState(320);
+	const [check, setCheck] = useState(null);
+	const [fixTried, setFixTried] = useState(false);
+	const cardRef = useRef(null);
+	const headingId = useId();
+	const saved = paints.some((p) => p.id === paint.id);
+	useLayoutEffect(() => {
+		if (cardRef.current) setHeight(cardRef.current.offsetHeight);
+	});
+	useEffect(() => cardRef.current?.querySelector("button")?.focus({ preventScroll: true }), []);
+	const roots = () => {
+		if (!paint.all || !paint.similar) return [picked.el];
+		try {
+			return [...document.querySelectorAll(selectorOf(paint))];
+		} catch {
+			return [picked.el];
+		}
+	};
+	useEffect(() => {
+		const measure = () => {
+			if (!picked.el.isConnected) return setCheck(null);
+			const result = checkText(roots());
+			setCheck(result.checked ? result : null);
+		};
+		const frame = requestAnimationFrame(measure);
+		const settled = setTimeout(measure, 450);
+		picked.el.addEventListener("transitionend", measure);
+		return () => {
+			cancelAnimationFrame(frame);
+			clearTimeout(settled);
+			picked.el.removeEventListener("transitionend", measure);
+		};
+	}, [
+		paint,
+		tokens,
+		picked.el
+	]);
+	const update = (next) => {
+		setPaint(next);
+		savePaint(next);
+	};
+	const setColour = (key, value, fromFix = false) => {
+		setFixTried(fromFix);
+		const props = { ...paint.props };
+		if (value) props[key] = value;
+		else delete props[key];
+		update({
+			...paint,
+			props
+		});
+	};
+	const fixText = () => {
+		const failing = check?.failing ?? [];
+		if (!failing.length) return;
+		const need = Math.max(...failing.map((f) => f.need));
+		const backgrounds = [...new Set(failing.map((f) => f.background))];
+		const score = (hex) => Math.min(...backgrounds.map((bg) => contrastRatio(hex, bg)));
+		const themeBest = backgrounds.map((bg) => bestText(bg, tokens, need)).filter((c) => c.token).sort((a, b) => score(b.hex) - score(a.hex))[0];
+		const fallback = score("#000000") >= score("#ffffff") ? { hex: "#000000" } : { hex: "#ffffff" };
+		const choice = themeBest && score(themeBest.hex) >= need ? {
+			token: themeBest.token,
+			hex: themeBest.hex
+		} : fallback;
+		setColour("text", choice, true);
+	};
+	const main = check?.worst ?? null;
+	const pos = place(rect, height);
+	const swatches = [...new Map(SWATCH_TOKENS.map((t) => [tokens[t], t])).entries()].map(([hex, token]) => ({
+		hex,
+		token
+	}));
+	return /* @__PURE__ */ jsxs("div", {
+		ref: cardRef,
+		role: "dialog",
+		"aria-labelledby": headingId,
+		className: "theme-scroll fixed z-[70] overflow-y-auto overscroll-contain rounded-2xl border border-zinc-200 bg-white p-3 text-zinc-900 shadow-2xl",
+		style: {
+			left: pos.left,
+			top: pos.top,
+			width: pos.width,
+			maxHeight: `calc(100vh - 24px)`
+		},
+		children: [
+			/* @__PURE__ */ jsxs("div", {
+				className: "flex items-start gap-2",
+				children: [/* @__PURE__ */ jsxs("div", {
+					className: "min-w-0 flex-1",
+					children: [/* @__PURE__ */ jsxs("p", {
+						id: headingId,
+						className: "text-sm font-semibold",
+						children: [picked.kind, picked.text && /* @__PURE__ */ jsxs("span", {
+							className: "font-normal text-zinc-600",
+							children: [
+								" “",
+								picked.text,
+								"”"
+							]
+						})]
+					}), picked.where && /* @__PURE__ */ jsx("p", {
+						className: "text-[11px] text-zinc-600",
+						children: picked.where[0].toUpperCase() + picked.where.slice(1)
+					})]
+				}), /* @__PURE__ */ jsx("button", {
+					type: "button",
+					onClick: onClose,
+					"aria-label": "Close",
+					className: "grid h-7 w-7 shrink-0 place-items-center rounded-lg text-zinc-600 cursor-pointer hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900",
+					children: /* @__PURE__ */ jsx(X, {
+						className: "w-4 h-4",
+						"aria-hidden": "true"
+					})
+				})]
+			}),
+			/* @__PURE__ */ jsxs("div", {
+				className: "mt-2 flex flex-wrap gap-1.5",
+				children: [/* @__PURE__ */ jsxs("button", {
+					type: "button",
+					onClick: onPickParent,
+					disabled: !canPickParent,
+					className: stepButton,
+					children: [/* @__PURE__ */ jsx(ArrowUpLeft, {
+						className: "w-3.5 h-3.5",
+						"aria-hidden": "true"
+					}), " The part around it"]
+				}), /* @__PURE__ */ jsxs("button", {
+					type: "button",
+					onClick: onPickChild,
+					disabled: !canPickChild,
+					className: stepButton,
+					children: [/* @__PURE__ */ jsx(ArrowDownRight, {
+						className: "w-3.5 h-3.5",
+						"aria-hidden": "true"
+					}), " The part inside it"]
+				})]
+			}),
+			!canPickChild && picked.text && /* @__PURE__ */ jsxs("p", {
+				className: "mt-1.5 text-[11px] text-zinc-600",
+				children: [
+					"This is the text itself. To colour its words, use ",
+					/* @__PURE__ */ jsx("strong", {
+						className: "font-semibold text-zinc-800",
+						children: "Text colour"
+					}),
+					" below."
+				]
+			}),
+			paint.similar && /* @__PURE__ */ jsx("div", {
+				role: "radiogroup",
+				"aria-label": "Which ones",
+				className: "mt-2.5 grid grid-cols-3 gap-1 rounded-lg bg-zinc-100 p-1",
+				children: [
+					[
+						"one",
+						"Just this one",
+						{
+							all: false,
+							everywhere: false
+						}
+					],
+					[
+						"all",
+						`All ${paint.likeIt} here`,
+						{
+							all: true,
+							everywhere: false
+						}
+					],
+					[
+						"everywhere",
+						"On every page",
+						{
+							all: true,
+							everywhere: true
+						}
+					]
+				].map(([id, label, change]) => {
+					const on = (paint.everywhere ? "everywhere" : paint.all ? "all" : "one") === id;
+					return /* @__PURE__ */ jsx("button", {
+						type: "button",
+						role: "radio",
+						"aria-checked": on,
+						onClick: () => update({
+							...paint,
+							...change
+						}),
+						"data-tip": id === "everywhere" ? `Every ${picked.kind.toLowerCase()} like it, on every page of your site` : void 0,
+						className: `rounded-md px-1.5 py-1 text-[11px] leading-tight font-semibold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 ${on ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600 hover:text-zinc-900"}`,
+						children: label
+					}, id);
+				})
+			}),
+			paint.everywhere && /* @__PURE__ */ jsxs("p", {
+				className: "mt-1.5 text-[11px] leading-snug text-zinc-600",
+				children: [
+					"Studio will colour every ",
+					picked.kind.toLowerCase(),
+					" like this on every page of your site, as you open them."
+				]
+			}),
+			check && /* @__PURE__ */ jsx(Readability, {
+				check,
+				onFix: fixText,
+				fixed: fixTried
+			}),
+			/* @__PURE__ */ jsx("div", {
+				className: "mt-3 space-y-2.5",
+				children: PROPS.map(({ key, label }) => /* @__PURE__ */ jsx(ColourRow, {
+					label: key === "text" ? "Text colour" : label,
+					hint: key === "border" && !paint.hasBorder ? "adds an outline" : key === "background" ? "behind it" : key === "text" ? "its words" : null,
+					value: paint.props[key],
+					swatches,
+					onChange: (v) => setColour(key, v),
+					inScope,
+					readsOn: main && key === "background" ? (hex) => ({
+						ratio: contrastRatio(main.text, hex),
+						need: main.need
+					}) : main && key === "text" ? (hex) => ({
+						ratio: contrastRatio(hex, main.background),
+						need: main.need
+					}) : null
+				}, key))
+			}),
+			/* @__PURE__ */ jsxs("div", {
+				className: "mt-3 flex gap-2",
+				children: [saved && /* @__PURE__ */ jsxs("button", {
+					type: "button",
+					onClick: () => {
+						removePaint(paint.id);
+						onClose();
+					},
+					className: "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-800 cursor-pointer hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900",
+					children: [/* @__PURE__ */ jsx(Trash2, {
+						className: "w-3.5 h-3.5",
+						"aria-hidden": "true"
+					}), " Undo these"]
+				}), /* @__PURE__ */ jsxs("button", {
+					type: "button",
+					onClick: onClose,
+					className: "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-zinc-900 px-2.5 py-1.5 text-xs font-medium text-white cursor-pointer hover:bg-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2",
+					children: [/* @__PURE__ */ jsx(Check, {
+						className: "w-3.5 h-3.5",
+						"aria-hidden": "true"
+					}), " Done"]
+				})]
+			})
+		]
+	});
+}
+/**
+* How readable the part's text is, shown as soon as it's picked: all good, or how many pieces are
+* hard to read, with Fix. Text that still fails after a fix sits on a background of its own.
+*/
+function Readability({ check, onFix, fixed }) {
+	const { checked, failing, worst } = check;
+	const ok = !failing.length;
+	const pieces = (n) => n === 1 ? "piece" : "pieces";
+	return /* @__PURE__ */ jsxs("div", {
+		role: "status",
+		className: `mt-2.5 rounded-lg p-2.5 text-[11px] leading-snug ${ok ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-900"}`,
+		children: [/* @__PURE__ */ jsxs("div", {
+			className: "flex items-start justify-between gap-2",
+			children: [/* @__PURE__ */ jsx("p", { children: ok ? /* @__PURE__ */ jsxs(Fragment, { children: [
+				/* @__PURE__ */ jsx("strong", {
+					className: "font-semibold",
+					children: "Easy to read."
+				}),
+				" ",
+				checked === 1 ? "Its text" : `All ${checked} ${pieces(checked)} of text`,
+				" ",
+				checked === 1 ? "reads" : "read",
+				" well",
+				worst && ` (${checked === 1 ? "" : "lowest "}${formatRatio(worst.ratio)})`,
+				"."
+			] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
+				/* @__PURE__ */ jsx("strong", {
+					className: "font-semibold",
+					children: "Hard to read."
+				}),
+				" ",
+				failing.length === checked ? checked === 1 ? "Its text" : `All ${checked} ${pieces(checked)} of text` : `${failing.length} of ${checked} ${pieces(checked)} of text`,
+				" ",
+				failing.length === 1 && checked === 1 ? "is" : "are",
+				" too faint on ",
+				failing.length === 1 ? "its" : "their",
+				" background (",
+				formatRatio(worst.ratio),
+				", needs ",
+				formatRatio(worst.need),
+				")."
+			] }) }), !ok && /* @__PURE__ */ jsx("button", {
+				type: "button",
+				onClick: onFix,
+				className: "shrink-0 rounded-md bg-amber-900 px-2 py-1 font-semibold text-amber-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-900 focus-visible:ring-offset-1",
+				children: "Fix"
+			})]
+		}), !ok && fixed && /* @__PURE__ */ jsx("p", {
+			className: "mt-1",
+			children: "Some of it sits on a background of its own. Click that text to change it on its own."
+		})]
+	});
+}
+/** One colour: the theme's swatches, any colour, or none (the part's own). */
+function ColourRow({ label, hint, value, swatches, onChange, inScope, readsOn }) {
+	const id = useId();
+	const current = value ? value.token && inScope ? swatches.find((s) => s.token === value.token)?.hex ?? value.hex : value.hex : null;
+	return /* @__PURE__ */ jsxs("div", {
+		role: "group",
+		"aria-labelledby": id,
+		children: [/* @__PURE__ */ jsxs("div", {
+			className: "mb-1 flex items-center justify-between",
+			children: [/* @__PURE__ */ jsxs("span", {
+				id,
+				className: "text-[11px] font-semibold text-zinc-700",
+				children: [label, hint && /* @__PURE__ */ jsxs("span", {
+					className: "ml-1 font-normal text-zinc-500",
+					children: ["· ", hint]
+				})]
+			}), value && /* @__PURE__ */ jsx("button", {
+				type: "button",
+				onClick: () => onChange(null),
+				className: "text-[11px] font-medium text-zinc-600 underline underline-offset-2 cursor-pointer hover:text-zinc-900",
+				children: "Its own"
+			})]
+		}), /* @__PURE__ */ jsxs("div", {
+			className: "flex flex-wrap items-center gap-1",
+			children: [swatches.map((s) => {
+				const on = value?.token === s.token;
+				const name = TOKEN_LABELS[s.token] ?? s.token;
+				const reads = readsOn?.(s.hex);
+				const poor = reads && reads.ratio < reads.need;
+				return /* @__PURE__ */ jsx("button", {
+					type: "button",
+					"aria-pressed": on,
+					"aria-label": `${name} (${s.hex})${poor ? ", hard to read here" : ""}`,
+					"data-tip": `${name} · ${s.hex}${reads ? poor ? ` · hard to read here (${formatRatio(reads.ratio)})` : ` · reads well (${formatRatio(reads.ratio)})` : ""}`,
+					onClick: () => onChange({
+						token: s.token,
+						hex: s.hex
+					}),
+					className: `relative h-6 w-6 rounded-md border cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-1 ${on ? "border-zinc-900 ring-2 ring-zinc-900 ring-offset-1" : "border-black/15"}`,
+					style: { background: s.hex },
+					children: poor && /* @__PURE__ */ jsx("span", {
+						"aria-hidden": "true",
+						className: "absolute -top-1 -right-1 grid h-3 w-3 place-items-center rounded-full border border-white bg-amber-500 text-[8px] leading-none font-bold text-white",
+						children: "!"
+					})
+				}, s.token);
+			}), /* @__PURE__ */ jsxs("label", {
+				className: `relative grid h-6 w-6 place-items-center overflow-hidden rounded-md border cursor-pointer ${value && !value.token ? "border-zinc-900 ring-2 ring-zinc-900 ring-offset-1" : "border-zinc-300"}`,
+				style: { background: value && !value.token ? value.hex : "conic-gradient(#f43f5e, #f59e0b, #10b981, #0ea5e9, #6366f1, #d946ef, #f43f5e)" },
+				"data-tip": "Any colour",
+				children: [/* @__PURE__ */ jsxs("span", {
+					className: "sr-only",
+					children: ["Any colour for the ", label.toLowerCase()]
+				}), /* @__PURE__ */ jsx("input", {
+					type: "color",
+					value: current ?? "#6366f1",
+					onChange: (e) => onChange({ hex: e.target.value }),
+					className: "absolute inset-0 h-full w-full cursor-pointer opacity-0"
+				})]
+			})]
+		})]
+	});
+}
+//#endregion
 //#region src/panel-css.generated.js
-var panel_css_generated_default = "/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */\n@layer properties{@supports (display:block){*,:before,:after,::backdrop{--tw-translate-x:0;--tw-translate-y:0;--tw-translate-z:0;--tw-scale-x:1;--tw-scale-y:1;--tw-scale-z:1;--tw-space-y-reverse:0;--tw-border-style:solid;--tw-leading:initial;--tw-font-weight:initial;--tw-tracking:initial;--tw-ordinal:initial;--tw-slashed-zero:initial;--tw-numeric-figure:initial;--tw-numeric-spacing:initial;--tw-numeric-fraction:initial;--tw-shadow:0 0 #0000;--tw-shadow-color:initial;--tw-shadow-alpha:100%;--tw-inset-shadow:0 0 #0000;--tw-inset-shadow-color:initial;--tw-inset-shadow-alpha:100%;--tw-ring-color:initial;--tw-ring-shadow:0 0 #0000;--tw-inset-ring-color:initial;--tw-inset-ring-shadow:0 0 #0000;--tw-ring-inset:initial;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-offset-shadow:0 0 #0000;--tw-blur:initial;--tw-brightness:initial;--tw-contrast:initial;--tw-grayscale:initial;--tw-hue-rotate:initial;--tw-invert:initial;--tw-opacity:initial;--tw-saturate:initial;--tw-sepia:initial;--tw-drop-shadow:initial;--tw-drop-shadow-color:initial;--tw-drop-shadow-alpha:100%;--tw-drop-shadow-size:initial;--tw-backdrop-blur:initial;--tw-backdrop-brightness:initial;--tw-backdrop-contrast:initial;--tw-backdrop-grayscale:initial;--tw-backdrop-hue-rotate:initial;--tw-backdrop-invert:initial;--tw-backdrop-opacity:initial;--tw-backdrop-saturate:initial;--tw-backdrop-sepia:initial;--tw-duration:initial;--tw-ease:initial}}}@layer theme{:root,:host{--font-sans:-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", \"Noto Sans\", Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\";--font-mono:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace;--color-red-600:oklch(57.7% .245 27.325);--color-red-700:oklch(50.5% .213 27.518);--color-amber-50:oklch(98.7% .022 95.277);--color-amber-100:oklch(96.2% .059 95.617);--color-amber-200:oklch(92.4% .12 95.746);--color-amber-300:oklch(87.9% .169 91.605);--color-amber-400:oklch(82.8% .189 84.429);--color-amber-700:oklch(55.5% .163 48.998);--color-amber-800:oklch(47.3% .137 46.201);--color-amber-900:oklch(41.4% .112 45.904);--color-amber-950:oklch(27.9% .077 45.635);--color-emerald-50:oklch(97.9% .021 166.113);--color-emerald-800:oklch(43.2% .095 166.913);--color-emerald-900:oklch(37.8% .077 168.94);--color-sky-50:oklch(97.7% .013 236.62);--color-sky-100:oklch(95.1% .026 236.824);--color-sky-900:oklch(39.1% .09 240.876);--color-zinc-50:oklch(98.5% 0 none);--color-zinc-100:oklch(96.7% .001 286.375);--color-zinc-200:oklch(92% .004 286.32);--color-zinc-300:oklch(87.1% .006 286.286);--color-zinc-400:oklch(70.5% .015 286.067);--color-zinc-500:oklch(55.2% .016 285.938);--color-zinc-600:oklch(44.2% .017 285.786);--color-zinc-700:oklch(37% .013 285.805);--color-zinc-800:oklch(27.4% .006 286.033);--color-zinc-900:oklch(21% .006 285.885);--color-white:#fff;--spacing:4px;--text-xs:12px;--text-xs--line-height:calc(1 / .75);--text-sm:14px;--text-sm--line-height:calc(1.25 / .875);--text-base:16px;--text-base--line-height:calc(1.5 / 1);--font-weight-medium:500;--font-weight-semibold:600;--font-weight-bold:700;--tracking-tight:-.025em;--tracking-wide:.025em;--leading-tight:1.25;--leading-snug:1.375;--radius-md:6px;--radius-lg:8px;--radius-xl:12px;--radius-2xl:16px;--ease-in-out:cubic-bezier(.4, 0, .2, 1);--animate-spin:spin 1s linear infinite;--default-transition-duration:.15s;--default-transition-timing-function:cubic-bezier(.4, 0, .2, 1);--default-font-family:var(--font-sans);--default-mono-font-family:var(--font-mono)}}@layer base{*,:after,:before,::backdrop{box-sizing:border-box;border:0 solid;margin:0;padding:0}::file-selector-button{box-sizing:border-box;border:0 solid;margin:0;padding:0}html,:host{-webkit-text-size-adjust:100%;tab-size:4;line-height:1.5;font-family:var(--default-font-family,-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", \"Noto Sans\", Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\");font-feature-settings:var(--default-font-feature-settings,normal);font-variation-settings:var(--default-font-variation-settings,normal);-webkit-tap-highlight-color:transparent}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;-webkit-text-decoration:inherit;-webkit-text-decoration:inherit;-webkit-text-decoration:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,samp,pre{font-family:var(--default-mono-font-family,ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace);font-feature-settings:var(--default-mono-font-feature-settings,normal);font-variation-settings:var(--default-mono-font-variation-settings,normal);font-size:1em}small{font-size:80%}sub,sup{vertical-align:baseline;font-size:75%;line-height:0;position:relative}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}:-moz-focusring:where(:not(iframe)){outline:auto}progress{vertical-align:baseline}summary{display:list-item}ol,ul,menu{list-style:none}img,svg,video,canvas,audio,iframe,embed,object{vertical-align:middle;display:block}img,video{max-width:100%;height:auto}button,input,select,optgroup,textarea{font:inherit;font-feature-settings:inherit;font-variation-settings:inherit;letter-spacing:inherit;color:inherit;opacity:1;background-color:#0000;border-radius:0}::file-selector-button{font:inherit;font-feature-settings:inherit;font-variation-settings:inherit;letter-spacing:inherit;color:inherit;opacity:1;background-color:#0000;border-radius:0}:where(select:is([multiple],[size])) optgroup{font-weight:bolder}:where(select:is([multiple],[size])) optgroup option{padding-inline-start:20px}::file-selector-button{margin-inline-end:4px}::placeholder{opacity:1}@supports (not ((-webkit-appearance:-apple-pay-button))) or (contain-intrinsic-size:1px){::placeholder{color:currentColor}@supports (color:color-mix(in lab, red, red)){::placeholder{color:color-mix(in oklab, currentcolor 50%, transparent)}}}textarea{resize:vertical}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-date-and-time-value{min-height:1lh;text-align:inherit}::-webkit-datetime-edit{display:inline-flex}::-webkit-datetime-edit-fields-wrapper{padding:0}::-webkit-datetime-edit{padding-block:0}::-webkit-datetime-edit-year-field{padding-block:0}::-webkit-datetime-edit-month-field{padding-block:0}::-webkit-datetime-edit-day-field{padding-block:0}::-webkit-datetime-edit-hour-field{padding-block:0}::-webkit-datetime-edit-minute-field{padding-block:0}::-webkit-datetime-edit-second-field{padding-block:0}::-webkit-datetime-edit-millisecond-field{padding-block:0}::-webkit-datetime-edit-meridiem-field{padding-block:0}::-webkit-calendar-picker-indicator{line-height:1}:-moz-ui-invalid{box-shadow:none}button,input:where([type=button],[type=reset],[type=submit]){appearance:button}::file-selector-button{appearance:button}::-webkit-inner-spin-button{height:auto}::-webkit-outer-spin-button{height:auto}[hidden]:where(:not([hidden=until-found])){display:none!important}.theme-switcher{letter-spacing:normal;color:var(--color-zinc-900);font-family:Inter,ui-sans-serif,system-ui,sans-serif;font-size:16px;line-height:1.5}}@layer components;@layer utilities{.\\@container{container-type:inline-size}.pointer-events-auto{pointer-events:auto}.pointer-events-none{pointer-events:none}.invisible{visibility:hidden}.visible{visibility:visible}.sr-only{clip-path:inset(50%);white-space:nowrap;border-width:0;width:1px;height:1px;margin:-1px;padding:0;position:absolute;overflow:hidden}.absolute{position:absolute}.fixed{position:fixed}.relative{position:relative}.sticky{position:sticky}.inset-x-3{inset-inline:calc(var(--spacing) * 3)}.inset-x-5{inset-inline:calc(var(--spacing) * 5)}.inset-y-5{inset-block:calc(var(--spacing) * 5)}.-top-2{top:calc(var(--spacing) * -2)}.-top-\\[6px\\]{top:-6px}.top-0{top:0}.top-1\\.5{top:calc(var(--spacing) * 1.5)}.top-1\\/2{top:50%}.top-5{top:calc(var(--spacing) * 5)}.top-\\[84px\\]{top:84px}.-right-0\\.5{right:calc(var(--spacing) * -.5)}.-right-2{right:calc(var(--spacing) * -2)}.right-1\\.5{right:calc(var(--spacing) * 1.5)}.right-2{right:calc(var(--spacing) * 2)}.right-5{right:calc(var(--spacing) * 5)}.right-6{right:calc(var(--spacing) * 6)}.right-full{right:100%}.-bottom-0\\.5{bottom:calc(var(--spacing) * -.5)}.-bottom-2{bottom:calc(var(--spacing) * -2)}.-bottom-\\[6px\\]{bottom:-6px}.bottom-2{bottom:calc(var(--spacing) * 2)}.bottom-3{bottom:calc(var(--spacing) * 3)}.bottom-5{bottom:calc(var(--spacing) * 5)}.-left-2{left:calc(var(--spacing) * -2)}.left-5{left:calc(var(--spacing) * 5)}.left-full{left:100%}.z-10{z-index:10}.z-20{z-index:20}.z-30{z-index:30}.z-\\[55\\]{z-index:55}.z-\\[56\\]{z-index:56}.z-\\[57\\]{z-index:57}.z-\\[60\\]{z-index:60}.z-\\[61\\]{z-index:61}.z-\\[62\\]{z-index:62}.z-\\[70\\]{z-index:70}.container{width:100%}@media (min-width:640px){.container{max-width:640px}}@media (min-width:768px){.container{max-width:768px}}@media (min-width:1024px){.container{max-width:1024px}}@media (min-width:1280px){.container{max-width:1280px}}@media (min-width:1536px){.container{max-width:1536px}}.mx-4{margin-inline:calc(var(--spacing) * 4)}.-mt-1{margin-top:calc(var(--spacing) * -1)}.mt-0\\.5{margin-top:calc(var(--spacing) * .5)}.mt-1{margin-top:var(--spacing)}.mt-1\\.5{margin-top:calc(var(--spacing) * 1.5)}.mt-2{margin-top:calc(var(--spacing) * 2)}.mt-2\\.5{margin-top:calc(var(--spacing) * 2.5)}.mt-3{margin-top:calc(var(--spacing) * 3)}.mt-px{margin-top:1px}.-mr-1{margin-right:calc(var(--spacing) * -1)}.mr-2{margin-right:calc(var(--spacing) * 2)}.mb-1{margin-bottom:var(--spacing)}.mb-2\\.5{margin-bottom:calc(var(--spacing) * 2.5)}.ml-1\\.5{margin-left:calc(var(--spacing) * 1.5)}.ml-2{margin-left:calc(var(--spacing) * 2)}.ml-auto{margin-left:auto}.block{display:block}.flex{display:flex}.grid{display:grid}.hidden{display:none}.inline-flex{display:inline-flex}.h-2\\.5{height:calc(var(--spacing) * 2.5)}.h-3{height:calc(var(--spacing) * 3)}.h-3\\.5{height:calc(var(--spacing) * 3.5)}.h-4{height:calc(var(--spacing) * 4)}.h-5{height:calc(var(--spacing) * 5)}.h-6{height:calc(var(--spacing) * 6)}.h-7{height:calc(var(--spacing) * 7)}.h-8{height:calc(var(--spacing) * 8)}.h-9{height:calc(var(--spacing) * 9)}.h-16{height:calc(var(--spacing) * 16)}.max-h-40{max-height:calc(var(--spacing) * 40)}.min-h-0{min-height:0}.min-h-12{min-height:calc(var(--spacing) * 12)}.w-2\\.5{width:calc(var(--spacing) * 2.5)}.w-3{width:calc(var(--spacing) * 3)}.w-3\\.5{width:calc(var(--spacing) * 3.5)}.w-4{width:calc(var(--spacing) * 4)}.w-5{width:calc(var(--spacing) * 5)}.w-6{width:calc(var(--spacing) * 6)}.w-7{width:calc(var(--spacing) * 7)}.w-8{width:calc(var(--spacing) * 8)}.w-9{width:calc(var(--spacing) * 9)}.w-16{width:calc(var(--spacing) * 16)}.w-24{width:calc(var(--spacing) * 24)}.w-\\[5\\.5rem\\]{width:88px}.w-auto{width:auto}.w-full{width:100%}.max-w-\\[240px\\]{max-width:240px}.max-w-\\[calc\\(100vw-80px\\)\\]{max-width:calc(100vw - 80px)}.max-w-full{max-width:100%}.min-w-0{min-width:0}.min-w-\\[1\\.25rem\\]{min-width:20px}.flex-1{flex:1}.shrink-0{flex-shrink:0}.-translate-y-1\\/2{--tw-translate-y:calc(calc(1 / 2 * 100%) * -1);translate:var(--tw-translate-x) var(--tw-translate-y)}.scale-110{--tw-scale-x:110%;--tw-scale-y:110%;--tw-scale-z:110%;scale:var(--tw-scale-x) var(--tw-scale-y)}.rotate-45{rotate:45deg}.rotate-90{rotate:90deg}.animate-spin{animation:var(--animate-spin)}.cursor-ew-resize{cursor:ew-resize}.cursor-grabbing{cursor:grabbing}.cursor-nesw-resize{cursor:nesw-resize}.cursor-ns-resize{cursor:ns-resize}.cursor-nwse-resize{cursor:nwse-resize}.cursor-pointer{cursor:pointer}.touch-none{touch-action:none}.resize{resize:both}.scroll-mt-3{scroll-margin-top:calc(var(--spacing) * 3)}.list-decimal{list-style-type:decimal}.list-disc{list-style-type:disc}.grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.flex-col{flex-direction:column}.flex-wrap{flex-wrap:wrap}.place-items-center{place-items:center}.items-center{align-items:center}.items-start{align-items:flex-start}.justify-between{justify-content:space-between}.justify-center{justify-content:center}.gap-0\\.5{gap:calc(var(--spacing) * .5)}.gap-1{gap:var(--spacing)}.gap-1\\.5{gap:calc(var(--spacing) * 1.5)}.gap-2{gap:calc(var(--spacing) * 2)}.gap-2\\.5{gap:calc(var(--spacing) * 2.5)}.gap-3{gap:calc(var(--spacing) * 3)}:where(.space-y-0\\.5>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * .5) * var(--tw-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * .5) * calc(1 - var(--tw-space-y-reverse)))}:where(.space-y-1>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(var(--spacing) * var(--tw-space-y-reverse));margin-block-end:calc(var(--spacing) * calc(1 - var(--tw-space-y-reverse)))}:where(.space-y-1\\.5>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 1.5) * var(--tw-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 1.5) * calc(1 - var(--tw-space-y-reverse)))}:where(.space-y-2>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 2) * var(--tw-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 2) * calc(1 - var(--tw-space-y-reverse)))}:where(.space-y-3>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 3) * var(--tw-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 3) * calc(1 - var(--tw-space-y-reverse)))}:where(.space-y-4>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 4) * var(--tw-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 4) * calc(1 - var(--tw-space-y-reverse)))}.gap-x-3{column-gap:calc(var(--spacing) * 3)}.gap-y-3\\.5{row-gap:calc(var(--spacing) * 3.5)}.truncate{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.overflow-auto{overflow:auto}.overflow-hidden{overflow:hidden}.overflow-y-auto{overflow-y:auto}.overscroll-contain{overscroll-behavior:contain}.rounded{border-radius:4px}.rounded-2xl{border-radius:var(--radius-2xl)}.rounded-\\[inherit\\]{border-radius:inherit}.rounded-full{border-radius:3.40282e38px}.rounded-lg{border-radius:var(--radius-lg)}.rounded-md{border-radius:var(--radius-md)}.rounded-xl{border-radius:var(--radius-xl)}.border{border-style:var(--tw-border-style);border-width:1px}.border-2{border-style:var(--tw-border-style);border-width:2px}.border-t{border-top-style:var(--tw-border-style);border-top-width:1px}.border-r{border-right-style:var(--tw-border-style);border-right-width:1px}.border-b{border-bottom-style:var(--tw-border-style);border-bottom-width:1px}.border-l{border-left-style:var(--tw-border-style);border-left-width:1px}.border-dashed{--tw-border-style:dashed;border-style:dashed}.border-amber-200{border-color:var(--color-amber-200)}.border-amber-300{border-color:var(--color-amber-300)}.border-amber-400{border-color:var(--color-amber-400)}.border-red-600{border-color:var(--color-red-600)}.border-transparent{border-color:#0000}.border-white{border-color:var(--color-white)}.border-zinc-200{border-color:var(--color-zinc-200)}.border-zinc-300{border-color:var(--color-zinc-300)}.border-zinc-900{border-color:var(--color-zinc-900)}.bg-amber-50{background-color:var(--color-amber-50)}.bg-amber-100{background-color:var(--color-amber-100)}.bg-amber-400{background-color:var(--color-amber-400)}.bg-emerald-50{background-color:var(--color-emerald-50)}.bg-sky-50{background-color:var(--color-sky-50)}.bg-sky-100{background-color:var(--color-sky-100)}.bg-white{background-color:var(--color-white)}.bg-white\\/90{background-color:#ffffffe6}@supports (color:color-mix(in lab, red, red)){.bg-white\\/90{background-color:color-mix(in oklab, var(--color-white) 90%, transparent)}}.bg-zinc-50{background-color:var(--color-zinc-50)}.bg-zinc-100{background-color:var(--color-zinc-100)}.bg-zinc-900{background-color:var(--color-zinc-900)}.object-contain{object-fit:contain}.p-0\\.5{padding:calc(var(--spacing) * .5)}.p-1{padding:var(--spacing)}.p-2{padding:calc(var(--spacing) * 2)}.p-2\\.5{padding:calc(var(--spacing) * 2.5)}.p-3{padding:calc(var(--spacing) * 3)}.px-0\\.5{padding-inline:calc(var(--spacing) * .5)}.px-1{padding-inline:var(--spacing)}.px-1\\.5{padding-inline:calc(var(--spacing) * 1.5)}.px-2{padding-inline:calc(var(--spacing) * 2)}.px-2\\.5{padding-inline:calc(var(--spacing) * 2.5)}.px-3{padding-inline:calc(var(--spacing) * 3)}.px-4{padding-inline:calc(var(--spacing) * 4)}.py-0\\.5{padding-block:calc(var(--spacing) * .5)}.py-1{padding-block:var(--spacing)}.py-1\\.5{padding-block:calc(var(--spacing) * 1.5)}.py-2{padding-block:calc(var(--spacing) * 2)}.py-2\\.5{padding-block:calc(var(--spacing) * 2.5)}.py-3{padding-block:calc(var(--spacing) * 3)}.py-5{padding-block:calc(var(--spacing) * 5)}.py-6{padding-block:calc(var(--spacing) * 6)}.pr-1\\.5{padding-right:calc(var(--spacing) * 1.5)}.pr-12{padding-right:calc(var(--spacing) * 12)}.pb-4{padding-bottom:calc(var(--spacing) * 4)}.pl-1{padding-left:var(--spacing)}.pl-3{padding-left:calc(var(--spacing) * 3)}.pl-4{padding-left:calc(var(--spacing) * 4)}.text-center{text-align:center}.text-left{text-align:left}.font-mono{font-family:var(--font-mono)}.font-sans{font-family:var(--font-sans)}.text-base{font-size:var(--text-base);line-height:var(--tw-leading,var(--text-base--line-height))}.text-sm{font-size:var(--text-sm);line-height:var(--tw-leading,var(--text-sm--line-height))}.text-xs{font-size:var(--text-xs);line-height:var(--tw-leading,var(--text-xs--line-height))}.text-\\[10px\\]{font-size:10px}.text-\\[11px\\]{font-size:11px}.leading-snug{--tw-leading:var(--leading-snug);line-height:var(--leading-snug)}.leading-tight{--tw-leading:var(--leading-tight);line-height:var(--leading-tight)}.font-bold{--tw-font-weight:var(--font-weight-bold);font-weight:var(--font-weight-bold)}.font-medium{--tw-font-weight:var(--font-weight-medium);font-weight:var(--font-weight-medium)}.font-semibold{--tw-font-weight:var(--font-weight-semibold);font-weight:var(--font-weight-semibold)}.tracking-tight{--tw-tracking:var(--tracking-tight);letter-spacing:var(--tracking-tight)}.tracking-wide{--tw-tracking:var(--tracking-wide);letter-spacing:var(--tracking-wide)}.break-words{overflow-wrap:break-word}.break-all{word-break:break-all}.whitespace-nowrap{white-space:nowrap}.whitespace-pre-wrap{white-space:pre-wrap}.text-amber-700{color:var(--color-amber-700)}.text-amber-800{color:var(--color-amber-800)}.text-amber-900{color:var(--color-amber-900)}.text-amber-950{color:var(--color-amber-950)}.text-emerald-800{color:var(--color-emerald-800)}.text-emerald-900{color:var(--color-emerald-900)}.text-red-700{color:var(--color-red-700)}.text-sky-900{color:var(--color-sky-900)}.text-white{color:var(--color-white)}.text-white\\/80{color:#fffc}@supports (color:color-mix(in lab, red, red)){.text-white\\/80{color:color-mix(in oklab, var(--color-white) 80%, transparent)}}.text-zinc-300{color:var(--color-zinc-300)}.text-zinc-500{color:var(--color-zinc-500)}.text-zinc-600{color:var(--color-zinc-600)}.text-zinc-700{color:var(--color-zinc-700)}.text-zinc-800{color:var(--color-zinc-800)}.text-zinc-900{color:var(--color-zinc-900)}.capitalize{text-transform:capitalize}.uppercase{text-transform:uppercase}.tabular-nums{--tw-numeric-spacing:tabular-nums;font-variant-numeric:var(--tw-ordinal,) var(--tw-slashed-zero,) var(--tw-numeric-figure,) var(--tw-numeric-spacing,) var(--tw-numeric-fraction,)}.underline{text-decoration-line:underline}.underline-offset-2{text-underline-offset:2px}.accent-zinc-900{accent-color:var(--color-zinc-900)}.opacity-25{opacity:.25}.opacity-70{opacity:.7}.shadow{--tw-shadow:0 1px 3px 0 var(--tw-shadow-color,#0000001a), 0 1px 2px -1px var(--tw-shadow-color,#0000001a);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.shadow-2xl{--tw-shadow:0 25px 50px -12px var(--tw-shadow-color,#00000040);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.shadow-lg{--tw-shadow:0 10px 15px -3px var(--tw-shadow-color,#0000001a), 0 4px 6px -4px var(--tw-shadow-color,#0000001a);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.shadow-md{--tw-shadow:0 4px 6px -1px var(--tw-shadow-color,#0000001a), 0 2px 4px -2px var(--tw-shadow-color,#0000001a);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.shadow-sm{--tw-shadow:0 1px 3px 0 var(--tw-shadow-color,#0000001a), 0 1px 2px -1px var(--tw-shadow-color,#0000001a);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.shadow-xl{--tw-shadow:0 20px 25px -5px var(--tw-shadow-color,#0000001a), 0 8px 10px -6px var(--tw-shadow-color,#0000001a);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.ring-1{--tw-ring-shadow:var(--tw-ring-inset,) 0 0 0 calc(1px + var(--tw-ring-offset-width)) var(--tw-ring-color,currentcolor);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.ring-2{--tw-ring-shadow:var(--tw-ring-inset,) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color,currentcolor);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.ring-white{--tw-ring-color:var(--color-white)}.ring-zinc-900{--tw-ring-color:var(--color-zinc-900)}.ring-offset-1{--tw-ring-offset-width:1px;--tw-ring-offset-shadow:var(--tw-ring-inset,) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color)}.invert{--tw-invert:invert(100%);filter:var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,)}.filter{filter:var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,)}.backdrop-blur{--tw-backdrop-blur:blur(8px);-webkit-backdrop-filter:var(--tw-backdrop-blur,) var(--tw-backdrop-brightness,) var(--tw-backdrop-contrast,) var(--tw-backdrop-grayscale,) var(--tw-backdrop-hue-rotate,) var(--tw-backdrop-invert,) var(--tw-backdrop-opacity,) var(--tw-backdrop-saturate,) var(--tw-backdrop-sepia,);backdrop-filter:var(--tw-backdrop-blur,) var(--tw-backdrop-brightness,) var(--tw-backdrop-contrast,) var(--tw-backdrop-grayscale,) var(--tw-backdrop-hue-rotate,) var(--tw-backdrop-invert,) var(--tw-backdrop-opacity,) var(--tw-backdrop-saturate,) var(--tw-backdrop-sepia,)}.transition-\\[color\\,background-color\\,box-shadow\\,scale\\]{transition-property:color,background-color,box-shadow,scale;transition-timing-function:var(--tw-ease,var(--default-transition-timing-function));transition-duration:var(--tw-duration,var(--default-transition-duration))}.transition-colors{transition-property:color,background-color,border-color,outline-color,text-decoration-color,fill,stroke,--tw-gradient-from,--tw-gradient-via,--tw-gradient-to;transition-timing-function:var(--tw-ease,var(--default-transition-timing-function));transition-duration:var(--tw-duration,var(--default-transition-duration))}.transition-shadow{transition-property:box-shadow;transition-timing-function:var(--tw-ease,var(--default-transition-timing-function));transition-duration:var(--tw-duration,var(--default-transition-duration))}.transition-transform{transition-property:transform,translate,scale,rotate;transition-timing-function:var(--tw-ease,var(--default-transition-timing-function));transition-duration:var(--tw-duration,var(--default-transition-duration))}.duration-700{--tw-duration:.7s;transition-duration:.7s}.ease-in-out{--tw-ease:var(--ease-in-out);transition-timing-function:var(--ease-in-out)}.select-none{-webkit-user-select:none;user-select:none}.placeholder\\:text-zinc-500::placeholder{color:var(--color-zinc-500)}@media (hover:hover){.hover\\:border-zinc-900:hover{border-color:var(--color-zinc-900)}.hover\\:bg-amber-200:hover{background-color:var(--color-amber-200)}.hover\\:bg-white:hover{background-color:var(--color-white)}.hover\\:bg-zinc-50:hover{background-color:var(--color-zinc-50)}.hover\\:bg-zinc-100:hover{background-color:var(--color-zinc-100)}.hover\\:bg-zinc-200:hover{background-color:var(--color-zinc-200)}.hover\\:bg-zinc-400\\/30:hover{background-color:#9f9fa94d}@supports (color:color-mix(in lab, red, red)){.hover\\:bg-zinc-400\\/30:hover{background-color:color-mix(in oklab, var(--color-zinc-400) 30%, transparent)}}.hover\\:bg-zinc-700:hover{background-color:var(--color-zinc-700)}.hover\\:text-amber-950:hover{color:var(--color-amber-950)}.hover\\:text-zinc-900:hover{color:var(--color-zinc-900)}.hover\\:opacity-100:hover{opacity:1}}.focus\\:outline-none:focus{--tw-outline-style:none;outline-style:none}.focus-visible\\:ring-2:focus-visible{--tw-ring-shadow:var(--tw-ring-inset,) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color,currentcolor);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.focus-visible\\:ring-white:focus-visible{--tw-ring-color:var(--color-white)}.focus-visible\\:ring-zinc-900:focus-visible{--tw-ring-color:var(--color-zinc-900)}.focus-visible\\:ring-offset-1:focus-visible{--tw-ring-offset-width:1px;--tw-ring-offset-shadow:var(--tw-ring-inset,) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color)}.focus-visible\\:ring-offset-2:focus-visible{--tw-ring-offset-width:2px;--tw-ring-offset-shadow:var(--tw-ring-inset,) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color)}.focus-visible\\:outline-none:focus-visible{--tw-outline-style:none;outline-style:none}.focus-visible\\:ring-inset:focus-visible{--tw-ring-inset:inset}.disabled\\:cursor-default:disabled{cursor:default}.disabled\\:opacity-35:disabled{opacity:.35}.disabled\\:opacity-50:disabled{opacity:.5}@media (hover:hover){.disabled\\:hover\\:border-zinc-300:disabled:hover{border-color:var(--color-zinc-300)}}@media (prefers-reduced-motion:reduce){.motion-reduce\\:animate-none{animation:none}.motion-reduce\\:transition-none{transition-property:none}}@media (min-width:1200px){.min-\\[1200px\\]\\:top-\\[27px\\]{top:27px}.min-\\[1200px\\]\\:right-4{right:calc(var(--spacing) * 4)}}@media (min-width:640px){.sm\\:inline{display:inline}}@container (min-width:380px){.\\@min-\\[380px\\]\\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}}@container (min-width:400px){.\\@min-\\[400px\\]\\:inline{display:inline}}@container (min-width:460px){.\\@min-\\[460px\\]\\:inline{display:inline}.\\@min-\\[460px\\]\\:h-10{height:calc(var(--spacing) * 10)}.\\@min-\\[460px\\]\\:min-h-0{min-height:0}.\\@min-\\[460px\\]\\:flex-row{flex-direction:row}.\\@min-\\[460px\\]\\:justify-start{justify-content:flex-start}.\\@min-\\[460px\\]\\:gap-1\\.5{gap:calc(var(--spacing) * 1.5)}.\\@min-\\[460px\\]\\:truncate{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.\\@min-\\[460px\\]\\:px-2\\.5{padding-inline:calc(var(--spacing) * 2.5)}.\\@min-\\[460px\\]\\:py-0{padding-block:0}.\\@min-\\[460px\\]\\:text-left{text-align:left}.\\@min-\\[460px\\]\\:text-xs{font-size:var(--text-xs);line-height:var(--tw-leading,var(--text-xs--line-height))}}@container (min-width:500px){.\\@min-\\[500px\\]\\:inline{display:inline}.\\@min-\\[500px\\]\\:px-2{padding-inline:calc(var(--spacing) * 2)}}@container (min-width:520px){.\\@min-\\[520px\\]\\:ml-auto{margin-left:auto}.\\@min-\\[520px\\]\\:w-auto{width:auto}.\\@min-\\[520px\\]\\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.\\@min-\\[520px\\]\\:justify-start{justify-content:flex-start}}}:host{all:initial}.cbm-dark{color-scheme:dark;--color-white:oklch(21% .006 285.885);--color-zinc-50:oklch(24.5% .006 286);--color-zinc-100:oklch(27.4% .006 286.033);--color-zinc-200:oklch(33% .01 285.9);--color-zinc-300:oklch(42% .015 285.8);--color-zinc-400:oklch(52% .016 285.9);--color-zinc-500:oklch(68% .015 286.067);--color-zinc-600:oklch(74% .012 286);--color-zinc-700:oklch(82% .008 286.2);--color-zinc-800:oklch(88% .006 286.3);--color-zinc-900:oklch(96.7% .001 286.375);--color-zinc-950:oklch(98.5% 0 0);--color-amber-50:oklch(27.9% .077 45.635);--color-amber-100:oklch(33% .09 46);--color-amber-200:oklch(41.4% .112 45.904);--color-amber-300:oklch(55.5% .163 48.998);--color-amber-700:oklch(87.9% .169 91.605);--color-amber-800:oklch(92.4% .12 95.746);--color-amber-900:oklch(96.2% .059 95.617);--color-amber-950:oklch(98.7% .022 95.277);--color-emerald-50:oklch(26.2% .051 172.552);--color-emerald-800:oklch(90.5% .093 164.15);--color-emerald-900:oklch(95% .052 163.051);--color-sky-50:oklch(29.3% .066 243.157);--color-sky-100:oklch(39.1% .09 240.876);--color-sky-900:oklch(95.1% .026 236.824);--color-red-600:oklch(70.4% .191 22.216);--color-red-700:oklch(80.8% .114 19.571)}.cbm-dark *{--tw-ring-offset-color:oklch(21% .006 285.885)}.theme-scroll{--cbm-thumb:var(--color-primary,oklch(55.2% .016 285.938))}@supports (color:color-mix(in lab, red, red)){.theme-scroll{--cbm-thumb:color-mix(in srgb, var(--color-primary,var(--color-zinc-500)) 55%, var(--color-white))}}.theme-scroll{--cbm-thumb-hover:var(--color-primary,oklch(55.2% .016 285.938))}@supports (color:color-mix(in lab, red, red)){.theme-scroll{--cbm-thumb-hover:color-mix(in srgb, var(--color-primary,var(--color-zinc-500)) 80%, var(--color-white))}}.theme-scroll{scrollbar-width:thin;scrollbar-color:var(--cbm-thumb) transparent}.theme-scroll:hover{scrollbar-color:var(--cbm-thumb-hover) transparent}.theme-scroll::-webkit-scrollbar{width:6px}.theme-scroll::-webkit-scrollbar-track{background:0 0}.theme-scroll::-webkit-scrollbar-thumb{background:var(--cbm-thumb);border-radius:9999px}.theme-scroll:hover::-webkit-scrollbar-thumb{background:var(--cbm-thumb-hover)}.theme-panel{transform-origin:100% 0;animation:.16s ease-out theme-panel-in}@keyframes theme-panel-in{0%{opacity:0;transform:translateY(-6px)scale(.98)}}.theme-hint{animation:.12s ease-out theme-hint-in}.theme-toast{animation:.18s ease-out theme-toast-in}@keyframes theme-toast-in{0%{opacity:0;transform:translateY(8px)}}@keyframes theme-hint-in{0%{opacity:0}}.theme-arrive{animation:.62s cubic-bezier(.34,1.56,.64,1) both theme-arrive}@keyframes theme-arrive{0%{opacity:0;transform:scale(.2)rotate(-45deg)}60%{opacity:1;transform:scale(1.16)rotate(8deg)}to{transform:scale(1)rotate(0)}}.theme-burst-piece{line-height:0;animation:.95s cubic-bezier(.15,.75,.3,1) both theme-burst-piece;display:block;position:absolute;top:50%;left:50%}@keyframes theme-burst-piece{0%{opacity:0;transform:translate(-50%, -50%) rotate(var(--r)) scale(.3)}12%{opacity:1}65%{opacity:1}to{opacity:0;transform:translate(calc(-50% + var(--x)), calc(-50% + var(--y))) rotate(calc(var(--r) + 150deg)) scale(1)}}.theme-piece-dot{background:currentColor;border-radius:9999px;width:6px;height:6px}.theme-piece-dash{background:currentColor;border-radius:9999px;width:10px;height:3px}.theme-studio-mark{animation:9s linear infinite theme-studio-hue}@keyframes theme-studio-hue{0%{filter:hue-rotate()}to{filter:hue-rotate(360deg)}}@media (prefers-reduced-motion:reduce){.theme-studio-mark,.theme-panel,.theme-hint,.theme-toast{animation:none}.theme-arrive{animation:.3s ease-out both theme-hint-in}.theme-burst{display:none}}.theme-panel summary{list-style:none}.theme-panel summary::-webkit-details-marker{display:none}.theme-panel details[open]>summary .theme-chevron{transform:rotate(90deg)}@keyframes spin{to{transform:rotate(360deg)}}";
+var panel_css_generated_default = "/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */\n@layer properties{@supports (display:block){*,:before,:after,::backdrop{--tw-translate-x:0;--tw-translate-y:0;--tw-translate-z:0;--tw-scale-x:1;--tw-scale-y:1;--tw-scale-z:1;--tw-space-y-reverse:0;--tw-space-x-reverse:0;--tw-border-style:solid;--tw-leading:initial;--tw-font-weight:initial;--tw-tracking:initial;--tw-ordinal:initial;--tw-slashed-zero:initial;--tw-numeric-figure:initial;--tw-numeric-spacing:initial;--tw-numeric-fraction:initial;--tw-shadow:0 0 #0000;--tw-shadow-color:initial;--tw-shadow-alpha:100%;--tw-inset-shadow:0 0 #0000;--tw-inset-shadow-color:initial;--tw-inset-shadow-alpha:100%;--tw-ring-color:initial;--tw-ring-shadow:0 0 #0000;--tw-inset-ring-color:initial;--tw-inset-ring-shadow:0 0 #0000;--tw-ring-inset:initial;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-offset-shadow:0 0 #0000;--tw-outline-style:solid;--tw-blur:initial;--tw-brightness:initial;--tw-contrast:initial;--tw-grayscale:initial;--tw-hue-rotate:initial;--tw-invert:initial;--tw-opacity:initial;--tw-saturate:initial;--tw-sepia:initial;--tw-drop-shadow:initial;--tw-drop-shadow-color:initial;--tw-drop-shadow-alpha:100%;--tw-drop-shadow-size:initial;--tw-backdrop-blur:initial;--tw-backdrop-brightness:initial;--tw-backdrop-contrast:initial;--tw-backdrop-grayscale:initial;--tw-backdrop-hue-rotate:initial;--tw-backdrop-invert:initial;--tw-backdrop-opacity:initial;--tw-backdrop-saturate:initial;--tw-backdrop-sepia:initial;--tw-duration:initial;--tw-ease:initial}}}@layer theme{:root,:host{--font-sans:-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", \"Noto Sans\", Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\";--font-mono:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace;--color-red-600:oklch(57.7% .245 27.325);--color-red-700:oklch(50.5% .213 27.518);--color-amber-50:oklch(98.7% .022 95.277);--color-amber-100:oklch(96.2% .059 95.617);--color-amber-200:oklch(92.4% .12 95.746);--color-amber-300:oklch(87.9% .169 91.605);--color-amber-400:oklch(82.8% .189 84.429);--color-amber-500:oklch(76.9% .188 70.08);--color-amber-700:oklch(55.5% .163 48.998);--color-amber-800:oklch(47.3% .137 46.201);--color-amber-900:oklch(41.4% .112 45.904);--color-amber-950:oklch(27.9% .077 45.635);--color-emerald-50:oklch(97.9% .021 166.113);--color-emerald-800:oklch(43.2% .095 166.913);--color-emerald-900:oklch(37.8% .077 168.94);--color-sky-50:oklch(97.7% .013 236.62);--color-sky-100:oklch(95.1% .026 236.824);--color-sky-900:oklch(39.1% .09 240.876);--color-zinc-50:oklch(98.5% 0 none);--color-zinc-100:oklch(96.7% .001 286.375);--color-zinc-200:oklch(92% .004 286.32);--color-zinc-300:oklch(87.1% .006 286.286);--color-zinc-400:oklch(70.5% .015 286.067);--color-zinc-500:oklch(55.2% .016 285.938);--color-zinc-600:oklch(44.2% .017 285.786);--color-zinc-700:oklch(37% .013 285.805);--color-zinc-800:oklch(27.4% .006 286.033);--color-zinc-900:oklch(21% .006 285.885);--color-black:#000;--color-white:#fff;--spacing:4px;--text-xs:12px;--text-xs--line-height:calc(1 / .75);--text-sm:14px;--text-sm--line-height:calc(1.25 / .875);--text-base:16px;--text-base--line-height:calc(1.5 / 1);--font-weight-normal:400;--font-weight-medium:500;--font-weight-semibold:600;--font-weight-bold:700;--tracking-tight:-.025em;--tracking-wide:.025em;--leading-tight:1.25;--leading-snug:1.375;--radius-md:6px;--radius-lg:8px;--radius-xl:12px;--radius-2xl:16px;--ease-in-out:cubic-bezier(.4, 0, .2, 1);--animate-spin:spin 1s linear infinite;--default-transition-duration:.15s;--default-transition-timing-function:cubic-bezier(.4, 0, .2, 1);--default-font-family:var(--font-sans);--default-mono-font-family:var(--font-mono)}}@layer base{*,:after,:before,::backdrop{box-sizing:border-box;border:0 solid;margin:0;padding:0}::file-selector-button{box-sizing:border-box;border:0 solid;margin:0;padding:0}html,:host{-webkit-text-size-adjust:100%;tab-size:4;line-height:1.5;font-family:var(--default-font-family,-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", \"Noto Sans\", Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\");font-feature-settings:var(--default-font-feature-settings,normal);font-variation-settings:var(--default-font-variation-settings,normal);-webkit-tap-highlight-color:transparent}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;-webkit-text-decoration:inherit;-webkit-text-decoration:inherit;-webkit-text-decoration:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,samp,pre{font-family:var(--default-mono-font-family,ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace);font-feature-settings:var(--default-mono-font-feature-settings,normal);font-variation-settings:var(--default-mono-font-variation-settings,normal);font-size:1em}small{font-size:80%}sub,sup{vertical-align:baseline;font-size:75%;line-height:0;position:relative}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}:-moz-focusring:where(:not(iframe)){outline:auto}progress{vertical-align:baseline}summary{display:list-item}ol,ul,menu{list-style:none}img,svg,video,canvas,audio,iframe,embed,object{vertical-align:middle;display:block}img,video{max-width:100%;height:auto}button,input,select,optgroup,textarea{font:inherit;font-feature-settings:inherit;font-variation-settings:inherit;letter-spacing:inherit;color:inherit;opacity:1;background-color:#0000;border-radius:0}::file-selector-button{font:inherit;font-feature-settings:inherit;font-variation-settings:inherit;letter-spacing:inherit;color:inherit;opacity:1;background-color:#0000;border-radius:0}:where(select:is([multiple],[size])) optgroup{font-weight:bolder}:where(select:is([multiple],[size])) optgroup option{padding-inline-start:20px}::file-selector-button{margin-inline-end:4px}::placeholder{opacity:1}@supports (not ((-webkit-appearance:-apple-pay-button))) or (contain-intrinsic-size:1px){::placeholder{color:currentColor}@supports (color:color-mix(in lab, red, red)){::placeholder{color:color-mix(in oklab, currentcolor 50%, transparent)}}}textarea{resize:vertical}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-date-and-time-value{min-height:1lh;text-align:inherit}::-webkit-datetime-edit{display:inline-flex}::-webkit-datetime-edit-fields-wrapper{padding:0}::-webkit-datetime-edit{padding-block:0}::-webkit-datetime-edit-year-field{padding-block:0}::-webkit-datetime-edit-month-field{padding-block:0}::-webkit-datetime-edit-day-field{padding-block:0}::-webkit-datetime-edit-hour-field{padding-block:0}::-webkit-datetime-edit-minute-field{padding-block:0}::-webkit-datetime-edit-second-field{padding-block:0}::-webkit-datetime-edit-millisecond-field{padding-block:0}::-webkit-datetime-edit-meridiem-field{padding-block:0}::-webkit-calendar-picker-indicator{line-height:1}:-moz-ui-invalid{box-shadow:none}button,input:where([type=button],[type=reset],[type=submit]){appearance:button}::file-selector-button{appearance:button}::-webkit-inner-spin-button{height:auto}::-webkit-outer-spin-button{height:auto}[hidden]:where(:not([hidden=until-found])){display:none!important}.theme-switcher{letter-spacing:normal;color:var(--color-zinc-900);font-family:Inter,ui-sans-serif,system-ui,sans-serif;font-size:16px;line-height:1.5}}@layer components;@layer utilities{.\\@container{container-type:inline-size}.pointer-events-auto{pointer-events:auto}.pointer-events-none{pointer-events:none}.invisible{visibility:hidden}.visible{visibility:visible}.sr-only{clip-path:inset(50%);white-space:nowrap;border-width:0;width:1px;height:1px;margin:-1px;padding:0;position:absolute;overflow:hidden}.absolute{position:absolute}.fixed{position:fixed}.relative{position:relative}.sticky{position:sticky}.inset-0{inset:0}.inset-x-0{inset-inline:0}.inset-x-3{inset-inline:calc(var(--spacing) * 3)}.inset-x-5{inset-inline:calc(var(--spacing) * 5)}.inset-y-5{inset-block:calc(var(--spacing) * 5)}.-top-1{top:calc(var(--spacing) * -1)}.-top-2{top:calc(var(--spacing) * -2)}.-top-\\[6px\\]{top:-6px}.top-0{top:0}.top-1\\.5{top:calc(var(--spacing) * 1.5)}.top-1\\/2{top:50%}.top-5{top:calc(var(--spacing) * 5)}.top-\\[84px\\]{top:84px}.-right-0\\.5{right:calc(var(--spacing) * -.5)}.-right-1{right:calc(var(--spacing) * -1)}.-right-2{right:calc(var(--spacing) * -2)}.right-1\\.5{right:calc(var(--spacing) * 1.5)}.right-2{right:calc(var(--spacing) * 2)}.right-5{right:calc(var(--spacing) * 5)}.right-6{right:calc(var(--spacing) * 6)}.right-full{right:100%}.-bottom-0\\.5{bottom:calc(var(--spacing) * -.5)}.-bottom-2{bottom:calc(var(--spacing) * -2)}.-bottom-\\[6px\\]{bottom:-6px}.bottom-2{bottom:calc(var(--spacing) * 2)}.bottom-3{bottom:calc(var(--spacing) * 3)}.bottom-4{bottom:calc(var(--spacing) * 4)}.bottom-5{bottom:calc(var(--spacing) * 5)}.-left-2{left:calc(var(--spacing) * -2)}.left-0{left:0}.left-5{left:calc(var(--spacing) * 5)}.left-full{left:100%}.z-10{z-index:10}.z-20{z-index:20}.z-30{z-index:30}.z-\\[55\\]{z-index:55}.z-\\[56\\]{z-index:56}.z-\\[57\\]{z-index:57}.z-\\[60\\]{z-index:60}.z-\\[61\\]{z-index:61}.z-\\[62\\]{z-index:62}.z-\\[65\\]{z-index:65}.z-\\[70\\]{z-index:70}.container{width:100%}@media (min-width:640px){.container{max-width:640px}}@media (min-width:768px){.container{max-width:768px}}@media (min-width:1024px){.container{max-width:1024px}}@media (min-width:1280px){.container{max-width:1280px}}@media (min-width:1536px){.container{max-width:1536px}}.mx-4{margin-inline:calc(var(--spacing) * 4)}.-mt-1{margin-top:calc(var(--spacing) * -1)}.mt-0\\.5{margin-top:calc(var(--spacing) * .5)}.mt-1{margin-top:var(--spacing)}.mt-1\\.5{margin-top:calc(var(--spacing) * 1.5)}.mt-2{margin-top:calc(var(--spacing) * 2)}.mt-2\\.5{margin-top:calc(var(--spacing) * 2.5)}.mt-3{margin-top:calc(var(--spacing) * 3)}.mt-px{margin-top:1px}.-mr-1{margin-right:calc(var(--spacing) * -1)}.mr-2{margin-right:calc(var(--spacing) * 2)}.mb-1{margin-bottom:var(--spacing)}.mb-2\\.5{margin-bottom:calc(var(--spacing) * 2.5)}.ml-1{margin-left:var(--spacing)}.ml-1\\.5{margin-left:calc(var(--spacing) * 1.5)}.ml-2{margin-left:calc(var(--spacing) * 2)}.ml-auto{margin-left:auto}.block{display:block}.flex{display:flex}.grid{display:grid}.hidden{display:none}.inline-flex{display:inline-flex}.h-2\\.5{height:calc(var(--spacing) * 2.5)}.h-3{height:calc(var(--spacing) * 3)}.h-3\\.5{height:calc(var(--spacing) * 3.5)}.h-4{height:calc(var(--spacing) * 4)}.h-5{height:calc(var(--spacing) * 5)}.h-6{height:calc(var(--spacing) * 6)}.h-7{height:calc(var(--spacing) * 7)}.h-8{height:calc(var(--spacing) * 8)}.h-9{height:calc(var(--spacing) * 9)}.h-16{height:calc(var(--spacing) * 16)}.h-full{height:100%}.max-h-40{max-height:calc(var(--spacing) * 40)}.min-h-0{min-height:0}.min-h-12{min-height:calc(var(--spacing) * 12)}.w-2\\.5{width:calc(var(--spacing) * 2.5)}.w-3{width:calc(var(--spacing) * 3)}.w-3\\.5{width:calc(var(--spacing) * 3.5)}.w-4{width:calc(var(--spacing) * 4)}.w-5{width:calc(var(--spacing) * 5)}.w-6{width:calc(var(--spacing) * 6)}.w-7{width:calc(var(--spacing) * 7)}.w-8{width:calc(var(--spacing) * 8)}.w-9{width:calc(var(--spacing) * 9)}.w-16{width:calc(var(--spacing) * 16)}.w-24{width:calc(var(--spacing) * 24)}.w-\\[5\\.5rem\\]{width:88px}.w-auto{width:auto}.w-full{width:100%}.max-w-\\[50\\%\\]{max-width:50%}.max-w-\\[240px\\]{max-width:240px}.max-w-\\[320px\\]{max-width:320px}.max-w-\\[calc\\(100vw-80px\\)\\]{max-width:calc(100vw - 80px)}.max-w-full{max-width:100%}.min-w-0{min-width:0}.min-w-\\[1\\.25rem\\]{min-width:20px}.flex-1{flex:1}.shrink-0{flex-shrink:0}.-translate-y-1\\/2{--tw-translate-y:calc(calc(1 / 2 * 100%) * -1);translate:var(--tw-translate-x) var(--tw-translate-y)}.scale-110{--tw-scale-x:110%;--tw-scale-y:110%;--tw-scale-z:110%;scale:var(--tw-scale-x) var(--tw-scale-y)}.rotate-45{rotate:45deg}.rotate-90{rotate:90deg}.animate-spin{animation:var(--animate-spin)}.cursor-ew-resize{cursor:ew-resize}.cursor-grabbing{cursor:grabbing}.cursor-nesw-resize{cursor:nesw-resize}.cursor-ns-resize{cursor:ns-resize}.cursor-nwse-resize{cursor:nwse-resize}.cursor-pointer{cursor:pointer}.touch-none{touch-action:none}.resize{resize:both}.scroll-mt-3{scroll-margin-top:calc(var(--spacing) * 3)}.list-decimal{list-style-type:decimal}.list-disc{list-style-type:disc}.grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.flex-col{flex-direction:column}.flex-wrap{flex-wrap:wrap}.place-items-center{place-items:center}.items-center{align-items:center}.items-start{align-items:flex-start}.justify-between{justify-content:space-between}.justify-center{justify-content:center}.gap-0\\.5{gap:calc(var(--spacing) * .5)}.gap-1{gap:var(--spacing)}.gap-1\\.5{gap:calc(var(--spacing) * 1.5)}.gap-2{gap:calc(var(--spacing) * 2)}.gap-2\\.5{gap:calc(var(--spacing) * 2.5)}.gap-3{gap:calc(var(--spacing) * 3)}:where(.space-y-0\\.5>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * .5) * var(--tw-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * .5) * calc(1 - var(--tw-space-y-reverse)))}:where(.space-y-1>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(var(--spacing) * var(--tw-space-y-reverse));margin-block-end:calc(var(--spacing) * calc(1 - var(--tw-space-y-reverse)))}:where(.space-y-1\\.5>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 1.5) * var(--tw-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 1.5) * calc(1 - var(--tw-space-y-reverse)))}:where(.space-y-2>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 2) * var(--tw-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 2) * calc(1 - var(--tw-space-y-reverse)))}:where(.space-y-2\\.5>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 2.5) * var(--tw-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 2.5) * calc(1 - var(--tw-space-y-reverse)))}:where(.space-y-3>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 3) * var(--tw-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 3) * calc(1 - var(--tw-space-y-reverse)))}:where(.space-y-4>:not(:last-child)){--tw-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 4) * var(--tw-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 4) * calc(1 - var(--tw-space-y-reverse)))}.gap-x-3{column-gap:calc(var(--spacing) * 3)}:where(.-space-x-1>:not(:last-child)){--tw-space-x-reverse:0;margin-inline-start:calc(calc(var(--spacing) * -1) * var(--tw-space-x-reverse));margin-inline-end:calc(calc(var(--spacing) * -1) * calc(1 - var(--tw-space-x-reverse)))}.gap-y-3\\.5{row-gap:calc(var(--spacing) * 3.5)}.truncate{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.overflow-auto{overflow:auto}.overflow-hidden{overflow:hidden}.overflow-y-auto{overflow-y:auto}.overscroll-contain{overscroll-behavior:contain}.rounded{border-radius:4px}.rounded-2xl{border-radius:var(--radius-2xl)}.rounded-\\[inherit\\]{border-radius:inherit}.rounded-full{border-radius:3.40282e38px}.rounded-lg{border-radius:var(--radius-lg)}.rounded-md{border-radius:var(--radius-md)}.rounded-xl{border-radius:var(--radius-xl)}.border{border-style:var(--tw-border-style);border-width:1px}.border-2{border-style:var(--tw-border-style);border-width:2px}.border-t{border-top-style:var(--tw-border-style);border-top-width:1px}.border-r{border-right-style:var(--tw-border-style);border-right-width:1px}.border-b{border-bottom-style:var(--tw-border-style);border-bottom-width:1px}.border-l{border-left-style:var(--tw-border-style);border-left-width:1px}.border-dashed{--tw-border-style:dashed;border-style:dashed}.border-amber-200{border-color:var(--color-amber-200)}.border-amber-300{border-color:var(--color-amber-300)}.border-amber-400{border-color:var(--color-amber-400)}.border-black\\/15{border-color:#00000026}@supports (color:color-mix(in lab, red, red)){.border-black\\/15{border-color:color-mix(in oklab, var(--color-black) 15%, transparent)}}.border-red-600{border-color:var(--color-red-600)}.border-transparent{border-color:#0000}.border-white{border-color:var(--color-white)}.border-zinc-200{border-color:var(--color-zinc-200)}.border-zinc-300{border-color:var(--color-zinc-300)}.border-zinc-900{border-color:var(--color-zinc-900)}.bg-amber-50{background-color:var(--color-amber-50)}.bg-amber-100{background-color:var(--color-amber-100)}.bg-amber-400{background-color:var(--color-amber-400)}.bg-amber-500{background-color:var(--color-amber-500)}.bg-amber-900{background-color:var(--color-amber-900)}.bg-emerald-50{background-color:var(--color-emerald-50)}.bg-sky-50{background-color:var(--color-sky-50)}.bg-sky-100{background-color:var(--color-sky-100)}.bg-white{background-color:var(--color-white)}.bg-white\\/90{background-color:#ffffffe6}@supports (color:color-mix(in lab, red, red)){.bg-white\\/90{background-color:color-mix(in oklab, var(--color-white) 90%, transparent)}}.bg-zinc-50{background-color:var(--color-zinc-50)}.bg-zinc-100{background-color:var(--color-zinc-100)}.bg-zinc-900{background-color:var(--color-zinc-900)}.bg-zinc-900\\/40{background-color:#18181b66}@supports (color:color-mix(in lab, red, red)){.bg-zinc-900\\/40{background-color:color-mix(in oklab, var(--color-zinc-900) 40%, transparent)}}.object-contain{object-fit:contain}.p-0\\.5{padding:calc(var(--spacing) * .5)}.p-1{padding:var(--spacing)}.p-2{padding:calc(var(--spacing) * 2)}.p-2\\.5{padding:calc(var(--spacing) * 2.5)}.p-3{padding:calc(var(--spacing) * 3)}.p-4{padding:calc(var(--spacing) * 4)}.px-0\\.5{padding-inline:calc(var(--spacing) * .5)}.px-1{padding-inline:var(--spacing)}.px-1\\.5{padding-inline:calc(var(--spacing) * 1.5)}.px-2{padding-inline:calc(var(--spacing) * 2)}.px-2\\.5{padding-inline:calc(var(--spacing) * 2.5)}.px-3{padding-inline:calc(var(--spacing) * 3)}.px-4{padding-inline:calc(var(--spacing) * 4)}.py-0\\.5{padding-block:calc(var(--spacing) * .5)}.py-1{padding-block:var(--spacing)}.py-1\\.5{padding-block:calc(var(--spacing) * 1.5)}.py-2{padding-block:calc(var(--spacing) * 2)}.py-2\\.5{padding-block:calc(var(--spacing) * 2.5)}.py-3{padding-block:calc(var(--spacing) * 3)}.py-5{padding-block:calc(var(--spacing) * 5)}.py-6{padding-block:calc(var(--spacing) * 6)}.pt-3{padding-top:calc(var(--spacing) * 3)}.pr-1\\.5{padding-right:calc(var(--spacing) * 1.5)}.pr-12{padding-right:calc(var(--spacing) * 12)}.pb-4{padding-bottom:calc(var(--spacing) * 4)}.pl-1{padding-left:var(--spacing)}.pl-3{padding-left:calc(var(--spacing) * 3)}.pl-4{padding-left:calc(var(--spacing) * 4)}.text-center{text-align:center}.text-left{text-align:left}.font-mono{font-family:var(--font-mono)}.font-sans{font-family:var(--font-sans)}.text-base{font-size:var(--text-base);line-height:var(--tw-leading,var(--text-base--line-height))}.text-sm{font-size:var(--text-sm);line-height:var(--tw-leading,var(--text-sm--line-height))}.text-xs{font-size:var(--text-xs);line-height:var(--tw-leading,var(--text-xs--line-height))}.text-\\[8px\\]{font-size:8px}.text-\\[10px\\]{font-size:10px}.text-\\[11px\\]{font-size:11px}.leading-none{--tw-leading:1;line-height:1}.leading-snug{--tw-leading:var(--leading-snug);line-height:var(--leading-snug)}.leading-tight{--tw-leading:var(--leading-tight);line-height:var(--leading-tight)}.font-bold{--tw-font-weight:var(--font-weight-bold);font-weight:var(--font-weight-bold)}.font-medium{--tw-font-weight:var(--font-weight-medium);font-weight:var(--font-weight-medium)}.font-normal{--tw-font-weight:var(--font-weight-normal);font-weight:var(--font-weight-normal)}.font-semibold{--tw-font-weight:var(--font-weight-semibold);font-weight:var(--font-weight-semibold)}.tracking-tight{--tw-tracking:var(--tracking-tight);letter-spacing:var(--tracking-tight)}.tracking-wide{--tw-tracking:var(--tracking-wide);letter-spacing:var(--tracking-wide)}.break-words{overflow-wrap:break-word}.break-all{word-break:break-all}.whitespace-nowrap{white-space:nowrap}.whitespace-pre-wrap{white-space:pre-wrap}.text-amber-50{color:var(--color-amber-50)}.text-amber-700{color:var(--color-amber-700)}.text-amber-800{color:var(--color-amber-800)}.text-amber-900{color:var(--color-amber-900)}.text-amber-950{color:var(--color-amber-950)}.text-emerald-800{color:var(--color-emerald-800)}.text-emerald-900{color:var(--color-emerald-900)}.text-red-700{color:var(--color-red-700)}.text-sky-900{color:var(--color-sky-900)}.text-white{color:var(--color-white)}.text-white\\/80{color:#fffc}@supports (color:color-mix(in lab, red, red)){.text-white\\/80{color:color-mix(in oklab, var(--color-white) 80%, transparent)}}.text-zinc-300{color:var(--color-zinc-300)}.text-zinc-500{color:var(--color-zinc-500)}.text-zinc-600{color:var(--color-zinc-600)}.text-zinc-700{color:var(--color-zinc-700)}.text-zinc-800{color:var(--color-zinc-800)}.text-zinc-900{color:var(--color-zinc-900)}.capitalize{text-transform:capitalize}.uppercase{text-transform:uppercase}.tabular-nums{--tw-numeric-spacing:tabular-nums;font-variant-numeric:var(--tw-ordinal,) var(--tw-slashed-zero,) var(--tw-numeric-figure,) var(--tw-numeric-spacing,) var(--tw-numeric-fraction,)}.underline{text-decoration-line:underline}.underline-offset-2{text-underline-offset:2px}.accent-zinc-900{accent-color:var(--color-zinc-900)}.opacity-0{opacity:0}.opacity-25{opacity:.25}.opacity-70{opacity:.7}.shadow{--tw-shadow:0 1px 3px 0 var(--tw-shadow-color,#0000001a), 0 1px 2px -1px var(--tw-shadow-color,#0000001a);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.shadow-2xl{--tw-shadow:0 25px 50px -12px var(--tw-shadow-color,#00000040);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.shadow-lg{--tw-shadow:0 10px 15px -3px var(--tw-shadow-color,#0000001a), 0 4px 6px -4px var(--tw-shadow-color,#0000001a);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.shadow-md{--tw-shadow:0 4px 6px -1px var(--tw-shadow-color,#0000001a), 0 2px 4px -2px var(--tw-shadow-color,#0000001a);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.shadow-sm{--tw-shadow:0 1px 3px 0 var(--tw-shadow-color,#0000001a), 0 1px 2px -1px var(--tw-shadow-color,#0000001a);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.shadow-xl{--tw-shadow:0 20px 25px -5px var(--tw-shadow-color,#0000001a), 0 8px 10px -6px var(--tw-shadow-color,#0000001a);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.ring-1{--tw-ring-shadow:var(--tw-ring-inset,) 0 0 0 calc(1px + var(--tw-ring-offset-width)) var(--tw-ring-color,currentcolor);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.ring-2{--tw-ring-shadow:var(--tw-ring-inset,) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color,currentcolor);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.ring-white{--tw-ring-color:var(--color-white)}.ring-zinc-900{--tw-ring-color:var(--color-zinc-900)}.ring-offset-1{--tw-ring-offset-width:1px;--tw-ring-offset-shadow:var(--tw-ring-inset,) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color)}.outline{outline-style:var(--tw-outline-style);outline-width:1px}.invert{--tw-invert:invert(100%);filter:var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,)}.filter{filter:var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,)}.backdrop-blur{--tw-backdrop-blur:blur(8px);-webkit-backdrop-filter:var(--tw-backdrop-blur,) var(--tw-backdrop-brightness,) var(--tw-backdrop-contrast,) var(--tw-backdrop-grayscale,) var(--tw-backdrop-hue-rotate,) var(--tw-backdrop-invert,) var(--tw-backdrop-opacity,) var(--tw-backdrop-saturate,) var(--tw-backdrop-sepia,);backdrop-filter:var(--tw-backdrop-blur,) var(--tw-backdrop-brightness,) var(--tw-backdrop-contrast,) var(--tw-backdrop-grayscale,) var(--tw-backdrop-hue-rotate,) var(--tw-backdrop-invert,) var(--tw-backdrop-opacity,) var(--tw-backdrop-saturate,) var(--tw-backdrop-sepia,)}.transition-\\[color\\,background-color\\,box-shadow\\,scale\\]{transition-property:color,background-color,box-shadow,scale;transition-timing-function:var(--tw-ease,var(--default-transition-timing-function));transition-duration:var(--tw-duration,var(--default-transition-duration))}.transition-colors{transition-property:color,background-color,border-color,outline-color,text-decoration-color,fill,stroke,--tw-gradient-from,--tw-gradient-via,--tw-gradient-to;transition-timing-function:var(--tw-ease,var(--default-transition-timing-function));transition-duration:var(--tw-duration,var(--default-transition-duration))}.transition-shadow{transition-property:box-shadow;transition-timing-function:var(--tw-ease,var(--default-transition-timing-function));transition-duration:var(--tw-duration,var(--default-transition-duration))}.transition-transform{transition-property:transform,translate,scale,rotate;transition-timing-function:var(--tw-ease,var(--default-transition-timing-function));transition-duration:var(--tw-duration,var(--default-transition-duration))}.duration-700{--tw-duration:.7s;transition-duration:.7s}.ease-in-out{--tw-ease:var(--ease-in-out);transition-timing-function:var(--ease-in-out)}.select-none{-webkit-user-select:none;user-select:none}.placeholder\\:text-zinc-500::placeholder{color:var(--color-zinc-500)}@media (hover:hover){.hover\\:border-zinc-900:hover{border-color:var(--color-zinc-900)}.hover\\:bg-amber-200:hover{background-color:var(--color-amber-200)}.hover\\:bg-white:hover{background-color:var(--color-white)}.hover\\:bg-zinc-50:hover{background-color:var(--color-zinc-50)}.hover\\:bg-zinc-100:hover{background-color:var(--color-zinc-100)}.hover\\:bg-zinc-200:hover{background-color:var(--color-zinc-200)}.hover\\:bg-zinc-400\\/30:hover{background-color:#9f9fa94d}@supports (color:color-mix(in lab, red, red)){.hover\\:bg-zinc-400\\/30:hover{background-color:color-mix(in oklab, var(--color-zinc-400) 30%, transparent)}}.hover\\:bg-zinc-700:hover{background-color:var(--color-zinc-700)}.hover\\:text-amber-950:hover{color:var(--color-amber-950)}.hover\\:text-zinc-900:hover{color:var(--color-zinc-900)}.hover\\:opacity-100:hover{opacity:1}}.focus\\:outline-none:focus{--tw-outline-style:none;outline-style:none}.focus-visible\\:ring-2:focus-visible{--tw-ring-shadow:var(--tw-ring-inset,) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color,currentcolor);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.focus-visible\\:ring-amber-900:focus-visible{--tw-ring-color:var(--color-amber-900)}.focus-visible\\:ring-white:focus-visible{--tw-ring-color:var(--color-white)}.focus-visible\\:ring-zinc-900:focus-visible{--tw-ring-color:var(--color-zinc-900)}.focus-visible\\:ring-offset-1:focus-visible{--tw-ring-offset-width:1px;--tw-ring-offset-shadow:var(--tw-ring-inset,) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color)}.focus-visible\\:ring-offset-2:focus-visible{--tw-ring-offset-width:2px;--tw-ring-offset-shadow:var(--tw-ring-inset,) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color)}.focus-visible\\:outline-none:focus-visible{--tw-outline-style:none;outline-style:none}.focus-visible\\:ring-inset:focus-visible{--tw-ring-inset:inset}.disabled\\:cursor-default:disabled{cursor:default}.disabled\\:opacity-35:disabled{opacity:.35}.disabled\\:opacity-45:disabled{opacity:.45}.disabled\\:opacity-50:disabled{opacity:.5}@media (hover:hover){.disabled\\:hover\\:border-zinc-300:disabled:hover{border-color:var(--color-zinc-300)}.disabled\\:hover\\:bg-transparent:disabled:hover{background-color:#0000}}@media (prefers-reduced-motion:reduce){.motion-reduce\\:animate-none{animation:none}.motion-reduce\\:transition-none{transition-property:none}}@media (min-width:1200px){.min-\\[1200px\\]\\:top-\\[27px\\]{top:27px}.min-\\[1200px\\]\\:right-4{right:calc(var(--spacing) * 4)}}@media (min-width:640px){.sm\\:inline{display:inline}}@container (min-width:380px){.\\@min-\\[380px\\]\\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}}@container (min-width:400px){.\\@min-\\[400px\\]\\:inline{display:inline}}@container (min-width:460px){.\\@min-\\[460px\\]\\:inline{display:inline}.\\@min-\\[460px\\]\\:h-10{height:calc(var(--spacing) * 10)}.\\@min-\\[460px\\]\\:min-h-0{min-height:0}.\\@min-\\[460px\\]\\:flex-row{flex-direction:row}.\\@min-\\[460px\\]\\:justify-start{justify-content:flex-start}.\\@min-\\[460px\\]\\:gap-1\\.5{gap:calc(var(--spacing) * 1.5)}.\\@min-\\[460px\\]\\:truncate{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.\\@min-\\[460px\\]\\:px-2\\.5{padding-inline:calc(var(--spacing) * 2.5)}.\\@min-\\[460px\\]\\:py-0{padding-block:0}.\\@min-\\[460px\\]\\:text-left{text-align:left}.\\@min-\\[460px\\]\\:text-xs{font-size:var(--text-xs);line-height:var(--tw-leading,var(--text-xs--line-height))}}@container (min-width:500px){.\\@min-\\[500px\\]\\:inline{display:inline}.\\@min-\\[500px\\]\\:px-2{padding-inline:calc(var(--spacing) * 2)}}@container (min-width:520px){.\\@min-\\[520px\\]\\:ml-auto{margin-left:auto}.\\@min-\\[520px\\]\\:w-auto{width:auto}.\\@min-\\[520px\\]\\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.\\@min-\\[520px\\]\\:justify-start{justify-content:flex-start}}}:host{all:initial}.cbm-dark{color-scheme:dark;--color-white:oklch(21% .006 285.885);--color-zinc-50:oklch(24.5% .006 286);--color-zinc-100:oklch(27.4% .006 286.033);--color-zinc-200:oklch(33% .01 285.9);--color-zinc-300:oklch(42% .015 285.8);--color-zinc-400:oklch(52% .016 285.9);--color-zinc-500:oklch(68% .015 286.067);--color-zinc-600:oklch(74% .012 286);--color-zinc-700:oklch(82% .008 286.2);--color-zinc-800:oklch(88% .006 286.3);--color-zinc-900:oklch(96.7% .001 286.375);--color-zinc-950:oklch(98.5% 0 0);--color-amber-50:oklch(27.9% .077 45.635);--color-amber-100:oklch(33% .09 46);--color-amber-200:oklch(41.4% .112 45.904);--color-amber-300:oklch(55.5% .163 48.998);--color-amber-700:oklch(87.9% .169 91.605);--color-amber-800:oklch(92.4% .12 95.746);--color-amber-900:oklch(96.2% .059 95.617);--color-amber-950:oklch(98.7% .022 95.277);--color-emerald-50:oklch(26.2% .051 172.552);--color-emerald-800:oklch(90.5% .093 164.15);--color-emerald-900:oklch(95% .052 163.051);--color-sky-50:oklch(29.3% .066 243.157);--color-sky-100:oklch(39.1% .09 240.876);--color-sky-900:oklch(95.1% .026 236.824);--color-red-600:oklch(70.4% .191 22.216);--color-red-700:oklch(80.8% .114 19.571)}.cbm-dark *{--tw-ring-offset-color:oklch(21% .006 285.885)}.theme-scroll{--cbm-thumb:var(--color-primary,oklch(55.2% .016 285.938))}@supports (color:color-mix(in lab, red, red)){.theme-scroll{--cbm-thumb:color-mix(in srgb, var(--color-primary,var(--color-zinc-500)) 55%, var(--color-white))}}.theme-scroll{--cbm-thumb-hover:var(--color-primary,oklch(55.2% .016 285.938))}@supports (color:color-mix(in lab, red, red)){.theme-scroll{--cbm-thumb-hover:color-mix(in srgb, var(--color-primary,var(--color-zinc-500)) 80%, var(--color-white))}}.theme-scroll{scrollbar-width:thin;scrollbar-color:var(--cbm-thumb) transparent}.theme-scroll:hover{scrollbar-color:var(--cbm-thumb-hover) transparent}.theme-scroll::-webkit-scrollbar{width:6px}.theme-scroll::-webkit-scrollbar-track{background:0 0}.theme-scroll::-webkit-scrollbar-thumb{background:var(--cbm-thumb);border-radius:9999px}.theme-scroll:hover::-webkit-scrollbar-thumb{background:var(--cbm-thumb-hover)}.theme-panel{transform-origin:100% 0;animation:.16s ease-out theme-panel-in}@keyframes theme-panel-in{0%{opacity:0;transform:translateY(-6px)scale(.98)}}.theme-hint{animation:.12s ease-out theme-hint-in}.theme-toast{animation:.18s ease-out theme-toast-in}@keyframes theme-toast-in{0%{opacity:0;transform:translateY(8px)}}@keyframes theme-hint-in{0%{opacity:0}}.theme-arrive{animation:.62s cubic-bezier(.34,1.56,.64,1) both theme-arrive}@keyframes theme-arrive{0%{opacity:0;transform:scale(.2)rotate(-45deg)}60%{opacity:1;transform:scale(1.16)rotate(8deg)}to{transform:scale(1)rotate(0)}}.theme-burst-piece{line-height:0;animation:.95s cubic-bezier(.15,.75,.3,1) both theme-burst-piece;display:block;position:absolute;top:50%;left:50%}@keyframes theme-burst-piece{0%{opacity:0;transform:translate(-50%, -50%) rotate(var(--r)) scale(.3)}12%{opacity:1}65%{opacity:1}to{opacity:0;transform:translate(calc(-50% + var(--x)), calc(-50% + var(--y))) rotate(calc(var(--r) + 150deg)) scale(1)}}.theme-piece-dot{background:currentColor;border-radius:9999px;width:6px;height:6px}.theme-piece-dash{background:currentColor;border-radius:9999px;width:10px;height:3px}.theme-studio-mark{animation:9s linear infinite theme-studio-hue}@keyframes theme-studio-hue{0%{filter:hue-rotate()}to{filter:hue-rotate(360deg)}}@media (prefers-reduced-motion:reduce){.theme-studio-mark,.theme-panel,.theme-hint,.theme-toast{animation:none}.theme-arrive{animation:.3s ease-out both theme-hint-in}.theme-burst{display:none}}.theme-panel summary{list-style:none}.theme-panel summary::-webkit-details-marker{display:none}.theme-panel details[open]>summary .theme-chevron{transform:rotate(90deg)}@keyframes spin{to{transform:rotate(360deg)}}";
 //#endregion
 //#region src/ThemeSwitcher.jsx
 var CORNERS = {
@@ -7389,7 +9427,7 @@ function ThemeSwitcher() {
 	return mount && createPortal(/* @__PURE__ */ jsx(Switcher, {}), mount);
 }
 function Switcher() {
-	const { issues, storageKey, tokens, position: requested, setLogoColouring, setColourStyle, setPaletteDefault, features, intro, mode, modeSetting, setMode, settingDefaults } = useTheme();
+	const { issues, storageKey, tokens, position: requested, setLogoColouring, setColourStyle, setColourStrength, setImageTints, setPaletteDefault, features, intro, mode, modeSetting, setMode, settingDefaults } = useTheme();
 	const position = CORNERS[requested] ? requested : "bottom-right";
 	const [open, setOpen] = useState(false);
 	const [arrived, setArrived] = useState(!intro);
@@ -7417,9 +9455,17 @@ function Switcher() {
 	}, [burst]);
 	const [settings, setSettings] = useState(() => loadSettings(storageKey, settingDefaults));
 	useEffect(() => setLogoColouring(settings.colourLogo), [settings.colourLogo, setLogoColouring]);
-	useEffect(() => setColourStyle(settings.colourStyle), [settings.colourStyle, setColourStyle]);
+	useEffect(() => setColourStyle(features.colourStyle ? settings.colourStyle : settingDefaults.colourStyle), [
+		settings.colourStyle,
+		features.colourStyle,
+		settingDefaults.colourStyle,
+		setColourStyle
+	]);
 	useEffect(() => setPaletteDefault(settings.paletteSize), [settings.paletteSize, setPaletteDefault]);
+	useEffect(() => setColourStrength(settings.colourStrength), [settings.colourStrength, setColourStrength]);
+	useEffect(() => setImageTints(settings.imageTints), [settings.imageTints, setImageTints]);
 	const [auditOn, setAuditOn] = useState(false);
+	const [picking, setPicking] = useState(false);
 	const [findings, setFindings] = useState([]);
 	const recheck = useCallback(() => {
 		requestAnimationFrame(() => setFindings(runAudit({ logoColouring: settingsRef.current.colourLogo })));
@@ -7615,7 +9661,7 @@ function Switcher() {
 			showCustom: settings.showCustom && features.custom,
 			showOverrides: settings.showOverrides && features.overrides,
 			showImportExport: settings.showImportExport && features.importExport,
-			colourStyle: features.colourStyle ? settings.colourStyle : "colourful"
+			colourStyle: features.colourStyle ? settings.colourStyle : settingDefaults.colourStyle
 		},
 		mode,
 		audit: {
@@ -7628,6 +9674,15 @@ function Switcher() {
 					setOpen(false);
 					setAuditOn(true);
 				}
+			}
+		},
+		studio: {
+			picking,
+			start() {
+				setAuditOn(false);
+				setFindings([]);
+				setOpen(false);
+				setPicking(true);
 			}
 		},
 		update: ({ mode: nextMode, ...patch }) => {
@@ -7762,6 +9817,10 @@ function Switcher() {
 						if (action === "colour-logo") settingsApi.update({ colourLogo: true });
 					}
 				}),
+				picking && features.studio && /* @__PURE__ */ jsx(StudioLayer, { onDone: () => {
+					setPicking(false);
+					setOpen(true);
+				} }),
 				/* @__PURE__ */ jsx(TooltipLayer, { rootRef: layerRef })
 			]
 		})
@@ -8066,4 +10125,4 @@ function ResizeHandles({ free, onStart, onMove, onEnd, onReset, active }) {
 	}, Object.keys(edges).join("-")));
 }
 //#endregion
-export { PAIRINGS as A, TOKEN_KEYS as C, MIN_CONTRAST_NON_TEXT as D, MIN_CONTRAST_LARGE_TEXT as E, contrastRatio as F, normalizeHex as I, checkTheme as M, fixAll as N, MIN_CONTRAST_TEXT as O, suggestFix as P, TOKEN_GROUPS as S, deriveAppTokens as T, darkTokens as _, themeFromPalette as a, BASE_TOKENS as b, useTheme as c, DEFAULT_SETTINGS as d, collectColors as f, themeFromRoles as g, suggestThemes as h, rolesFromPalette as i, checkRamp as j, MIN_RAMP_STEP_DELTA_E as k, DEFAULT_STORAGE_KEY as l, inferRoles as m, coloursFromFile as n, ThemeProvider as o, detectSiteName as p, dominantColours as r, applyTokens as s, ThemeSwitcher as t, prePaintScript as u, isDarkTheme as v, completeTokens as w, PRESETS as x, toDark as y };
+export { PAIRINGS as A, TOKEN_KEYS as C, MIN_CONTRAST_NON_TEXT as D, MIN_CONTRAST_LARGE_TEXT as E, contrastRatio as F, normalizeHex as I, checkTheme as M, fixAll as N, MIN_CONTRAST_TEXT as O, suggestFix as P, TOKEN_GROUPS as S, deriveAppTokens as T, darkTokens as _, DEFAULT_STORAGE_KEY as a, BASE_TOKENS as b, coloursFromFile as c, themeFromPalette as d, collectColors as f, themeFromRoles as g, suggestThemes as h, useTheme as i, checkRamp as j, MIN_RAMP_STEP_DELTA_E as k, dominantColours as l, inferRoles as m, ThemeProvider as n, prePaintScript as o, detectSiteName as p, applyTokens as r, DEFAULT_SETTINGS as s, ThemeSwitcher as t, rolesFromPalette as u, isDarkTheme as v, completeTokens as w, PRESETS as x, toDark as y };

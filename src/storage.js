@@ -3,6 +3,7 @@
 
 import { normalizeHex } from './color.js'
 import { MAX_SEEN, cleanPages, cleanScope } from './scope.js'
+import { cleanPaints } from './studio.js'
 import { TOKEN_KEYS, completeTokens } from './tokens.js'
 
 export const DEFAULT_STORAGE_KEY = 'colorsbymax'
@@ -20,10 +21,11 @@ const VERSION = 1
  * @property {{ mode: 'all' | 'pages', pages: string[] } | null} scope  Where the colours go, chosen in
  *   Studio (null: the site's `pages` config, else the whole site)
  * @property {string[]} seen  Pages of the site this visitor has opened, newest first, for Studio
+ * @property {object[]} paints  Parts of pages coloured by pointing and clicking in Studio
  */
 
 /** @returns {ThemeState} */
-export const initialState = (defaultId) => ({ activeId: defaultId, overrides: {}, customs: [], snapshot: null, scanned: null, paletteSizes: {}, scope: null, seen: [] })
+export const initialState = (defaultId) => ({ activeId: defaultId, overrides: {}, customs: [], snapshot: null, scanned: null, paletteSizes: {}, scope: null, seen: [], paints: [] })
 
 /** Keeps only known token keys with valid hex values. */
 export function sanitizeTokens(input) {
@@ -82,6 +84,7 @@ export function loadState(storageKey, defaultTheme) {
       ),
       scope: cleanScope(data.scope),
       seen: cleanPages(data.seen).filter((p) => !p.endsWith('/*')).slice(0, MAX_SEEN),
+      paints: cleanPaints(data.paints),
     }
   } catch {
     return fresh
@@ -91,11 +94,12 @@ export function loadState(storageKey, defaultTheme) {
 /**
  * Persists state plus the fully resolved tokens, so the pre-paint script can apply
  * them without knowing about presets, and the pages they go on (`where`, from Studio or the
- * site's `pages` config), so it leaves the other pages alone.
+ * site's `pages` config), so it leaves the other pages alone; and Studio's stylesheet for each
+ * page with parts coloured by pointing and clicking (`paintCss`), so those show at once too.
  */
-export function saveState(storageKey, state, resolved, where = null) {
+export function saveState(storageKey, state, resolved, where = null, paintCss = null) {
   try {
-    window.localStorage.setItem(storageKey, JSON.stringify({ v: VERSION, ...state, resolved, where: where?.mode === 'pages' ? where : null }))
+    window.localStorage.setItem(storageKey, JSON.stringify({ v: VERSION, ...state, resolved, where: where?.mode === 'pages' ? where : null, paintCss }))
   } catch {
     // Storage unavailable or full: the theme still applies for this page view.
   }
@@ -130,5 +134,5 @@ export function saveButtonPosition(storageKey, position) {
  * avoiding a flash of the default. Embed it as a classic (non-module) <script>.
  */
 export function prePaintScript(storageKey = DEFAULT_STORAGE_KEY) {
-  return `(function(){try{var s=JSON.parse(localStorage.getItem(${JSON.stringify(storageKey)})||'null');var t=s&&s.v===${VERSION}&&s.resolved;if(!t||typeof t!=='object')return;var w=s.where;if(w&&Object.prototype.toString.call(w.pages)==='[object Array]'){var p=location.pathname.replace(/\\/+$/,'')||'/',ok=false;for(var i=0;i<w.pages.length;i++){var g=String(w.pages[i]);if(g.slice(-2)==='/*'?(p===g.slice(0,-2)||p.indexOf(g.slice(0,-1))===0):p===g){ok=true;break}}if(!ok)return}var d=document.documentElement.style;for(var k in t){var v=t[k];if(/^[a-z0-9-]+$/.test(k)&&/^#[0-9a-f]{6}$/i.test(v))d.setProperty('--color-'+k,v)}}catch(e){}})()`
+  return `(function(){try{var s=JSON.parse(localStorage.getItem(${JSON.stringify(storageKey)})||'null');if(!s||s.v!==${VERSION})return;var p=location.pathname.replace(/\\/+$/,'')||'/';var pc=s.paintCss||{},c=(typeof pc['*']==='string'?pc['*']:'')+(typeof pc[p]==='string'?pc[p]:'');if(c){var e=document.createElement('style');e.setAttribute('data-colorsbymax','studio-early');e.textContent=c;(document.head||document.documentElement).appendChild(e)}var t=s.resolved;if(!t||typeof t!=='object')return;var w=s.where;if(w&&Object.prototype.toString.call(w.pages)==='[object Array]'){var ok=false;for(var i=0;i<w.pages.length;i++){var g=String(w.pages[i]);if(g.slice(-2)==='/*'?(p===g.slice(0,-2)||p.indexOf(g.slice(0,-1))===0):p===g){ok=true;break}}if(!ok)return}var d=document.documentElement.style;for(var k in t){var v=t[k];if(/^[a-z0-9-]+$/.test(k)&&/^#[0-9a-f]{6}$/i.test(v))d.setProperty('--color-'+k,v)}}catch(e){}})()`
 }
