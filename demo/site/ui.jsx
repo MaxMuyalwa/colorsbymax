@@ -27,6 +27,31 @@ export function openPanel() {
   if (button.getAttribute('aria-expanded') !== 'true') button.click()
 }
 
+const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+const panelRoot = () => document.querySelector('colorsbymax-root')?.shadowRoot
+
+/** Opens the switcher on Studio (for the landing page's Studio section). */
+export async function openStudio() {
+  openPanel()
+  for (let i = 0; i < 20 && !panelRoot()?.querySelector('[aria-label="Studio"]'); i++) await wait(150)
+  const studio = panelRoot()?.querySelector('[aria-label="Studio"]')
+  if (studio?.getAttribute('aria-pressed') !== 'true') studio?.click()
+}
+
+/** Opens the switcher on its Colour style section: Subtle, Balanced and Colourful. */
+export async function openColourStyle() {
+  openPanel()
+  for (let i = 0; i < 20 && !panelRoot()?.querySelector('summary'); i++) await wait(150)
+  const root = panelRoot()
+  if (!root) return
+  // Back to the switcher's main view if another one (Studio, settings) is showing.
+  ;[...root.querySelectorAll('button')].find((b) => /^Back( to the switcher)?$/.test(b.textContent.trim()))?.click()
+  await wait(100)
+  const summary = [...root.querySelectorAll('summary')].find((s) => s.textContent.startsWith('Colour style'))
+  if (summary && !summary.parentElement.open) summary.click()
+  summary?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+}
+
 // Whether the panel was open when a page button was pressed. The press itself counts as a click
 // outside the panel, which closes it before the click arrives, so it's noted on pointer down.
 let openAtPress = null

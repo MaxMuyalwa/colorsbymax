@@ -8,6 +8,8 @@ import { Stats, Why } from './site/Why.jsx'
 import { Roles } from './site/Roles.jsx'
 import { Rules } from './site/Rules.jsx'
 import { Features } from './site/Features.jsx'
+import { Studio } from './site/Studio.jsx'
+import { Styles } from './site/Styles.jsx'
 import { Setup } from './site/Setup.jsx'
 import { Agents } from './site/Agents.jsx'
 import { About, Closing } from './site/About.jsx'
@@ -32,6 +34,8 @@ function Site() {
         <Why />
         <Roles />
         <Rules />
+        <Studio />
+        <Styles />
         <Features />
         <Setup />
         <Agents />

@@ -30,6 +30,7 @@ A floating theme switcher for websites. Visitors (or the site's owner) can re-co
 ## At a glance
 
 - **Two steps.** `npm install colorsbymax`, then `import 'colorsbymax/auto'` once. The colour button appears and visitors can re-colour the site, even if its colours are hard-coded (see [Quick start](#quick-start)).
+- **Go as deep as you like.** One click recolours the whole site; [Studio](#studio) colours it part by part; [Subtle, Balanced or Colourful](#colour-styles) sets how bold it is; and a [contrast guard](#the-contrast-guard) keeps every piece of text readable.
 - **React 18 or 19.**
 - **Tailwind optional.** The panel carries its own styles, so it works with Tailwind v4, older Tailwind or plain CSS. Your site only needs to paint its colours with `var(--color-…)` variables. The optional `colorsbymax/tokens.css` helper is for Tailwind v4 (`@theme` syntax); without Tailwind v4, define the variables yourself.
 - **TypeScript types included.**
@@ -247,16 +248,106 @@ When you're done choosing colours, the panel's **I'm done** button gives you rea
 - **No flash on reload.** An inline pre-paint script applies the saved theme before the page draws.
 - **Works on any site.** The panel carries its own stylesheet inside a shadow root, so it needs no Tailwind or other CSS from the site, and the site's CSS can't restyle it.
 - **Movable colour button.** The floating button starts in the corner; visitors can drag it anywhere (mouse or touch; a tooltip says so on hover, and an open panel moves with it) and it stays there, remembered across reloads. The panel then opens beside it, on whichever side has room. Its dot cycles through the current theme's colours.
-- **Three colour styles.** In the panel's **Colour style** section: **Subtle** keeps the site's own backgrounds, cards and text and brings the theme's colour in on buttons, links and highlights, with only a quiet hint of it on badges and tints; **Balanced** is the theme in every role, with a soft wash of it across the page, cards and borders, so it shows even where the theme's own backgrounds are nearly white (the site's own colours stay exactly as designed); **Colourful** is an overhaul: the page, cards and borders take a clear tint of the brand (soft in light mode, deeper in dark), and text and headings a hint of it. On a site that paints with the colour variables it works through them alone, so the site's own design still decides where each colour goes. On a site colorsbymax re-colours, it also paints the page's header, hero, sections, headings, cards, buttons and footer by role, as a designer would, and reads what each section is: a pricing table (the most popular plan ringed in the brand colour), testimonials, a form, an image-led section (kept plain so pictures show true), and the page you're on in the menu. A **Strength** slider runs it from a light wash to bold, and **Tint with my pictures' colours** takes its washes from the site's logo and photos, so they feel made for it, while buttons and links keep the theme's. - **Know when there's an update.** A bell in the panel's header (and a red dot on the colour button) says when a newer colorsbymax is out, with what changed, the command to update and a prompt for your AI editor, plus news from mrmaxdesigns. It shows only on development addresses (localhost, `.local`, `.test` and private networks), so a live site's visitors never see it; `updates: true` shows it everywhere and `updates: false` turns it off. Once a day at most it asks the npm registry for the latest version and mrmaxdesigns.com for the news; those requests carry nothing but the usual details of any web request, and nothing is stored about you.
-- **A contrast guard, on every site and in every style.** Once the colours are on the page, colorsbymax checks every piece of text and every icon against what it really sits on (see-through layers and gradients included) and brings anything hard to read up to WCAG: 4.5:1 for text, 3:1 for large text and icons. It keeps the colour's own hue where it can, so a green "Paid" stays green, and otherwise uses the theme's nearest readable colour. It runs when the colours or the page's content change, never while you scroll. To keep a deliberate example of poor contrast as it is, mark it `data-colorsbymax-contrast="keep"`.
+- **Three colour styles.** Subtle, Balanced or Colourful: as quiet or as bold as you like, with a strength slider and tints from your own pictures. See [Colour styles](#colour-styles).
+- **A contrast guard, on every site and in every style.** Every piece of text and every icon is checked against what it really sits on, and anything hard to read is fixed, keeping its hue. See [The contrast guard](#the-contrast-guard).
+- **Know when there's an update.** A bell in the panel, only where you work on your site, says when a newer colorsbymax is out and how to update, with news from mrmaxdesigns. See [The bell](#the-bell-updates-and-news).
 - **Light and dark mode, for any site.** Every built-in theme is designed light and has a generated dark twin (dark surfaces, light text, brand colours lifted until they read on dark, then contrast-checked). Switching to Dark, one click in the panel's header, turns the whole site dark, even one that never had a dark mode. Auto follows the visitor's device, and a light and dark switch can go anywhere on the site (see [Dark mode](#dark-mode)). Custom palettes stay as they were made.
 - **Visitor settings.** The gear in the panel header opens settings: theme mode (Light, Dark, Auto), panel size (Compact, Standard, Large), which groups and sections to show, whether the button can be dragged or its dot animates, and moving the button back to its corner. Saved per site.
 - **Resizable panel.** Drag the panel's free edges or corner (the ones away from the colour button) to any size, or pick a size in settings; double-click an edge to reset it. The layout follows the panel's width, so a large panel shows three theme cards a row.
-- **Studio: go deeper.** The **Studio** button in the panel header opens a second, more detailed way of working, and **Back to the switcher** returns to the quick one. **Point and click** any part of the page (a button, a card, a heading, the footer) to give it its own background, text and border, from the current theme's colours or any colour. As soon as you pick something, Studio checks every piece of text in it (and in every part like it) against what it really sits on, see-through layers included, and says whether it's easy or hard to read. **Fix** picks the text colour that reads on all of it, preferring the theme's own, and checks the result. Swatches that would make the text hard to read are marked before you choose them. Pick just that part, every part like it on the page, or every part like it **on every page** of the site; **The part around it** steps out to the card or section it sits in, and **The part inside it** steps back in, down to the text itself. Clicks on the page pick instead of following links while it's on. Picking another theme while you have Studio changes asks first: keep them (the ones in theme colours take the new theme's) or clear them. Your changes are listed page by page and saved on your device (and drawn before the page first shows, like the theme), and **Keep them for good** turns them into a prompt for Claude, Cursor or Copilot that makes them in your code, or plain CSS. Studio also chooses **where the colours go**: the whole site, or only some pages (a landing page, say, while the app inside keeps its own colours). Studio reads the site to offer its pages: the ones the current page links to and the ones you've opened. A path ending in `/*` covers a whole section, such as `/blog/*`. The choice is saved on your device, and Studio gives you the config line, and a prompt for Claude, Cursor or Copilot, that make it the same for every visitor (the `pages` option). Pages outside the chosen ones are left exactly as the site made them, dark mode included, and the quick switcher says so when you open it there. A map of the whole site, and colouring a kind of part on every page at once, are coming next.
-- **Audit the page.** **Audit this page**, in Studio, looks at the page in the chosen colours and pins notes to what won't look right: a logo that disappears against its background (with a one-click "Colour the logo", or tips when it's a picture colorsbymax can't re-colour, plus "Preview inverted"), pictures whose solid background shows as a box, and text or icons too faint to read. The notes stay on the page as you scroll; **Re-check** after a fix (it also re-checks when the colours change) and close it from its bar.
+- **Studio: go deeper.** Point and click any part of the page to give it its own colours (one part, every part like it, or every part on every page), with a readability check from the first click; choose which pages get the colours; audit the page; and keep it all as a prompt for your AI editor or as CSS. See [Studio](#studio).
+- **Audit the page.** **Audit this page**, in Studio, pins notes to what won't look right in the chosen colours: a logo that disappears, a picture whose background shows as a box, text too faint to read. See [Check the page](#check-the-page).
 - **Clear groups and feedback.** The site's own group (globe), Max’s picks (paintbrush) and Yours (person) sit in their own row, apart from the library's categories. Toasts confirm what just happened; saving, importing or building a palette says it went to Yours and offers "Show" to jump straight to it. Tooltips are drawn in the panel's colours.
 - **Themed scrollbars.** The page's scrollbars and the panel's slim one take the selected theme's primary colour. Turn the page's off with `scrollbars: false`.
 - **Accessible panel.** A labelled dialog with focus trap, Escape, the colour button or an outside click to close, keyboard operable, and reduced-motion support.
+
+## Studio
+
+Studio is the panel's deeper way of working. The quick switcher colours the whole site with one theme; Studio colours it part by part, exactly the way you want it. Open it with **Studio** in the panel's header; **Back to the switcher** returns to the quick one.
+
+### Point and click
+
+Press **Point and click**. The panel steps aside and a bar at the bottom of the page says what to do. Hovering outlines each part of the page and names it (Button, Link, Heading, Card, Section, Header, Footer, Text…); a click picks it instead of following a link or pressing a button. **Done** in the bar, or Escape, goes back to Studio.
+
+A card opens beside what you picked, with:
+
+- **What it is and where:** "Card “Pricing”, in the “Plans” section".
+- **The part around it / The part inside it:** step out from a heading to its card, or from a card to its section, and back in again, down to the text itself. When you've reached the text, the card says so and points you to **Text colour**.
+- **Just this one / All N here / On every page:** change only that part, every part like it on the page (the same element with the same classes), or every part like it on every page of the site.
+- **Background · Text colour · Border:** the current theme's colours as swatches, or any colour from the colour picker. **Its own** puts the part's own colour back. A Border on a part that has none adds a thin outline.
+
+Colours picked from the swatches follow the theme: pick a new theme and they take its colours. Colours from the colour picker stay exactly as they are.
+
+### Readable from the first click
+
+As soon as you pick something, Studio checks every piece of text in it (and in every part like it, when they change together) against what it really sits on, see-through backgrounds included, and says whether it's **easy** or **hard to read**, with its contrast ratio. **Fix** finds the text colour that reads on all of it, preferring the theme's own colours, else black or white, and only offers one that passes. Swatches that would make the text hard to read carry a small "!" before you choose them; hover one for its ratio.
+
+### Where the colours go
+
+**Where the colours go** chooses the whole site, or only some pages: colour the landing page, say, and leave the app inside as it is. Studio offers the site's own pages (the ones the current page links to, and the ones you've opened), you can type a path, and a path ending in `/*` covers a whole section (`/blog/*` is `/blog` and every page under it). Pages left out keep their own colours exactly, dark mode included, and the quick switcher says so when you open it there, with **Colour this page too**.
+
+To make it the same for every visitor, set the [`pages`](#config) option; Studio gives you the line, and a prompt for your AI editor.
+
+### Check the page
+
+**Audit this page** looks at the page in the chosen colours and pins notes to what won't look right: a logo that disappears against its background (with a one-click "Colour the logo", or tips when it's a picture colorsbymax can't re-colour, plus "Preview inverted"), pictures whose solid background shows as a box, and text or icons too faint to read. The notes stay on the page as you scroll; **Re-check** after a fix, and close it from its bar.
+
+### Keep it for good
+
+Your changes are listed page by page (and "On every page"), each with an undo, and saved on your device; they're drawn before the page first shows, like the theme, so they never flash. **Keep them for good** turns them into:
+
+- **A prompt** (recommended) for Claude, Cursor or Copilot: each change in plain words (the page, what the part says, where it is, the old and new colours), asking your editor to find the part in your code and use your own colour settings where you have them. Changes on every page are marked as a shared component, to change where it's defined.
+- **CSS** with the same changes. Its selectors come from the page as it is now, so the prompt holds up better if the layout changes.
+
+Picking another theme while you have Studio changes asks first: keep them on the new theme, or clear them.
+
+## Colour styles
+
+Every theme comes three ways. Choose in the panel's **Colour style** section, above Preset themes:
+
+| | What changes | Best for |
+|---|---|---|
+| **Subtle** | Your site keeps its own backgrounds, cards and text. The theme's colour goes on buttons, links and highlights, with only a quiet, greyed hint of it on badges and tints. | Trying a new brand colour without changing the feel of the site. |
+| **Balanced** | The theme in every role, with a soft wash of it across the page, cards and borders, so it shows even where a theme's own backgrounds are nearly white. Your site's own colours stay exactly as designed. | Seeing the theme as it's meant to be. The default on a site that paints with the colour variables. |
+| **Colourful** | An overhaul: the page, cards and borders take a clear tint of the brand (soft in light mode, deeper in dark), and text and headings a hint of it. | A whole new look. The default on a site colorsbymax re-colours. |
+
+**Strength.** With Colourful on, a slider runs from **Light wash** through Soft and Lively to **Bold**: how much the page, sections and cards are tinted, whether headings take the brand colour, and how deep the footer goes. Set where first-time visitors start with `colourStrength` (0 to 100).
+
+**Tints from your pictures.** **Tint with my pictures' colours** (on by default) takes Colourful's washes from the site's logo and biggest photos, so they feel made for the site, while buttons and links keep the theme's colours. The panel shows the colours it found, with the one it uses outlined. Pictures from another site that doesn't allow reading them are skipped.
+
+**On a site colorsbymax re-colours,** Colourful also paints the page by role, as a designer would: the header, the hero, sections taking turns, headings, cards, badges, buttons, links and the footer. It reads what each section is and gives it its own treatment: pricing tables (the most popular plan ringed in the brand colour), testimonials (on their own wash, with a brand bar on each), forms (a tinted band and a raised form box), image-led sections (kept on the plain page colour so pictures show true) and the current page in the menu. On a site that paints with the colour variables, Colourful works through those variables alone, so the site's own design still decides where each colour goes.
+
+Choose the style first-time visitors start in with [`colourStyle`](#config).
+
+## The contrast guard
+
+Whatever the theme and style, colorsbymax has the last word on readability. Once the colours are on the page, it checks every piece of text and every icon against what it actually sits on: its own background and every see-through one behind it, laid over each other, or each colour of a gradient. Anything under WCAG AA (4.5:1 for text, 3:1 for large text and icons) is fixed:
+
+1. Its own colour, made lighter or darker until it reads, so a green "Paid" stays green and a red "Failed" stays red.
+2. Else the theme colour closest to it that reads.
+3. Else black or white.
+
+It works on every site and in every style, and in Studio's colours too. It runs when the colours or the page's content change (including a part of the page that sets colour variables of its own, like a theme preview), never while the page scrolls. Hidden, disabled and `aria-hidden` parts are skipped. To keep a deliberate example of poor contrast as it is, mark it:
+
+```html
+<div data-colorsbymax-contrast="keep">…</div>
+```
+
+## The bell: updates and news
+
+When a newer colorsbymax is published, the panel says so: a small red plus appears on the colour button and on the bell in the panel's header. The bell shows:
+
+- the version you have and the latest one,
+- the headlines of what changed, from the [changelog](CHANGELOG.md),
+- `npm install colorsbymax@latest` to copy,
+- a prompt for Claude, Cursor or Copilot that updates it and makes any changes the changelog's "Upgrading" notes ask for,
+- a link to the full changelog,
+- and news from mrmaxdesigns: new features to try, and requests for feedback.
+
+Opening the bell clears the plus.
+
+**Who sees it.** By default only you, where you work on your site: development addresses (`localhost`, `127.0.0.1`, names ending in `.local`, `.localhost` or `.test`, and private networks). Visitors to your live site never see it. `updates: true` shows it everywhere, and `updates: false` turns it off.
+
+**What it sends.** Once a day at most, a few seconds after the page has loaded, the switcher asks the npm registry for the latest version, `raw.githubusercontent.com` for the changelog (only when there's an update), and mrmaxdesigns.com for the news. Those requests carry nothing but the usual details of any web request, no cookies, and nothing is stored about you. Offline, it simply skips the check.
 
 ## How it works
 
@@ -452,6 +543,8 @@ npm install colorsbymax@latest --prefer-online
 ```
 
 What changed in each release, and anything you need to do when upgrading, is in [CHANGELOG.md](CHANGELOG.md).
+
+From 0.5.0, colorsbymax tells you itself: when a newer version is out, the bell in the panel shows it (where you work on your site), with what changed, this command to copy and a prompt for your AI editor. See [The bell](#the-bell-updates-and-news).
 
 <br>
 

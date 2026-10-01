@@ -1,14 +1,14 @@
-import { ClipboardPaste, Library, Paintbrush, Rocket, ScanLine, ScanSearch, ShieldCheck, SunMoon, WandSparkles } from 'lucide-react'
+import { BellRing, ClipboardPaste, Library, Paintbrush, Rocket, ScanLine, ShieldCheck, SunMoon, WandSparkles } from 'lucide-react'
 import { Reveal, SectionHeading } from './ui.jsx'
 
 const FEATURES = [
   { Icon: Paintbrush, title: 'Your colours first', text: 'The panel opens on your site’s own theme, with an accessible version made for you if it needs one.', tone: 'data-1', motion: 'group-hover:-rotate-12' },
   { Icon: Library, title: '700+ library themes', text: 'Community-loved palettes in 14 moods, from pastel to moody, each turned into a full 35-role system.', tone: 'data-2', motion: 'group-hover:-translate-y-1' },
   { Icon: SunMoon, title: 'Light and dark', text: 'A dark twin of every theme, and a panel that follows. Or match each visitor’s device.', tone: 'data-3', motion: 'group-hover:rotate-180' },
-  { Icon: ShieldCheck, title: 'Contrast built in', text: 'Every pairing checked against WCAG, with one-click fixes that change lightness, never your hues.', tone: 'data-4', motion: 'group-hover:scale-110' },
+  { Icon: ShieldCheck, title: 'A contrast guard', text: 'Every piece of text and every icon checked against what it really sits on, in every style. Anything hard to read is fixed, keeping its hue.', tone: 'data-4', motion: 'group-hover:scale-110' },
   { Icon: ScanLine, title: 'Scan your site', text: 'Reads the colours already on your pages and builds themes around them: soft, bold, complementary.', tone: 'data-5', motion: 'group-hover:translate-x-1' },
   { Icon: ClipboardPaste, title: 'Palettes from a picture', text: 'Paste a screenshot, drop a mood board or a brand-guide PDF, and get a palette built from it.', tone: 'data-6', motion: 'group-hover:-rotate-6' },
-  { Icon: ScanSearch, title: 'Audit the page', text: 'Pins notes to anything that won’t look right in a theme: a logo that disappears, a picture with a white box.', tone: 'data-7', motion: 'group-hover:scale-110' },
+  { Icon: BellRing, title: 'Know when there’s an update', text: 'A bell in the panel says when a new version is out, with what changed and how to update. Only where you work, never to your visitors.', tone: 'data-7', motion: 'group-hover:rotate-12' },
   { Icon: WandSparkles, title: 'Works on any site', text: 'Hard-coded colours? colorsbymax reads what’s painted and re-colours it anyway. No rewrite needed.', tone: 'data-8', motion: 'group-hover:rotate-12' },
   { Icon: Rocket, title: 'Ship your pick', text: 'Done choosing? Keep your colours as the default and hide the switcher in production, in one step.', tone: 'primary', motion: 'group-hover:-translate-y-1 group-hover:translate-x-1' },
 ]
