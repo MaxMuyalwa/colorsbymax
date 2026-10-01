@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Palette } from './icons.jsx'
-import { BURST_TIME, Burst } from './burst.jsx'
+import { BURST_TIME, Burst, NewMark } from './burst.jsx'
 import ThemePanel from './ThemePanel.jsx'
 import AuditLayer from './AuditLayer.jsx'
 import StudioLayer from './StudioLayer.jsx'
+import { useUpdates } from './updates.js'
 import { runAudit } from './audit.js'
 import { useTheme } from './ThemeProvider.jsx'
 import { SettingsContext, loadSettings, saveSettings } from './settings.js'
@@ -71,7 +72,7 @@ export default function ThemeSwitcher() {
 }
 
 function Switcher() {
-  const { issues, storageKey, tokens, position: requested, setLogoColouring, setColourStyle, setColourStrength, setImageTints, setPaletteDefault, features, intro, mode, modeSetting, setMode, settingDefaults } = useTheme()
+  const { updatesOn, issues, storageKey, tokens, position: requested, setLogoColouring, setColourStyle, setColourStrength, setImageTints, setPaletteDefault, features, intro, mode, modeSetting, setMode, settingDefaults } = useTheme()
   const position = CORNERS[requested] ? requested : 'bottom-right'
   const [open, setOpen] = useState(false)
 
@@ -102,6 +103,8 @@ function Switcher() {
     return () => clearTimeout(timer)
   }, [burst])
   const [settings, setSettings] = useState(() => loadSettings(storageKey, settingDefaults))
+  // The bell: a newer version, and news (development addresses only, unless the config says otherwise).
+  const updates = useUpdates(storageKey, updatesOn)
   useEffect(() => setLogoColouring(settings.colourLogo), [settings.colourLogo, setLogoColouring])
   useEffect(() => setColourStyle(features.colourStyle ? settings.colourStyle : settingDefaults.colourStyle), [settings.colourStyle, features.colourStyle, settingDefaults.colourStyle, setColourStyle])
   useEffect(() => setPaletteDefault(settings.paletteSize), [settings.paletteSize, setPaletteDefault])
@@ -301,6 +304,7 @@ function Switcher() {
       colourStyle: features.colourStyle ? settings.colourStyle : settingDefaults.colourStyle,
     },
     mode,
+    updates,
     audit: {
       on: auditOn,
       toggle() {
@@ -389,7 +393,7 @@ function Switcher() {
         <button
           ref={buttonRef}
           type="button"
-          aria-label={`colorsbymax theme settings${issues.length ? ` (${issues.length} contrast issues)` : ''}`}
+          aria-label={`colorsbymax theme settings${issues.length ? ` (${issues.length} contrast issues)` : ''}${updates.unseen ? ' (something new in the bell)' : ''}`}
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-controls="theme-panel"
@@ -415,6 +419,8 @@ function Switcher() {
         >
           <Palette className="w-4 h-4" aria-hidden="true" />
           <CyclingDot tokens={tokens} animate={settings.animateDot} />
+          {/* Something new in the bell: an update or news. */}
+          {updates.unseen && <NewMark className="-top-1 -left-1" />}
           {bursting && <Burst key={burst} tokens={tokens} />}
           {/* Hover tooltip. Visual only: screen reader and keyboard users open the panel as usual. */}
           {hint && !open && !dragPoint && (

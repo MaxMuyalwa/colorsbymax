@@ -103,6 +103,12 @@ export interface ColorsByMaxConfig {
    * as a designer would (the default on a site colorsbymax re-colours). Visitors can switch in the panel.
    */
   colourStyle?: 'subtle' | 'balanced' | 'colourful'
+  /**
+   * The bell in the panel: says when a newer colorsbymax is out, with how to update, and shows news
+   * from mrmaxdesigns. 'dev' (default) shows it only on development addresses (localhost and the
+   * like), never to a live site's visitors; true everywhere; false never. It checks once a day.
+   */
+  updates?: boolean | 'dev'
   /** How strongly Colourful paints for a first-time visitor, 0 (a light wash) to 100 (bold). Default 50. */
   colourStrength?: number
   /**

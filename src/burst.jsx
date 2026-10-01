@@ -4,6 +4,16 @@
 
 import { useEffect, useState } from 'react'
 
+/** The mark for something new in the bell: a small red plus, outlined so it shows on any colour. */
+export function NewMark({ className = '' }) {
+  return (
+    <svg viewBox="0 0 12 12" aria-hidden="true" className={`theme-new-mark pointer-events-none absolute h-3 w-3 ${className}`}>
+      <path d="M6 1.5v9M1.5 6h9" stroke="#ffffff" strokeWidth="4.5" strokeLinecap="round" />
+      <path d="M6 1.5v9M1.5 6h9" stroke="#dc2626" strokeWidth="2.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export const BURST_TIME = 1100 // ms a burst of colour lasts
 
 // Each piece flies to (x, y) px from the centre, turning from r degrees as it goes.

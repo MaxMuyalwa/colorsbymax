@@ -60,3 +60,5 @@ export const Plus = icon('plus', [["path",{"d":"M5 12h14"}],["path",{"d":"M12 5v
 export const MousePointerClick = icon('mouse-pointer-click', [["path",{"d":"M14 4.1 12 6"}],["path",{"d":"m5.1 8-2.9-.8"}],["path",{"d":"m6 12-1.9 2"}],["path",{"d":"M7.2 2.2 8 5.1"}],["path",{"d":"M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z"}]])
 export const ArrowUpLeft = icon('arrow-up-left', [["path",{"d":"M7 17V7h10"}],["path",{"d":"M17 17 7 7"}]])
 export const ArrowDownRight = icon('arrow-down-right', [["path",{"d":"m7 7 10 10"}],["path",{"d":"M17 7v10H7"}]])
+export const Bell = icon('bell', [["path",{"d":"M10.268 21a2 2 0 0 0 3.464 0"}],["path",{"d":"M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"}]])
+export const ExternalLink = icon('external-link', [["path",{"d":"M15 3h6v6"}],["path",{"d":"M10 14 21 3"}],["path",{"d":"M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"}]])

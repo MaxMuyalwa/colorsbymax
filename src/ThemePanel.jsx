@@ -1,12 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Check, CheckCircle2, ChevronRight, ClipboardPaste, Copy, Download, ArrowLeft, Globe, ImageUp, Loader2, Monitor, Moon, MousePointerClick, Palette, RotateCcw, ScanLine, ScanSearch, Settings, Shuffle, Paintbrush, Sun, ToggleRight, Trash2, Upload, UserRound, Wand2, X, LibraryBig, Contrast, Minus, Plus } from './icons.jsx'
+import { AlertTriangle, Bell, Check, ExternalLink, CheckCircle2, ChevronRight, ClipboardPaste, Copy, Download, ArrowLeft, Globe, ImageUp, Loader2, Monitor, Moon, MousePointerClick, Palette, RotateCcw, ScanLine, ScanSearch, Settings, Shuffle, Paintbrush, Sun, ToggleRight, Trash2, Upload, UserRound, Wand2, X, LibraryBig, Contrast, Minus, Plus } from './icons.jsx'
 import { normalizeHex } from './color.js'
 import { checkTheme } from './contrast.js'
 import { coloursFromFile, themeFromPalette } from './extract.js'
 import { BRING_BACK_PROMPT, cssSnippet, keepPrompt, keepSnippet, NODE_PROD, removePrompt, VITE_PROD } from './finish.js'
 import { TOGGLE_CSS, TOGGLE_HTML, TOGGLE_PROMPT, TOGGLE_REACT, isPreviewing, previewToggle, removePreview } from './modeToggle.js'
 import { LogoMark } from './logoMark.jsx'
-import { Burst, useBurst } from './burst.jsx'
+import { Burst, NewMark, useBurst } from './burst.jsx'
 import { colourMatcher, suggestWords } from './colourWords.js'
 import { MAX_COLOURS, MIN_COLOURS, paletteKeys } from './palette.js'
 
@@ -17,6 +17,7 @@ import { inMode } from './modes.js'
 import { PANEL_PRESETS, useSettings } from './settings.js'
 import { linkedPages, normalPath, pageMatches, pagesPrompt, pagesSnippet } from './scope.js'
 import { PROPS, pageOf, paintsCssExport, paintsPrompt } from './studio.js'
+import { CHANGELOG_PAGE, UPDATE_COMMAND, updatePrompt } from './updates.js'
 import { useTheme } from './ThemeProvider.jsx'
 import { TOKEN_GROUPS, TOKEN_LABELS } from './tokens.js'
 
@@ -61,7 +62,15 @@ export default function ThemePanel({ open = true }) {
   const theme = useTheme()
   const { settings, mode, audit, update } = useSettings()
   const overrideCount = Object.keys(theme.state.overrides).length
+  // Checked by the switcher itself (it's always there), so the colour button can show the dot too.
+  const { updates } = useSettings()
   const [view, setView] = useState('main')
+  // "Add to site" opens from Settings and the finish screen, and goes back to whichever it was.
+  const [toggleFrom, setToggleFrom] = useState('main')
+  const openToggle = (from) => {
+    setToggleFrom(from)
+    setView('mode-toggle')
+  }
   const returnFocus = useRef(null)
   const rootRef = useRef(null)
   const [toasts, setToasts] = useState([])
@@ -177,20 +186,21 @@ export default function ThemePanel({ open = true }) {
           Studio
         </button>
         )}
-        {theme.features.addToSite && (
+        {updates.enabled && (
         <button
           type="button"
-          onClick={(e) => (view === 'mode-toggle' ? setView('main') : showView('mode-toggle', e.currentTarget))}
-          className={`${btn} shrink-0 whitespace-nowrap px-1.5 @min-[500px]:px-2 ${view === 'mode-toggle' ? 'border-zinc-900 bg-zinc-100' : 'border-transparent'}`}
-          aria-pressed={view === 'mode-toggle'}
-          aria-label="Add a light and dark switch to your site"
-          data-tip="Add a light and dark switch to your site"
+          onClick={(e) => (view === 'updates' ? setView('main') : showView('updates', e.currentTarget))}
+          className={`${btn} relative px-1.5 ${view === 'updates' ? 'border-zinc-900 bg-zinc-100' : 'border-transparent'}`}
+          aria-label={updates.unseen ? 'What’s new (something new)' : 'What’s new'}
+          aria-pressed={view === 'updates'}
+          data-tip={updates.update ? `colorsbymax ${updates.latest} is out` : 'What’s new'}
         >
-          <ToggleRight className="w-4 h-4" aria-hidden="true" />
-          <span className="hidden @min-[500px]:inline">Add to site</span>
+          <Bell className="w-4 h-4" aria-hidden="true" />
+          {updates.unseen && <NewMark className="top-0 right-0" />}
         </button>
         )}
-        {theme.features.audit && (
+        {/* Audit lives in Studio; a site that switches Studio off keeps it up here. */}
+        {theme.features.audit && !theme.features.studio && (
         <button
           type="button"
           onClick={audit.toggle}
@@ -216,10 +226,11 @@ export default function ThemePanel({ open = true }) {
       </header>
 
       {view === 'contrast' && <ContrastView onBack={() => setView('main')} />}
-      {view === 'settings' && <SettingsView onBack={() => setView('main')} />}
-      {view === 'finish' && <FinishView onBack={() => setView('main')} />}
-      {view === 'mode-toggle' && <ModeToggleView onBack={() => setView('main')} />}
+      {view === 'settings' && <SettingsView onBack={() => setView('main')} onAddToSite={() => openToggle('settings')} />}
+      {view === 'finish' && <FinishView onBack={() => setView('main')} onAddToSite={() => openToggle('finish')} />}
+      {view === 'mode-toggle' && <ModeToggleView onBack={() => setView(toggleFrom)} />}
       {view === 'studio' && <StudioView onBack={() => setView('main')} />}
+      {view === 'updates' && <UpdatesView updates={updates} onBack={() => setView('main')} />}
 
       {/* Kept mounted while another view is open so open sections and scroll state survive. */}
       <div hidden={view !== 'main'}>
@@ -528,8 +539,8 @@ const WHERE = [
  * on this device; the prompt, CSS and config make them everyone's.
  */
 function StudioView({ onBack }) {
-  const { scope, setScope, inScope: here, pathname, configPages, scopeChosen, seenPages } = useTheme()
-  const { studio } = useSettings()
+  const { scope, setScope, inScope: here, pathname, configPages, scopeChosen, seenPages, features } = useTheme()
+  const { studio, audit } = useSettings()
   const { toast } = usePanel()
   const headingRef = useRef(null)
   const inputId = useId()
@@ -595,6 +606,26 @@ function StudioView({ onBack }) {
           <MousePointerClick className="w-3.5 h-3.5" aria-hidden="true" /> Point and click
         </button>
       </section>
+
+      {features.audit && (
+        <section className="space-y-2.5 rounded-xl border border-zinc-200 p-3">
+          <div className="flex items-start gap-2.5">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-zinc-100 text-zinc-800">
+              <ScanSearch className="w-4 h-4" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <h4 className="text-xs font-semibold text-zinc-900">Check the page</h4>
+              <p className="text-[11px] leading-snug text-zinc-600">
+                Audit points out what won’t look right in these colours: a logo that disappears, a picture whose background shows as a box, text too
+                faint to read. The notes stay on the page until you close them.
+              </p>
+            </div>
+          </div>
+          <button type="button" className={`${btn} w-full py-2 ${audit.on ? 'border-zinc-900 bg-zinc-100' : ''}`} onClick={audit.toggle} aria-pressed={audit.on}>
+            <ScanSearch className="w-3.5 h-3.5" aria-hidden="true" /> {audit.on ? 'Stop the audit' : 'Audit this page'}
+          </button>
+        </section>
+      )}
 
       <StudioChanges />
 
@@ -839,6 +870,100 @@ function StudioChanges() {
   )
 }
 
+/** A way into "Add to site": a light and dark switch for the visitor's own site. */
+function AddToSiteLink({ onOpen }) {
+  const { features } = useTheme()
+  if (!features.addToSite) return null
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full items-center gap-2.5 rounded-xl border border-zinc-200 p-2.5 text-left cursor-pointer hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900"
+    >
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-zinc-100 text-zinc-800">
+        <ToggleRight className="w-4 h-4" aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs font-semibold text-zinc-900">Add a light and dark switch to your site</span>
+        <span className="block text-[11px] leading-snug text-zinc-600">Let your visitors choose, even if your site never had a dark mode.</span>
+      </span>
+      <ChevronRight className="w-4 h-4 shrink-0 text-zinc-500" aria-hidden="true" />
+    </button>
+  )
+}
+
+/**
+ * The bell: a newer colorsbymax, with what changed and how to update (a command, or a prompt for an
+ * AI editor), and Max's news. Opening it marks everything as seen.
+ */
+function UpdatesView({ updates, onBack }) {
+  const { current, latest, update, notes, notices, checked, markSeen } = updates
+  const headingRef = useRef(null)
+  useEffect(() => headingRef.current?.focus(), [])
+  useEffect(() => markSeen(), [markSeen])
+  const link = 'inline-flex items-center gap-1 text-xs font-semibold text-zinc-900 underline underline-offset-2 hover:no-underline'
+  return (
+    <div className="px-4 py-3 space-y-4">
+      <button type="button" className={`${btn} border-transparent px-1.5`} onClick={onBack}>
+        <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" /> Back
+      </button>
+      <h3 ref={headingRef} tabIndex={-1} className="text-sm font-semibold focus:outline-none">
+        What’s new
+      </h3>
+
+      {update ? (
+        <section className="space-y-3 rounded-xl border border-zinc-900 p-3">
+          <div>
+            <p className="text-sm font-semibold text-zinc-900">colorsbymax {latest} is out</p>
+            <p className="text-[11px] text-zinc-600">This site has {current ?? 'an older version'}.</p>
+          </div>
+          {notes.length > 0 && (
+            <ul className="list-disc space-y-1 pl-4 text-[11px] leading-snug text-zinc-700">
+              {notes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          )}
+          <CopyBlock label="Update it" text={UPDATE_COMMAND} />
+          <CopyBlock label="Or ask Claude, Cursor or Copilot" text={updatePrompt(latest)} copyLabel="Copy prompt" />
+          <a href={CHANGELOG_PAGE} target="_blank" rel="noopener" className={link}>
+            Everything in {latest}, and what to change <ExternalLink className="w-3 h-3" aria-hidden="true" />
+          </a>
+        </section>
+      ) : (
+        <p className="flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-xs text-emerald-900">
+          <CheckCircle2 className="w-4 h-4 shrink-0" aria-hidden="true" />
+          {!checked ? 'Checking for updates…' : current ? `You’re on the latest colorsbymax, ${current}.` : 'You’re on the latest colorsbymax.'}
+        </p>
+      )}
+
+      {notices.length > 0 && (
+        <section className="space-y-2">
+          <h4 className="text-[11px] font-semibold uppercase tracking-wide text-zinc-600">From mrmaxdesigns</h4>
+          <ul className="space-y-2">
+            {notices.map((n) => (
+              <li key={n.id} className="rounded-xl border border-zinc-200 p-3">
+                <p className="text-xs font-semibold text-zinc-900">{n.title}</p>
+                {n.date && <p className="text-[10px] text-zinc-500">{n.date}</p>}
+                {n.text && <p className="mt-1 text-[11px] leading-snug whitespace-pre-line text-zinc-700">{n.text}</p>}
+                {n.link && (
+                  <a href={n.link} target="_blank" rel="noopener" className={`mt-1.5 ${link}`}>
+                    {n.label || 'Read more'} <ExternalLink className="w-3 h-3" aria-hidden="true" />
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <p className="text-[11px] text-zinc-500">
+        colorsbymax checks once a day, and only shows this where you work on your site, not to its visitors.
+      </p>
+    </div>
+  )
+}
+
 /** Shows code with a copy button. */
 function CopyBlock({ label, text, copyLabel = 'Copy' }) {
   const { toast } = usePanel()
@@ -879,7 +1004,7 @@ const FINISH_OPTIONS = [
  * After "I'm done": how to keep the chosen colours for every visitor and hide the switcher, hide it
  * here only, or remove colorsbymax, each with code and a prompt for an AI editor. Cancel goes back.
  */
-function FinishView({ onBack }) {
+function FinishView({ onBack, onAddToSite }) {
   const { tokens: themeTokens, appliedTokens, colourStyle, active, recolouring } = useTheme()
   const { settings, update } = useSettings()
   // The colours as the page shows them. Colourful keeps the theme's own and says so in the config,
@@ -987,6 +1112,8 @@ function FinishView({ onBack }) {
         </div>
       )}
 
+      {choice !== 'remove' && <AddToSiteLink onOpen={onAddToSite} />}
+
       <button type="button" className={`${btn} w-full`} onClick={onBack}>
         Cancel, keep using colorsbymax
       </button>
@@ -1001,7 +1128,7 @@ const MODES = [
 ]
 
 /** The visitor's preferences for the panel and colour button. */
-function SettingsView({ onBack }) {
+function SettingsView({ onBack, onAddToSite }) {
   const { settings, update, reset, resetButton } = useSettings()
   const { active, features } = useTheme()
   const { toast } = usePanel()
@@ -1042,6 +1169,7 @@ function SettingsView({ onBack }) {
         <p className="text-[11px] text-zinc-600">
           Shows every theme in light or dark colours and switches the current one to match. Auto follows your device. The panel matches too, and your own palettes stay as you made them.
         </p>
+        <AddToSiteLink onOpen={onAddToSite} />
       </fieldset>
 
       {features.colourCount && (
@@ -1318,8 +1446,8 @@ const COLOUR_STYLES = [
   { id: 'colourful', label: 'Colourful', Icon: Paintbrush },
 ]
 const STYLE_NOTES = {
-  subtle: 'Subtle: your site keeps its own backgrounds, cards and text. The theme comes in on buttons, links, highlights and accents.',
-  balanced: 'Balanced: the theme as it’s designed, every colour in its role.',
+  subtle: 'Subtle: your site keeps its own backgrounds, cards and text. The theme’s colour comes in on buttons, links and highlights, with only a quiet hint of it on badges and tints.',
+  balanced: 'Balanced: the theme in every role, with a soft wash of it across the page, cards and borders.',
   colourful:
     'Colourful: an overhaul. Tinted backgrounds, and the theme paints your header, hero, sections, headings, cards, buttons and footer, like a designer would. Text is still checked for contrast.',
 }

@@ -138,16 +138,28 @@ export function subtleTokens(t) {
 /** What Subtle keeps from the site: its backgrounds, cards, text, borders and status colours. */
 const SITE_KEYS = ['background', 'surface', 'border', 'shadow', 'ink', 'ink-secondary', 'ink-muted', 'success', 'warning', 'danger', 'info', 'app-background', 'app-input', 'app-border', 'app-shadow-dark', 'app-shadow-light', 'app-ink', 'app-ink-muted']
 
+/** The soft tints a page is coloured with (badges, icon tiles, bands): Subtle keeps them quiet. */
+const TINT_KEYS = ['secondary', 'accent']
+
 /**
- * Subtle: the site's own backgrounds, cards and text stay (in the current mode), and the theme
- * comes in on what you'd change to try a new colour: buttons, links, highlights, tints and charts.
- * Every pairing is then checked, and anything hard to read nudged until it reads.
+ * Subtle: the site's own backgrounds, cards and text stay (in the current mode). The theme's brand
+ * colour comes in on buttons, links and highlights, and the soft tints (badges, icon tiles, bands)
+ * take only a quiet, greyed hint of the theme, so the page keeps its own feel. Balanced shows those
+ * tints in full. Every pairing is then checked, and anything hard to read nudged until it reads.
  * @param {import('./tokens.js').ThemeTokens} theme
  * @param {import('./tokens.js').ThemeTokens} site  the site's own colours, in the same mode
  */
 export function accentTokens(theme, site) {
   const out = { ...theme }
   for (const key of SITE_KEYS) if (site[key]) out[key] = site[key]
+  for (const key of TINT_KEYS) {
+    if (!theme[key] || !site.background) continue
+    const [h, sat] = hslOf(theme[key])
+    // The site's own page lightness, nudged a step towards a tint, with a fifth of the theme's colour.
+    const [, , bgL] = hslOf(site.background)
+    const l = bgL > 0.5 ? Math.max(0.86, bgL - 0.06) : Math.min(0.22, bgL + 0.07)
+    out[key] = hsl(h, sat * 0.22, l)
+  }
   return { ...out, ...fixAll(out) }
 }
 
@@ -172,15 +184,33 @@ export function vividTokens(t, { strength = 0.5, tint = null } = {}) {
   const deep = t['primary-dark']
   const out = {
     ...t,
-    background: tintTowards(wash, t.background, dark ? lerp(0.05, 0.2) : lerp(0.035, 0.16)),
-    surface: tintTowards(tint ?? t['primary-alt'], t.surface, dark ? lerp(0.04, 0.16) : lerp(0.02, 0.09)),
+    // Its lightest is still a clear step above Balanced's soft wash.
+    background: tintTowards(wash, t.background, dark ? lerp(0.11, 0.24) : lerp(0.09, 0.19)),
+    surface: tintTowards(tint ?? t['primary-alt'], t.surface, dark ? lerp(0.07, 0.18) : lerp(0.045, 0.11)),
     border: tintTowards(wash, t.border, lerp(0.15, 0.45)),
     secondary: tintTowards(wash, t.secondary, lerp(0.12, 0.4)),
-    'app-background': tintTowards(wash, t['app-background'] ?? t.background, dark ? lerp(0.05, 0.2) : lerp(0.035, 0.16)),
+    'app-background': tintTowards(wash, t['app-background'] ?? t.background, dark ? lerp(0.11, 0.24) : lerp(0.09, 0.19)),
     // Headings and text take a hint of the brand, more as it gets bolder; still checked below.
     ink: tintTowards(deep, t.ink, lerp(0.08, 0.4)),
     'ink-secondary': tintTowards(deep, t['ink-secondary'], lerp(0.08, 0.35)),
     shadow: tintTowards(t.primary, t.shadow, lerp(0.1, 0.35)),
+  }
+  return { ...out, ...fixAll(out) }
+}
+
+/**
+ * Balanced: the theme in every role, with a soft wash of it on the page, cards and borders, so it
+ * shows on the page even where the theme's own backgrounds are nearly white (or nearly black).
+ * Gentler than Colourful at its lightest; text keeps the theme's own colours.
+ */
+export function balancedTokens(t) {
+  const dark = isDarkTheme(t)
+  const out = {
+    ...t,
+    background: tintTowards(t.primary, t.background, dark ? 0.065 : 0.05),
+    surface: tintTowards(t['primary-alt'], t.surface, dark ? 0.04 : 0.02),
+    border: tintTowards(t.primary, t.border, 0.2),
+    'app-background': tintTowards(t.primary, t['app-background'] ?? t.background, dark ? 0.065 : 0.05),
   }
   return { ...out, ...fixAll(out) }
 }

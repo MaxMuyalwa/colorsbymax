@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { checkTheme, fixAll, suggestFix } from './contrast.js'
 import { loadLibrary } from './library.js'
-import { DARK_SUFFIX, accentTokens, inMode, isDarkTheme, toDark, vividTokens } from './modes.js'
+import { DARK_SUFFIX, accentTokens, balancedTokens, inMode, isDarkTheme, toDark, vividTokens } from './modes.js'
 import { createGuard } from './guard.js'
+import { isDevAddress } from './updates.js'
 import { imageColours, tintOf } from './images.js'
 import { baseId, clampColours, coloursFor, reducePalette } from './palette.js'
 import { LOGO_SELECTOR, createRecolourer, usesColourTokens } from './recolour.js'
@@ -60,6 +61,10 @@ const newId = () => `custom-${Date.now().toString(36)}-${Math.random().toString(
  *   backgrounds, and the page's parts painted by role as a designer would (header, hero, sections,
  *   headings, cards, buttons, links and footer; the default on a site colorsbymax re-colours).
  *   Visitors can switch in the panel.
+ * @property {boolean | 'dev'} [updates]  The bell in the panel: when a newer colorsbymax is out it says
+ *   so, with how to update, alongside news from mrmaxdesigns. 'dev' (default) shows it only on
+ *   development addresses (localhost and the like), never to a live site's visitors; true shows it
+ *   everywhere, false never. It checks once a day at most.
  * @property {number} [colourStrength]  How strongly Colourful paints for a first-time visitor, 0 (a light
  *   wash) to 100 (bold); default 50. Visitors can change it in the panel.
  * @property {Partial<Record<keyof typeof FEATURES, boolean>>} [features]  Parts of the panel to switch off
@@ -305,11 +310,20 @@ export function ThemeProvider({ config = {}, children }) {
   modeRef.current = mode
 
   // What the page shows, in the visitor's colour style: Subtle keeps the site's own backgrounds and
-  // text (in this mode) with the theme on its accents; Balanced is the theme; Colourful tints it.
+  // text (in this mode) with the theme on its accents; Balanced is the theme with a soft wash of it;
+  // Colourful an overhaul. The site's own colours in Balanced are exactly as the site made them.
   const siteTokens = useMemo(() => inMode(defaultTheme, mode).tokens, [defaultTheme, mode])
+  const ownLook = (base.id === defaultTheme.id || base.id === inMode(defaultTheme, 'dark').id) && !Object.keys(state.overrides).length
   const applied = useMemo(
-    () => (colourStyle === 'subtle' ? accentTokens(tokens, siteTokens) : colourStyle === 'colourful' ? vividTokens(tokens, vividOpts) : tokens),
-    [tokens, siteTokens, colourStyle, vividOpts],
+    () =>
+      colourStyle === 'subtle'
+        ? accentTokens(tokens, siteTokens)
+        : colourStyle === 'colourful'
+          ? vividTokens(tokens, vividOpts)
+          : ownLook
+            ? tokens
+            : balancedTokens(tokens),
+    [tokens, siteTokens, colourStyle, vividOpts, ownLook],
   )
   useEffect(() => {
     if (colourStyle !== 'colourful' || !imageTints) return
@@ -426,6 +440,8 @@ export function ThemeProvider({ config = {}, children }) {
     usage: initialConfig.usage ?? {},
     loadPdf: initialConfig.pdf ?? null,
     position: initialConfig.position ?? 'bottom-right',
+    /** Whether the panel's bell checks for updates and news here (config `updates`). */
+    updatesOn: initialConfig.updates === true || (initialConfig.updates !== false && isDevAddress()),
     /** True when the config hides the switcher (e.g. in production); the theme still applies. */
     hidden: Boolean(initialConfig.hidden),
     /** Whether the colour button makes an entrance when it first appears. */

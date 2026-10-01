@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -29,7 +30,11 @@ function panelCss() {
 // (vercel.json) serves and the portfolio forwards to.
 export const SITE_BASE = '/colorsbymax/'
 
+// The switcher's own version, as in the package build (vite.lib.config.js).
+const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
+
 export default defineConfig(({ mode }) => ({
+  define: { __COLORSBYMAX_VERSION__: JSON.stringify(version) },
   root: demo,
   base: mode === 'site' ? SITE_BASE : '/',
   plugins: [panelCss(), react(), tailwindcss()],

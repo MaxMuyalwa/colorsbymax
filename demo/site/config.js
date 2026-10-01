@@ -10,6 +10,8 @@ export const config = {
   position: 'top-right',
   // The colorsbymax wordmark is drawn in the theme's own colours, so themes colour it too.
   colourLogo: true,
+  // The bell shows here too, for everyone: this is colorsbymax's own site, and its news is for its visitors.
+  updates: true,
   // The site opens in dark mode; visitors can switch to light or Auto.
   defaultMode: 'dark',
   defaultTheme: {

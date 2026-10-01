@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -11,8 +12,12 @@ import react from '@vitejs/plugin-react'
 // scripts. Rebuild it before committing changes to src/.
 //
 //   npm run build
+// The switcher knows its own version, to tell the site's owner when a newer one is out.
+const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
+
 export default defineConfig({
   plugins: [react()],
+  define: { __COLORSBYMAX_VERSION__: JSON.stringify(version) },
   build: {
     outDir: fileURLToPath(new URL('./dist', import.meta.url)),
     emptyOutDir: true,

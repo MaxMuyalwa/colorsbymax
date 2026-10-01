@@ -9,6 +9,7 @@
 @source "./ThemePanel.jsx";
 @source "./AuditLayer.jsx";
 @source "./StudioLayer.jsx";
+@source "./burst.jsx";
 
 /* Start from a clean slate: nothing the host page sets inherits into the panel. */
 :host {
@@ -192,7 +193,23 @@
   }
 }
 
+/* The plus for something new: it turns into place, then sits still. */
+.theme-new-mark {
+  animation: theme-new-in 500ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes theme-new-in {
+  from {
+    transform: scale(0) rotate(-90deg);
+  }
+  to {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .theme-new-mark {
+    animation: none;
+  }
   .theme-studio-mark {
     animation: none;
   }

@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from 'react'
 import {
-  ArrowUpRight, BookOpen, CheckCircle2, Home, Inbox as InboxIcon, LayoutDashboard, LogOut, Megaphone, MessageSquareQuote, Newspaper, Palette, Pencil, Plus, RotateCcw, Save, ShieldCheck, Type,
+  ArrowUpRight, Bell, BookOpen, CheckCircle2, Trash2, Home, Inbox as InboxIcon, LayoutDashboard, LogOut, Megaphone, MessageSquareQuote, Newspaper, Palette, Pencil, Plus, RotateCcw, Save, ShieldCheck, Type,
 } from 'lucide-react'
 import { FEATURES } from '../../src/ThemeProvider.jsx'
 import { AdminButton, avatarOf, useAdmin } from './Admin.jsx'
@@ -19,6 +19,7 @@ import { Editor, EntryTools, Loading, niceDate, useContent } from './Docs.jsx'
 import { EDITABLE_TEXT, announceSiteSettings, loadSiteSettings, useSiteSettings } from './siteSettings.jsx'
 import { DOCS } from './ui.jsx'
 import { AnnouncementBar } from './Announcement.jsx'
+import { UPDATE_COMMAND, latestRelease } from '../../src/updates.js'
 
 const SECTIONS = [
   { id: 'overview', label: 'Overview', Icon: LayoutDashboard },
@@ -26,6 +27,7 @@ const SECTIONS = [
   { id: 'posts', label: 'Posts', Icon: Newspaper },
   { id: 'testimonials', label: 'Testimonials', Icon: MessageSquareQuote },
   { id: 'announcement', label: 'Announcement', Icon: Megaphone },
+  { id: 'bell', label: 'Bell messages', Icon: Bell },
   { id: 'text', label: 'Site text', Icon: Type },
   { id: 'panel', label: 'Colour panel', Icon: Palette },
 ]
@@ -96,8 +98,8 @@ function Workspace({ login, signOut, section, home }) {
     setNotice(message)
     reloadContent(true)
   }
-  const { announcement } = useSiteSettings()
-  const counts = { feedback: fresh, posts: content.posts.length, testimonials: content.testimonials.length, announcement: announcement?.on && announcement.text ? 'On' : 0 }
+  const { announcement, notices } = useSiteSettings()
+  const counts = { feedback: fresh, posts: content.posts.length, testimonials: content.testimonials.length, announcement: announcement?.on && announcement.text ? 'On' : 0, bell: notices?.length ?? 0 }
 
   return (
     <>
@@ -165,6 +167,7 @@ function Workspace({ login, signOut, section, home }) {
             <EntryList kind={section === 'posts' ? 'post' : 'testimonial'} content={content} onNew={(kind) => setEditing({ kind })} onEdit={(kind, entry) => setEditing({ kind, entry })} onDeleted={saved} />
           )}
           {section === 'announcement' && <AnnouncementEditor onSaved={setNotice} />}
+          {section === 'bell' && <BellEditor onSaved={setNotice} />}
           {section === 'text' && <SiteText onSaved={setNotice} />}
           {section === 'panel' && <PanelFeatures onSaved={setNotice} />}
         </section>
@@ -379,6 +382,150 @@ function AnnouncementEditor({ onSaved }) {
       </div>
       <SaveBar dirty={dirty} busy={busy} error={error} onSave={save} onReset={() => setDraft(current)} />
     </>
+  )
+}
+
+const MAX_NOTICES = 10
+const newNotice = () => ({ id: `n-${Date.now().toString(36)}`, title: '', text: '', link: '', label: '', date: new Date().toISOString().slice(0, 10) })
+
+/**
+ * The messages in colorsbymax's bell, seen by everyone who has it installed (where they work on their
+ * site). Updates announce themselves when a release is published; these are for anything else: a
+ * feature you'd like feedback on, what's coming next.
+ */
+function BellEditor({ onSaved }) {
+  const settings = useSiteSettings()
+  const current = settings.notices ?? []
+  const [draft, setDraft] = useState(current)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const dirty = JSON.stringify(draft) !== JSON.stringify(current)
+  const setOne = (id, patch) => setDraft((list) => list.map((n) => (n.id === id ? { ...n, ...patch } : n)))
+  const badLink = (n) => n.link && !/^(https:\/\/\S+|\/\S*)$/.test(n.link.trim())
+  const save = async () => {
+    if (draft.some((n) => !n.title.trim())) return setError('Every message needs a title.')
+    if (draft.some(badLink)) return setError('A link must start with https:// or be a path on the site, like /colorsbymax/docs.')
+    setBusy(true)
+    const res = await saveSettings({ ...settings, notices: draft.map((n) => ({ ...n, title: n.title.trim(), text: n.text.trim(), link: n.link.trim(), label: n.label.trim() })) })
+    setBusy(false)
+    setError(res.ok ? null : res.error)
+    if (res.ok) onSaved(res.preview ? 'Saved (preview only: nothing was stored).' : 'Saved. Everyone’s bell picks it up at their next daily check.')
+  }
+  const input = 'mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm text-ink outline-none placeholder:text-ink-muted focus:border-primary focus:ring-2 focus:ring-primary/30'
+  return (
+    <>
+      <Head
+        title="Bell messages"
+        text="Messages in the bell of every colorsbymax install, where people work on their sites (never to their visitors). New releases announce themselves with how to update, as soon as you publish; write here for anything else, like a feature you’d like feedback on. Newest first; each install checks once a day."
+      />
+      <BellNow notices={current} />
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-base font-bold text-ink">Your messages</h3>
+          <p className="text-sm text-ink-secondary">Add, change or remove them here; saving updates what everyone sees above.</p>
+        </div>
+        {draft.length === 0 && <p className="rounded-2xl border border-dashed border-border px-4 py-6 text-center text-sm text-ink-secondary">No messages. The bell still tells everyone about new releases.</p>}
+        {draft.map((n, i) => (
+          <div key={n.id} className={`${tile} space-y-3`}>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-bold tracking-wide text-ink-muted uppercase">Message {i + 1} · {n.date}</span>
+              <button type="button" onClick={() => setDraft((list) => list.filter((x) => x.id !== n.id))} className="inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-ink-secondary hover:bg-accent hover:text-on-accent">
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" /> Remove
+              </button>
+            </div>
+            <div>
+              <label htmlFor={`${n.id}-title`} className="text-sm font-semibold text-ink">Title</label>
+              <input id={`${n.id}-title`} maxLength={80} value={n.title} onChange={(e) => setOne(n.id, { title: e.target.value })} placeholder="Try Studio and tell me what you think" className={input} />
+            </div>
+            <div>
+              <label htmlFor={`${n.id}-text`} className="text-sm font-semibold text-ink">Message <span className="font-normal text-ink-muted">(optional)</span></label>
+              <textarea id={`${n.id}-text`} rows={3} maxLength={400} value={n.text} onChange={(e) => setOne(n.id, { text: e.target.value })} placeholder="A few lines. Open Studio from the panel’s header…" className={input} />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-[1fr_200px]">
+              <div>
+                <label htmlFor={`${n.id}-link`} className="text-sm font-semibold text-ink">Link <span className="font-normal text-ink-muted">(optional)</span></label>
+                <input id={`${n.id}-link`} value={n.link} onChange={(e) => setOne(n.id, { link: e.target.value })} placeholder="https://… or /colorsbymax/support" className={`${input} ${badLink(n) ? 'border-danger' : ''}`} />
+              </div>
+              <div>
+                <label htmlFor={`${n.id}-label`} className="text-sm font-semibold text-ink">Link text</label>
+                <input id={`${n.id}-label`} maxLength={40} value={n.label} onChange={(e) => setOne(n.id, { label: e.target.value })} placeholder="Send feedback" className={input} disabled={!n.link} />
+              </div>
+            </div>
+          </div>
+        ))}
+        <button
+          type="button"
+          disabled={draft.length >= MAX_NOTICES}
+          onClick={() => setDraft((list) => [newNotice(), ...list])}
+          className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold text-ink hover:border-primary disabled:opacity-40"
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" /> New message
+        </button>
+      </div>
+      <SaveBar dirty={dirty} busy={busy} error={error} onSave={save} onReset={() => setDraft(current)} />
+    </>
+  )
+}
+
+/**
+ * What every install's bell shows right now: the update notice for the latest published version
+ * (it appears by itself for anyone on an older one) and the messages already saved.
+ */
+function BellNow({ notices }) {
+  const [release, setRelease] = useState(null)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    latestRelease().then(setRelease, () => setFailed(true))
+  }, [])
+  const card = 'rounded-2xl border border-border bg-surface p-4'
+  return (
+    <section className={`${tile} mb-8 space-y-4`}>
+      <div>
+        <h3 className="text-base font-bold text-ink">What everyone sees now</h3>
+        <p className="text-sm text-ink-secondary">The bell as it is today, in every install. You don’t need to repeat any of this in a message.</p>
+      </div>
+
+      <div className={card}>
+        <p className="text-xs font-bold tracking-wide text-ink-muted uppercase">Sent by itself when you publish</p>
+        {release ? (
+          <>
+            <p className="mt-2 text-sm font-semibold text-ink">colorsbymax {release.version} is out</p>
+            <p className="text-xs text-ink-secondary">Shown to everyone on an older version, with the version they have.</p>
+            {release.notes.length > 0 ? (
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-ink">
+                {release.notes.map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-xs text-ink-secondary">No headlines yet: they come from the “## {release.version}” section of the changelog.</p>
+            )}
+            <p className="mt-3 text-xs text-ink-secondary">
+              Then: <code className="rounded bg-background px-1.5 py-0.5 font-mono text-ink">{UPDATE_COMMAND}</code> to copy, a prompt for their AI editor, and a link to the
+              changelog.
+            </p>
+          </>
+        ) : (
+          <p className="mt-2 text-sm text-ink-secondary">{failed ? 'Couldn’t reach npm just now to show it.' : 'Checking npm for the latest version…'}</p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-xs font-bold tracking-wide text-ink-muted uppercase">Your messages, live now ({notices.length})</p>
+        {notices.length ? (
+          notices.map((n) => (
+            <div key={n.id} className={card}>
+              <p className="text-sm font-semibold text-ink">{n.title}</p>
+              {n.date && <p className="text-xs text-ink-muted">{n.date}</p>}
+              {n.text && <p className="mt-1 text-sm whitespace-pre-line text-ink-secondary">{n.text}</p>}
+              {n.link && <p className="mt-1.5 text-sm font-semibold text-primary">{n.label || 'Read more'} ↗</p>}
+            </div>
+          ))
+        ) : (
+          <p className="text-sm text-ink-secondary">None yet. Everyone only sees update notices.</p>
+        )}
+      </div>
+    </section>
   )
 }
 
