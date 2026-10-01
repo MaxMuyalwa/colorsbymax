@@ -10,5 +10,23 @@
     "label": "ChangeLogs",
     "tone": "brand"
   },
-  "updated": "2026-09-27T07:24:22.000Z"
+  "updated": "2026-10-01T19:57:47.390Z",
+  "notices": [
+    {
+      "id": "n-studio-0-5",
+      "title": "New: Studio, for going deeper",
+      "text": "Open Studio from the panel’s header to point and click any part of your page and give it its own colours, choose which pages get the theme, and save it all as a prompt for your AI editor. It’s brand new, so I’d love to hear what works and what doesn’t.",
+      "link": "https://www.mrmaxdesigns.com/colorsbymax/docs",
+      "label": "How Studio works",
+      "date": "2026-10-01"
+    },
+    {
+      "id": "n-welcome",
+      "title": "Welcome to colorsbymax",
+      "text": "A design tool I’m building to help make websites more unique. It’s still in BETA, so explore, experiment, and share your feedback. Enjoy!!!",
+      "link": "https://www.mrmaxdesigns.com/colorsbymax/docs#changelog",
+      "label": "ChangeLogs",
+      "date": "2026-10-01"
+    }
+  ]
 }
