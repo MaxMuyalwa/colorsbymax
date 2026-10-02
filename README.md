@@ -326,6 +326,8 @@ Whatever the theme and style, colorsbymax has the last word on readability. Once
 2. Else the theme colour closest to it that reads.
 3. Else black or white.
 
+Light text on a solid fill, like white on a brand button, is kept light: the fill is deepened instead, keeping its hue, on the site's own colours and any theme alike. "What it sits on" includes a positioned sibling painted underneath, like the sliding pill behind the active item of a nav bar or tabs.
+
 It works on every site and in every style, and in Studio's colours too. It runs when the colours or the page's content change (including a part of the page that sets colour variables of its own, like a theme preview), never while the page scrolls. Hidden, disabled and `aria-hidden` parts are skipped. To keep a deliberate example of poor contrast as it is, mark it:
 
 ```html

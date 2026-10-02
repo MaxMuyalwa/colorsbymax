@@ -2,6 +2,12 @@
 
 What changed in each colorsbymax release. Update with `npm install colorsbymax@latest`.
 
+## Unreleased
+
+- **Sliding pills work.** A nav item, tab or segmented control whose active state is a separate pill underneath it (shadcn and Radix animated tabs, framer-motion `layoutId` pills) now counts that pill as its background, everywhere colorsbymax asks what something sits on: the re-colouring engine, the contrast guard and Studio. Before, Colourful repainted the pill as a pale badge and the active item's text was matched to the bar, so it could vanish (1.10:1). When the active item changes, it's read again once the pill has slid into place. Thanks to the user who reported it, with the cause.
+- **An empty shape isn't a badge.** Colourful only paints a small rounded fill as a badge when it has words in it, so decorative pills, dots and indicators keep their colour.
+- **One rule for white on brand, on every theme.** On the site's own colours too, the contrast guard now deepens a brand fill until its light text reads (a "Clock in" button keeps its white text) instead of turning the text dark, matching what happens with any other theme.
+
 ## 0.5.1 (2026-10-02)
 
 - **Ghost buttons keep their shape.** On sites colorsbymax re-colours, Colourful and Subtle no longer paint a filled circle or box behind buttons that have no fill or outline of their own, like toolbar icons and tabs.

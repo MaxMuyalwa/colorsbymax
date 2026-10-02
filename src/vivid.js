@@ -219,7 +219,9 @@ export function rolesOf(el, cs, ownFill, under) {
   // A badge: a small rounded label with a fill of its own.
   // (Its fill may be only a shade off what it sits on, like a light grey pill on a white card.)
   const tinted = Boolean(ownFill) && deltaE(ownFill, under) > 2
-  if (!blockish && tinted && radius >= 6 && el.textContent.trim().length <= 30 && !el.querySelector('div, p')) roles.push('badge')
+  // It needs words: an empty shape (a sliding pill behind a nav item, a dot) is decoration.
+  const words = el.textContent.trim().length
+  if (!blockish && tinted && radius >= 6 && words > 0 && words <= 30 && !el.querySelector('div, p')) roles.push('badge')
   return roles
 }
 

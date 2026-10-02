@@ -1495,6 +1495,42 @@ function linkedPages(max = 30) {
 /** The config line that gives every visitor these pages. */
 var pagesSnippet = (pages) => `// Add to your colorsbymax config (the autoMount({...}) call, or the config passed to <ThemeProvider>):\npages: ${JSON.stringify(pages, null, 2)},`;
 var pagesPrompt = (pages) => `In my colorsbymax config (the autoMount({...}) call, or the config passed to <ThemeProvider>), set pages: ${JSON.stringify(pages)} so the theme only colours those pages and every other page keeps its own colours. A path ending in /* covers that section and every page under it. If the site uses import 'colorsbymax/auto', replace it with import { autoMount } from 'colorsbymax/auto' and an autoMount({ pages: [...] }) call. Don't change anything else.`;
+//#endregion
+//#region src/underlay.js
+var MAX_SIBLINGS = 40;
+var POSITIONED = /* @__PURE__ */ new Set(["absolute", "fixed"]);
+var alphaOf = (colour) => {
+	const m = colour.match(/rgba?\([^)]*[,/]\s*([\d.]+%?)\s*\)$/);
+	if (!m) return colour === "transparent" ? 0 : 1;
+	return m[1].endsWith("%") ? parseFloat(m[1]) / 100 : Number(m[1]);
+};
+/**
+* The positioned sibling painted under the middle of `el`, with a background of its own, or null.
+* It counts when it comes before `el` (painted first) or sits behind it (a negative z-index); one
+* after it at the same level would be on top, like a tooltip, and doesn't count.
+*/
+function underlayOf(el) {
+	const parent = el.parentElement;
+	if (!parent || parent.children.length > MAX_SIBLINGS) return null;
+	const r = el.getBoundingClientRect();
+	if (!r.width || !r.height) return null;
+	const x = r.left + r.width / 2;
+	const y = r.top + r.height / 2;
+	let before = true;
+	for (const sib of parent.children) {
+		if (sib === el) {
+			before = false;
+			continue;
+		}
+		const cs = getComputedStyle(sib);
+		if (!POSITIONED.has(cs.position)) continue;
+		if (!before && !(parseInt(cs.zIndex, 10) < 0)) continue;
+		if (alphaOf(cs.backgroundColor) < .5 && !/gradient/.test(cs.backgroundImage)) continue;
+		const s = sib.getBoundingClientRect();
+		if (x >= s.left && x <= s.right && y >= s.top && y <= s.bottom) return sib;
+	}
+	return null;
+}
 /** The theme colours offered as swatches, in order. */
 var SWATCH_TOKENS = [
 	"primary",
@@ -1837,10 +1873,11 @@ function pageBackdrop() {
 */
 function backgroundRgb(el) {
 	const layers = [];
-	for (let node = el; node && node.nodeType === 1; node = node.parentElement) {
+	for (let node = el; node && node.nodeType === 1;) {
 		const rgba = rgbaOf(getComputedStyle(node).backgroundColor);
 		if (rgba[3] > .01) layers.push(rgba);
 		if (rgba[3] > .99) break;
+		node = underlayOf(node) ?? node.parentElement;
 	}
 	let colour = layers.at(-1)?.[3] > .99 ? layers.pop().slice(0, 3) : pageBackdrop();
 	for (const layer of layers.reverse()) colour = over$1(layer, colour);
@@ -2024,6 +2061,7 @@ function paintsCssExport(paints, tokens) {
 //#endregion
 //#region src/guard.js
 var FIX = "data-cbm-fix";
+var FILL = "data-cbm-fill";
 var SKIP$2 = "colorsbymax-root, [data-colorsbymax], [data-colorsbymax-contrast=\"keep\"], script, style, noscript, template, head, [aria-hidden=\"true\"], :disabled";
 var MAX_CHECKED = 1500;
 var WAIT = 150;
@@ -2066,26 +2104,47 @@ function backgroundsOf(el, cache) {
 	let result;
 	if (hasGradient(cs)) {
 		const stops = (cs.backgroundImage.match(COLOR_IN_GRADIENT) ?? []).map(rgbaOf).filter((c) => c[3] > .05);
-		const under = el.parentElement ? backgroundsOf(el.parentElement, cache) : [[
-			255,
-			255,
-			255
-		]];
+		const under = behind(el, cache);
 		result = stops.length ? stops.flatMap((stop) => under.map((u) => over(stop, u))) : under;
 	} else {
 		const own = rgbaOf(cs.backgroundColor);
 		if (own[3] > .99) result = [own.slice(0, 3)];
 		else {
-			const under = el.parentElement && el !== document.documentElement ? backgroundsOf(el.parentElement, cache) : [[
-				255,
-				255,
-				255
-			]];
+			const under = behind(el, cache);
 			result = own[3] > .01 ? under.map((u) => over(own, u)) : under;
 		}
 	}
 	cache.set(el, result);
 	return result;
+}
+/** What's painted under an element: a positioned sibling under it (a sliding pill), else its parent. */
+function behind(el, cache) {
+	if (el === document.documentElement || !el.parentElement) return [[
+		255,
+		255,
+		255
+	]];
+	return backgroundsOf(underlayOf(el) ?? el.parentElement, cache);
+}
+/**
+* The element whose solid fill a piece of text sits on (a button, a pill), or null when it's on the
+* page itself, a gradient or see-through layers. Light text on such a fill is kept light, and the
+* fill deepened, rather than the text turned dark: what a designer would do, and what the
+* re-colouring engine does with any other theme.
+*/
+function fillOwner(el) {
+	for (let node = el; node && node !== document.body && node !== document.documentElement;) {
+		const cs = getComputedStyle(node);
+		if (hasGradient(cs)) return null;
+		const own = rgbaOf(cs.backgroundColor);
+		if (own[3] > .99) {
+			const r = node.getBoundingClientRect();
+			return r.width * r.height <= window.innerWidth * window.innerHeight * .25 ? node : null;
+		}
+		if (own[3] > .01) return null;
+		node = underlayOf(node) ?? node.parentElement;
+	}
+	return null;
 }
 /** How readable each element is right now: its worst ratio, what it needs, its colour and backgrounds. */
 function readAll(elements) {
@@ -2167,14 +2226,46 @@ function createGuard() {
 		timer = 0;
 		if (!tokens || !document.body) return;
 		sheet.textContent = "";
-		for (const el of document.querySelectorAll(`[${FIX}]`)) el.removeAttribute(FIX);
+		for (const el of document.querySelectorAll(`[${FIX}], [${FILL}]`)) {
+			el.removeAttribute(FIX);
+			el.removeAttribute(FILL);
+		}
 		const elements = holders();
-		const now = steady(() => readAll(elements));
+		const { now, ownerOf } = steady(() => {
+			const now = readAll(elements);
+			return {
+				now,
+				ownerOf: new Map([...now.keys()].map((el) => [el, fillOwner(el)]))
+			};
+		});
 		const rules = [];
 		let n = 0;
+		const deepened = /* @__PURE__ */ new Set();
+		const owners = /* @__PURE__ */ new Map();
+		for (const [el, reading] of now) {
+			if (reading.ratio >= reading.need - .05 || reading.bgs.length !== 1 || lightness(reading.text) <= lightness(reading.bgs[0])) continue;
+			const owner = ownerOf.get(el);
+			if (owner) owners.set(owner, [...owners.get(owner) ?? [], [el, reading]]);
+		}
+		for (const [owner, failing] of owners) {
+			const light = [...now].filter(([el]) => ownerOf.get(el) === owner).map(([, r]) => r).filter((r) => lightness(r.text) > lightness(r.bgs[0]));
+			const fill = light[0].bgs[0];
+			const reads = (c) => light.every((r) => contrastRatio(r.text, c) >= r.need);
+			let l = lightness(fill);
+			let colour = fill;
+			while (l > .04 && !reads(colour)) {
+				l -= .02;
+				colour = withLightness(fill, l);
+			}
+			if (!reads(colour)) continue;
+			const id = `f${(n++).toString(36)}`;
+			owner.setAttribute(FILL, id);
+			rules.push(`[${FILL}="${id}"]{background-color:${colour}!important}`);
+			for (const [el] of failing) deepened.add(el);
+		}
 		for (const [el, reading] of now) {
 			const target = reading.need;
-			if (reading.ratio >= target - .05) continue;
+			if (reading.ratio >= target - .05 || deepened.has(el)) continue;
 			const id = `g${(n++).toString(36)}`;
 			el.setAttribute(FIX, id);
 			const colour = fixFor(reading, target, tokens);
@@ -2182,10 +2273,14 @@ function createGuard() {
 		}
 		sheet.textContent = rules.join("");
 	};
-	const schedule = () => {
+	const schedule = (wait = WAIT) => {
 		clearTimeout(timer);
-		timer = setTimeout(() => window.requestIdleCallback ? requestIdleCallback(run, { timeout: 300 }) : run(), WAIT);
+		timer = setTimeout(() => window.requestIdleCallback ? requestIdleCallback(run, { timeout: 300 }) : run(), wait);
 	};
+	const afterClick = (e) => {
+		if (!e.composedPath?.().some((n) => n.localName === "colorsbymax-root")) schedule(600);
+	};
+	document.addEventListener("click", afterClick, true);
 	const isOurs = (node) => node.closest?.("colorsbymax-root, [data-colorsbymax]");
 	const observer = new MutationObserver((records) => {
 		const colourVars = (style) => (style ?? "").includes("--color-");
@@ -2213,8 +2308,12 @@ function createGuard() {
 			clearTimeout(timer);
 			observer.disconnect();
 			window.removeEventListener("load", schedule);
+			document.removeEventListener("click", afterClick, true);
 			sheet.remove();
-			for (const el of document.querySelectorAll(`[${FIX}]`)) el.removeAttribute(FIX);
+			for (const el of document.querySelectorAll(`[${FIX}], [${FILL}]`)) {
+				el.removeAttribute(FIX);
+				el.removeAttribute(FILL);
+			}
 		}
 	};
 }
@@ -2771,7 +2870,8 @@ function rolesOf(el, cs, ownFill, under) {
 	if (section === "form" && name === "form" && !roles.includes("card")) roles.push("form-box");
 	if (name === "label" && !roles.includes("btn") && !roles.includes("btn2")) roles.push("label");
 	const tinted = Boolean(ownFill) && deltaE(ownFill, under) > 2;
-	if (!blockish && tinted && radius >= 6 && el.textContent.trim().length <= 30 && !el.querySelector("div, p")) roles.push("badge");
+	const words = el.textContent.trim().length;
+	if (!blockish && tinted && radius >= 6 && words > 0 && words <= 30 && !el.querySelector("div, p")) roles.push("badge");
 	return roles;
 }
 var readsOn = (fg, bgs, min) => bgs.every((bg) => contrastRatio(fg, bg) >= min);
@@ -3148,7 +3248,8 @@ function createRecolourer({ colourful = false } = {}) {
 		let value;
 		if (own && own.alpha >= .5) value = cs.backgroundColor;
 		else if (fillsElement(cs) && HAS_COLOUR.test(cs.backgroundImage)) value = cs.backgroundImage.match(HAS_COLOUR)[0];
-		else value = el === document.documentElement ? "rgb(255, 255, 255)" : backdropOf(el.parentElement);
+		else if (el === document.documentElement) value = "rgb(255, 255, 255)";
+		else value = backdropOf(underlayOf(el) ?? el.parentElement);
 		backdrops.set(el, value);
 		return value;
 	};
@@ -3352,6 +3453,8 @@ function createRecolourer({ colourful = false } = {}) {
 			return `[${LOGO_ATTR}="${i}"]{color:${mapColour(color, "text")}!important}`;
 		}).join("");
 	};
+	let settle = /* @__PURE__ */ new Set();
+	let settleTimer = 0;
 	const observer = new MutationObserver((records) => {
 		const added = [];
 		const changed = /* @__PURE__ */ new Set();
@@ -3362,7 +3465,19 @@ function createRecolourer({ colourful = false } = {}) {
 			if (r.type === "attributes") changed.add(r.target);
 		}
 		if (added.length) tag(added, true);
-		if (changed.size) tag([...changed], true);
+		if (changed.size) {
+			tag([...changed], true);
+			for (const el of changed) settle.add(el.parentElement ?? el);
+			clearTimeout(settleTimer);
+			settleTimer = setTimeout(() => {
+				const roots = [...settle].filter((el) => el.isConnected);
+				settle = /* @__PURE__ */ new Set();
+				if (roots.length) {
+					tag(roots, true);
+					if (theme) sheet.textContent = [...entries.values()].map(rule).join("") + logoRules();
+				}
+			}, 450);
+		}
 	});
 	observer.observe(document.body, {
 		subtree: true,
@@ -3402,6 +3517,7 @@ function createRecolourer({ colourful = false } = {}) {
 			if (theme) sheet.textContent = [...entries.values()].map(rule).join("") + logoRules();
 		},
 		stop() {
+			clearTimeout(settleTimer);
 			observer.disconnect();
 			sheet.remove();
 			vividSheet.remove();

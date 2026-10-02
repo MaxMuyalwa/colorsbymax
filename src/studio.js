@@ -8,6 +8,7 @@
 
 import { contrastRatio, normalizeHex } from './color.js'
 import { normalPath } from './scope.js'
+import { underlayOf } from './underlay.js'
 import { TOKEN_KEYS, TOKEN_LABELS } from './tokens.js'
 
 /** Most paints a site keeps. */
@@ -260,10 +261,12 @@ function pageBackdrop() {
  */
 export function backgroundRgb(el) {
   const layers = []
-  for (let node = el; node && node.nodeType === 1; node = node.parentElement) {
+  for (let node = el; node && node.nodeType === 1; ) {
     const rgba = rgbaOf(getComputedStyle(node).backgroundColor)
     if (rgba[3] > 0.01) layers.push(rgba)
     if (rgba[3] > 0.99) break
+    // A positioned sibling painted under it (a sliding pill) comes before its parent.
+    node = underlayOf(node) ?? node.parentElement
   }
   let colour = layers.at(-1)?.[3] > 0.99 ? layers.pop().slice(0, 3) : pageBackdrop()
   for (const layer of layers.reverse()) colour = over(layer, colour)

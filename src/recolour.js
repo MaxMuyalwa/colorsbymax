@@ -14,6 +14,7 @@
 import { contrastRatio, deltaE, hexToRgb, hslToRgb, luminance, mix, rgbToHex, rgbToHsl } from './color.js'
 import { collectColors, COLOR_IN_GRADIENT, inferRoles, themeFromRoles, withoutAppliedTheme } from './scan.js'
 import { markZones, ROLE, rolesOf, vividCss, ZONE } from './vivid.js'
+import { underlayOf } from './underlay.js'
 
 const ATTR = 'data-cbm'
 /** Elements the engine never touches: the switcher itself. */
@@ -149,7 +150,9 @@ export function createRecolourer({ colourful = false } = {}) {
     if (own && own.alpha >= 0.5) value = cs.backgroundColor
     else if (fillsElement(cs) && HAS_COLOUR.test(cs.backgroundImage)) {
       value = cs.backgroundImage.match(HAS_COLOUR)[0] // a gradient behind it: judge by its first colour
-    } else value = el === document.documentElement ? 'rgb(255, 255, 255)' : backdropOf(el.parentElement)
+    } else if (el === document.documentElement) value = 'rgb(255, 255, 255)'
+    // A positioned sibling painted under it (a sliding pill) is what it sits on, not its parent.
+    else value = backdropOf(underlayOf(el) ?? el.parentElement)
     backdrops.set(el, value)
     return value
   }
@@ -367,6 +370,10 @@ export function createRecolourer({ colourful = false } = {}) {
 
   // New content, and elements whose class or style changes, get (re)tagged as it happens.
   // Callbacks run before the next paint, so new content never shows in its old colours.
+  // A change of class or style can start a movement (a pill sliding to the newly active item), so
+  // what changed is read again, with its neighbours, once it has had time to settle.
+  let settle = new Set()
+  let settleTimer = 0
   const observer = new MutationObserver((records) => {
     const added = []
     const changed = new Set()
@@ -376,7 +383,19 @@ export function createRecolourer({ colourful = false } = {}) {
     }
     if (added.length) tag(added, true)
     // Deep: an element changing class (a nav item becoming active) changes what its children sit on.
-    if (changed.size) tag([...changed], true)
+    if (changed.size) {
+      tag([...changed], true)
+      for (const el of changed) settle.add(el.parentElement ?? el)
+      clearTimeout(settleTimer)
+      settleTimer = setTimeout(() => {
+        const roots = [...settle].filter((el) => el.isConnected)
+        settle = new Set()
+        if (roots.length) {
+          tag(roots, true)
+          if (theme) sheet.textContent = [...entries.values()].map(rule).join('') + logoRules()
+        }
+      }, 450)
+    }
   })
   observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style'] })
 
@@ -406,6 +425,7 @@ export function createRecolourer({ colourful = false } = {}) {
       if (theme) sheet.textContent = [...entries.values()].map(rule).join('') + logoRules()
     },
     stop() {
+      clearTimeout(settleTimer)
       observer.disconnect()
       sheet.remove()
       vividSheet.remove()

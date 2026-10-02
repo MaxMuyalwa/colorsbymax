@@ -12,8 +12,10 @@
 import { contrastRatio, deltaE, lightness, withLightness } from './color.js'
 import { COLOR_IN_GRADIENT } from './scan.js'
 import { rgbaOf } from './studio.js'
+import { underlayOf } from './underlay.js'
 
 const FIX = 'data-cbm-fix'
+const FILL = 'data-cbm-fill'
 const SKIP = 'colorsbymax-root, [data-colorsbymax], [data-colorsbymax-contrast="keep"], script, style, noscript, template, head, [aria-hidden="true"], :disabled'
 const MAX_CHECKED = 1500
 const WAIT = 150
@@ -58,18 +60,45 @@ function backgroundsOf(el, cache) {
   let result
   if (hasGradient(cs)) {
     const stops = (cs.backgroundImage.match(COLOR_IN_GRADIENT) ?? []).map(rgbaOf).filter((c) => c[3] > 0.05)
-    const under = el.parentElement ? backgroundsOf(el.parentElement, cache) : [[255, 255, 255]]
+    const under = behind(el, cache)
     result = stops.length ? stops.flatMap((stop) => under.map((u) => over(stop, u))) : under
   } else {
     const own = rgbaOf(cs.backgroundColor)
     if (own[3] > 0.99) result = [own.slice(0, 3)]
     else {
-      const under = el.parentElement && el !== document.documentElement ? backgroundsOf(el.parentElement, cache) : [[255, 255, 255]]
+      const under = behind(el, cache)
       result = own[3] > 0.01 ? under.map((u) => over(own, u)) : under
     }
   }
   cache.set(el, result)
   return result
+}
+
+/** What's painted under an element: a positioned sibling under it (a sliding pill), else its parent. */
+function behind(el, cache) {
+  if (el === document.documentElement || !el.parentElement) return [[255, 255, 255]]
+  return backgroundsOf(underlayOf(el) ?? el.parentElement, cache)
+}
+
+/**
+ * The element whose solid fill a piece of text sits on (a button, a pill), or null when it's on the
+ * page itself, a gradient or see-through layers. Light text on such a fill is kept light, and the
+ * fill deepened, rather than the text turned dark: what a designer would do, and what the
+ * re-colouring engine does with any other theme.
+ */
+function fillOwner(el) {
+  for (let node = el; node && node !== document.body && node !== document.documentElement; ) {
+    const cs = getComputedStyle(node)
+    if (hasGradient(cs)) return null
+    const own = rgbaOf(cs.backgroundColor)
+    if (own[3] > 0.99) {
+      const r = node.getBoundingClientRect()
+      return r.width * r.height <= window.innerWidth * window.innerHeight * 0.25 ? node : null
+    }
+    if (own[3] > 0.01) return null
+    node = underlayOf(node) ?? node.parentElement
+  }
+  return null
 }
 
 /** How readable each element is right now: its worst ratio, what it needs, its colour and backgrounds. */
@@ -138,14 +167,48 @@ export function createGuard() {
     timer = 0
     if (!tokens || !document.body) return
     sheet.textContent = ''
-    for (const el of document.querySelectorAll(`[${FIX}]`)) el.removeAttribute(FIX)
+    for (const el of document.querySelectorAll(`[${FIX}], [${FILL}]`)) {
+      el.removeAttribute(FIX)
+      el.removeAttribute(FILL)
+    }
     const elements = holders()
-    const now = steady(() => readAll(elements))
+    // One read, with transitions held: every element's readability, and the fill it sits on.
+    const { now, ownerOf } = steady(() => {
+      const now = readAll(elements)
+      const ownerOf = new Map([...now.keys()].map((el) => [el, fillOwner(el)]))
+      return { now, ownerOf }
+    })
     const rules = []
     let n = 0
+    // Light text on a solid fill (a button, a pill): the fill is deepened until all of its light
+    // text reads, keeping its hue, and the text stays as it is.
+    const deepened = new Set()
+    const owners = new Map()
+    for (const [el, reading] of now) {
+      if (reading.ratio >= reading.need - 0.05 || reading.bgs.length !== 1 || lightness(reading.text) <= lightness(reading.bgs[0])) continue
+      const owner = ownerOf.get(el)
+      if (owner) owners.set(owner, [...(owners.get(owner) ?? []), [el, reading]])
+    }
+    for (const [owner, failing] of owners) {
+      const texts = [...now].filter(([el]) => ownerOf.get(el) === owner).map(([, r]) => r)
+      const light = texts.filter((r) => lightness(r.text) > lightness(r.bgs[0]))
+      const fill = light[0].bgs[0]
+      const reads = (c) => light.every((r) => contrastRatio(r.text, c) >= r.need)
+      let l = lightness(fill)
+      let colour = fill
+      while (l > 0.04 && !reads(colour)) {
+        l -= 0.02
+        colour = withLightness(fill, l)
+      }
+      if (!reads(colour)) continue
+      const id = `f${(n++).toString(36)}`
+      owner.setAttribute(FILL, id)
+      rules.push(`[${FILL}="${id}"]{background-color:${colour}!important}`)
+      for (const [el] of failing) deepened.add(el)
+    }
     for (const [el, reading] of now) {
       const target = reading.need
-      if (reading.ratio >= target - 0.05) continue
+      if (reading.ratio >= target - 0.05 || deepened.has(el)) continue
       const id = `g${(n++).toString(36)}`
       el.setAttribute(FIX, id)
       const colour = fixFor(reading, target, tokens)
@@ -153,10 +216,15 @@ export function createGuard() {
     }
     sheet.textContent = rules.join('')
   }
-  const schedule = () => {
+  const schedule = (wait = WAIT) => {
     clearTimeout(timer)
-    timer = setTimeout(() => (window.requestIdleCallback ? requestIdleCallback(run, { timeout: 300 }) : run()), WAIT)
+    timer = setTimeout(() => (window.requestIdleCallback ? requestIdleCallback(run, { timeout: 300 }) : run()), wait)
   }
+  // A click can move a sliding pill or switch the active item: checked once it has settled.
+  const afterClick = (e) => {
+    if (!e.composedPath?.().some((n) => n.localName === 'colorsbymax-root')) schedule(600)
+  }
+  document.addEventListener('click', afterClick, true)
 
   // New content is checked as it appears, and so is a part of the page that sets colour variables
   // of its own (a theme preview, say). Other class and style changes (scroll effects) aren't.
@@ -183,8 +251,12 @@ export function createGuard() {
       clearTimeout(timer)
       observer.disconnect()
       window.removeEventListener('load', schedule)
+      document.removeEventListener('click', afterClick, true)
       sheet.remove()
-      for (const el of document.querySelectorAll(`[${FIX}]`)) el.removeAttribute(FIX)
+      for (const el of document.querySelectorAll(`[${FIX}], [${FILL}]`)) {
+        el.removeAttribute(FIX)
+        el.removeAttribute(FILL)
+      }
     },
   }
 }
