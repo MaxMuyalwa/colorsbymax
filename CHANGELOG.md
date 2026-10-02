@@ -2,7 +2,7 @@
 
 What changed in each colorsbymax release. Update with `npm install colorsbymax@latest`.
 
-## Unreleased
+## 0.5.1 (2026-10-02)
 
 - **Ghost buttons keep their shape.** On sites colorsbymax re-colours, Colourful and Subtle no longer paint a filled circle or box behind buttons that have no fill or outline of their own, like toolbar icons and tabs.
 - **White text on brand buttons stays white.** Where a site puts light text on a brand-coloured fill (a "Clock in" button, a banner) and the theme's colour is too light for it, the fill is deepened until the white reads, instead of the text turning dark.

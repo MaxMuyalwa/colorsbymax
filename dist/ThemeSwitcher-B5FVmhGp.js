@@ -2221,7 +2221,7 @@ function createGuard() {
 //#endregion
 //#region src/updates.js
 /** This copy's version, built in when the package is built. */
-var VERSION$1 = "0.5.0";
+var VERSION$1 = "0.5.1";
 var LATEST = "https://registry.npmjs.org/colorsbymax/latest";
 var NOTICES = "https://www.mrmaxdesigns.com/colorsbymax/api/notices";
 var CHANGELOG_SOURCE = "https://raw.githubusercontent.com/MaxMuyalwa/colorsbymax/main/CHANGELOG.md";
@@ -2301,7 +2301,7 @@ async function check(storageKey) {
 	const [latest, notices] = await Promise.allSettled([fetchWithin(LATEST), fetchWithin(NOTICES)]);
 	const version = latest.status === "fulfilled" && typeof latest.value?.version === "string" ? latest.value.version : cached?.latest ?? null;
 	let notes = cached?.latest === version ? cached?.notes ?? [] : [];
-	if (version && isNewer(version, "0.5.0") && !notes.length) try {
+	if (version && isNewer(version, "0.5.1") && !notes.length) try {
 		notes = notesFor(await fetchWithin(CHANGELOG_SOURCE, "text"), version);
 	} catch {}
 	const result = {
@@ -2332,7 +2332,7 @@ function useUpdates(storageKey, enabled) {
 			clearTimeout(timer);
 		};
 	}, [storageKey, enabled]);
-	const update = Boolean(data?.latest && isNewer(data.latest, "0.5.0"));
+	const update = Boolean(data?.latest && isNewer(data.latest, "0.5.1"));
 	const notices = data?.notices ?? [];
 	const unseen = enabled && (update && seen.version !== data.latest || notices.some((n) => !seen.notices.includes(n.id)));
 	const markSeen = useCallback(() => {
