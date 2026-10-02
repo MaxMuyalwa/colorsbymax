@@ -116,6 +116,10 @@ export function createRecolourer({ colourful = false } = {}) {
   const siteBgL = hslOf(site.background)[2]
   const siteInkL = hslOf(site.ink)[2]
 
+  // Backgrounds the site puts light text on (a button, a brand band). The theme's version of such a
+  // fill is deepened until light text reads on it, so white-on-brand stays white-on-brand.
+  const lightTextOn = new Set()
+
   /** Each distinct painted value, keyed "prop|value", plus the background under text and icons. */
   const entries = new Map()
   let theme = null
@@ -159,6 +163,12 @@ export function createRecolourer({ colourful = false } = {}) {
     // On a plain site: icons, and text links, that don't sit on a fill of their own (so not buttons).
     const ownFill = (parse(cs.backgroundColor)?.alpha ?? 0) >= 0.5
     const accent = plain && !ownFill && (role === 'icon' || el.localName === 'a')
+    if (role === 'text') {
+      const fg = parse(cs.color)
+      const under = backdropOf(el)
+      const bg = parse(under)
+      if (fg && bg && luminance(fg.hex) > luminance(bg.hex) && contrastRatio(fg.hex, bg.hex) >= 3) lightTextOn.add(under)
+    }
     const colour = (prop, css, kind) => {
       if (!parse(css)) return
       ids.push(FOREGROUND.has(prop) ? idFor(prop, css, kind, backdropOf(el), prop === 'color' ? role : 'icon', accent) : idFor(prop, css, kind))
@@ -272,8 +282,20 @@ export function createRecolourer({ colourful = false } = {}) {
     const [r, g, b] = hexToRgb(hex)
     return `rgba(${r}, ${g}, ${b}, ${alpha})`
   }
+  // A background, deepened where the site puts light text on it (lightTextOn) until white reads.
+  const mapBg = (css) => {
+    const mapped = mapHex(css, 'bg')
+    if (!mapped || !lightTextOn.has(css) || contrastRatio('#ffffff', mapped.hex) >= MIN_TEXT_CONTRAST) return mapped
+    let [h, s, l] = hslOf(mapped.hex)
+    let hex = mapped.hex
+    while (l > 0.05 && contrastRatio('#ffffff', hex) < MIN_TEXT_CONTRAST) {
+      l -= 0.02
+      hex = rgbToHex(hslToRgb([h, s, l]))
+    }
+    return { ...mapped, hex }
+  }
   const mapColour = (css, kind) => {
-    const mapped = mapHex(css, kind)
+    const mapped = kind === 'bg' ? mapBg(css) : mapHex(css, kind)
     return mapped ? format(mapped) : css
   }
 
@@ -304,7 +326,7 @@ export function createRecolourer({ colourful = false } = {}) {
       const own = parse(entry.value)
       const brand = entry.accent && own && hslOf(own.hex)[1] < NEUTRAL_SATURATION
       const fg = brand ? { hex: theme.primary, alpha: own.alpha } : mapHex(entry.value, entry.kind)
-      const bg = mapHex(entry.backdrop, 'bg')
+      const bg = mapBg(entry.backdrop)
       const original = { fg: parse(entry.value)?.hex, bg: parse(entry.backdrop)?.hex }
       if (fg && bg && original.fg && original.bg) {
         const aim = entry.role === 'text' ? MIN_TEXT_CONTRAST : MIN_ICON_CONTRAST

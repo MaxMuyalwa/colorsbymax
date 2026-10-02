@@ -1,7 +1,8 @@
-// The landing page's spotlight on Studio: what it does, and a picture of it at work (a card on a page
-// picked out and given its own colours), drawn in the visitor's current theme.
+// The landing page's spotlight on Studio: what it does, and Studio at work on this very page, live
+// (a card picked out and given its own colours), in the visitor's current theme.
 
 import { Files, Layers, MousePointerClick, ScanSearch, ShieldCheck, Sparkles } from 'lucide-react'
+import { LivePreview, Scaled, useColourVersion } from './Hero.jsx'
 import { Reveal, SectionHeading, openStudio } from './ui.jsx'
 
 const POINTS = [
@@ -13,58 +14,23 @@ const POINTS = [
   { Icon: Sparkles, title: 'Keep it for good', text: 'Save it all as a prompt for Claude, Cursor or Copilot, or as CSS, and your site keeps exactly what you made.' },
 ]
 
-/** A small page with one card picked, and the card that colours it. */
+/**
+ * Studio at work, live: this page in a window, with Studio picking one of its cards and giving it
+ * the theme's colour (preview.js), in the visitor's current theme.
+ */
 function Picture() {
-  const swatch = (token) => <span className="block h-5 w-5 rounded-md border border-border" style={{ background: `var(--color-${token})` }} />
+  const version = useColourVersion()
   return (
-    <div className="relative mx-auto w-full max-w-lg" aria-hidden="true">
-      {/* The page. */}
-      <div className="rounded-3xl border border-border bg-background p-4 shadow-xl shadow-shadow/10">
-        <div className="mb-4 flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-danger/70" />
-          <span className="h-2.5 w-2.5 rounded-full bg-warning/70" />
-          <span className="h-2.5 w-2.5 rounded-full bg-success/70" />
-          <span className="ml-3 h-2 w-28 rounded-full bg-border" />
-        </div>
-        <div className="mb-4 space-y-2 rounded-2xl bg-surface p-4">
-          <span className="block h-3 w-2/3 rounded-full bg-ink/80" />
-          <span className="block h-2 w-1/2 rounded-full bg-ink-muted/60" />
-          <span className="mt-3 inline-block h-6 w-24 rounded-full bg-primary" />
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className={`relative space-y-2 rounded-xl p-3 ${i === 1 ? 'border border-transparent' : 'border border-border bg-surface'}`}
-              style={i === 1 ? { background: 'color-mix(in srgb, var(--color-primary) 16%, var(--color-surface))', outline: '2px solid #6366f1', outlineOffset: 3 } : undefined}
-            >
-              {i === 1 && <span className="absolute -top-6 left-0 rounded bg-[#6366f1] px-1.5 py-0.5 text-[10px] font-semibold text-white">Card</span>}
-              <span className="block h-6 w-6 rounded-lg" style={{ background: `color-mix(in srgb, var(--color-data-${i + 1}) 30%, transparent)` }} />
-              <span className="block h-2 w-3/4 rounded-full" style={{ background: i === 1 ? 'var(--color-primary-dark)' : 'color-mix(in srgb, var(--color-ink) 70%, transparent)' }} />
-              <span className="block h-1.5 w-full rounded-full bg-ink-muted/40" />
-            </div>
-          ))}
-        </div>
+    <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl shadow-shadow/20">
+      <div className="flex items-center gap-1.5 border-b border-border px-3 py-2" aria-hidden="true">
+        <span className="h-2.5 w-2.5 rounded-full bg-danger/60" />
+        <span className="h-2.5 w-2.5 rounded-full bg-warning/60" />
+        <span className="h-2.5 w-2.5 rounded-full bg-success/60" />
       </div>
-      {/* The colour card beside it. */}
-      <div className="absolute -right-2 -bottom-10 w-60 rounded-2xl border border-border bg-surface p-3 shadow-2xl shadow-shadow/20 sm:-right-8">
-        <p className="text-sm font-semibold text-ink">
-          Card <span className="font-normal text-ink-secondary">“Pricing”</span>
-        </p>
-        <div className="mt-2 grid grid-cols-3 gap-1 rounded-lg bg-secondary/60 p-1 text-center text-[10px] font-semibold">
-          <span className="rounded-md py-1 text-ink-secondary">This one</span>
-          <span className="rounded-md bg-surface py-1 text-ink shadow-sm">All 3</span>
-          <span className="rounded-md py-1 text-ink-secondary">Every page</span>
-        </div>
-        <p className="mt-2.5 text-[10px] font-semibold text-ink-secondary">Background · behind it</p>
-        <div className="mt-1 flex gap-1">
-          {['primary', 'primary-alt', 'secondary', 'accent', 'surface', 'ink'].map((t) => (
-            <span key={t}>{swatch(t)}</span>
-          ))}
-        </div>
-        <p className="mt-2.5 rounded-lg bg-success/10 px-2 py-1.5 text-[11px] text-ink">
-          <strong className="font-semibold">Easy to read.</strong> All 3 pieces of text read well.
-        </p>
+      <div className="relative aspect-[16/10] bg-background">
+        <Scaled width={1280} height={800}>
+          <LivePreview kind="studio" version={version} lazy />
+        </Scaled>
       </div>
     </div>
   )
@@ -103,8 +69,9 @@ export function Studio() {
             </button>
           </Reveal>
         </div>
-        <Reveal delay={100} className="pb-12">
+        <Reveal delay={100}>
           <Picture />
+          <p className="mt-3 text-center text-sm text-ink-muted">This page, live: Studio picking a card and giving it the theme’s colour.</p>
         </Reveal>
       </div>
     </section>

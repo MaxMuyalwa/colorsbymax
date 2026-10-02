@@ -163,6 +163,9 @@ export function rolesOf(el, cs, ownFill, under) {
     (name === 'input' && BUTTON_INPUTS.has(type)) ||
     ((name === 'a' || name === 'label') && (filled || allBorders(cs)) && px(cs.paddingLeft) >= 6 && cs.display !== 'inline')
   if (buttonish) {
+    // A ghost button (no fill and no outline all round: an icon in a toolbar, a tab) keeps its own
+    // shape; painting it would put a circle or a box where the design has none.
+    if (!filled && !allBorders(cs)) return roles
     roles.push(zone === 'primary' ? 'btn-inv' : filled ? 'btn' : 'btn2')
     return roles
   }

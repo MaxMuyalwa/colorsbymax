@@ -35,7 +35,7 @@ const PHONE = { width: 390, height: 844 }
 const themeVars = (id) => Object.fromEntries(Object.entries(THEMES[id]).map(([k, v]) => [`--color-${k}`, v]))
 
 /** Draws `children` at a fixed size, scaled down to fill the box it sits in, like a screenshot. */
-function Scaled({ width, height, children }) {
+export function Scaled({ width, height, children }) {
   const box = useRef(null)
   const [scale, setScale] = useState(0)
   useLayoutEffect(() => {
@@ -56,17 +56,33 @@ function Scaled({ width, height, children }) {
  * This site's preview page (`kind` is desktop or phone), live in the visitor's theme. A new
  * theme reloads it, and the last one stays up until the new one has set itself up.
  */
-function LivePreview({ kind, version }) {
+export function LivePreview({ kind, version, lazy = false }) {
   const [shown, setShown] = useState(null)
   const [start, setStart] = useState(false)
+  const [near, setNear] = useState(!lazy)
+  const spot = useRef(null)
   // Wait for the hero to rise in first, so the page itself loads before its copies.
   useEffect(() => {
     const id = setTimeout(() => setStart(true), 1200)
     return () => clearTimeout(id)
   }, [])
-  if (PREVIEW || !start) return null
-  const frames = [...new Set([shown, version])].filter((v) => v !== null)
-  return frames.map((v) => <PreviewFrame key={v} kind={kind} version={v} visible={v === shown} onReady={() => setShown(v)} />)
+  // Further down the page, a copy only loads once its section is close to being scrolled to.
+  useEffect(() => {
+    if (near || !spot.current) return
+    const io = new IntersectionObserver(([e]) => e.isIntersecting && setNear(true), { rootMargin: '600px 0px' })
+    io.observe(spot.current)
+    return () => io.disconnect()
+  }, [near])
+  if (PREVIEW) return null
+  const frames = start && near ? [...new Set([shown, version])].filter((v) => v !== null) : []
+  return (
+    <>
+      <div ref={spot} className="pointer-events-none absolute inset-0" />
+      {frames.map((v) => (
+        <PreviewFrame key={v} kind={kind} version={v} visible={v === shown} onReady={() => setShown(v)} />
+      ))}
+    </>
+  )
 }
 
 function PreviewFrame({ kind, version, visible, onReady }) {
@@ -89,7 +105,7 @@ function PreviewFrame({ kind, version, visible, onReady }) {
 }
 
 /** The page's colours as a short key: it changes with every new theme or mode, after a pause. */
-function useColourVersion() {
+export function useColourVersion() {
   const { tokens } = useTheme()
   const colours = Object.values(tokens).join()
   const [version, setVersion] = useState(() => hash(colours))

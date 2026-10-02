@@ -1102,7 +1102,7 @@ function vividTokens(t, { strength = .5, tint = null } = {}) {
 	const out = {
 		...t,
 		background: tintTowards(wash, t.background, dark ? lerp(.11, .24) : lerp(.09, .19)),
-		surface: tintTowards(tint ?? t["primary-alt"], t.surface, dark ? lerp(.07, .18) : lerp(.045, .11)),
+		surface: tintTowards(wash, t.surface, dark ? lerp(.07, .18) : lerp(.045, .11)),
 		border: tintTowards(wash, t.border, lerp(.15, .45)),
 		secondary: tintTowards(wash, t.secondary, lerp(.12, .4)),
 		"app-background": tintTowards(wash, t["app-background"] ?? t.background, dark ? lerp(.11, .24) : lerp(.09, .19)),
@@ -2706,6 +2706,7 @@ function rolesOf(el, cs, ownFill, under) {
 	const radius = px(cs.borderTopLeftRadius);
 	const filled = Boolean(ownFill) && deltaE(ownFill, under) > 12;
 	if (name === "button" || el.getAttribute("role") === "button" || name === "input" && BUTTON_INPUTS.has(type) || (name === "a" || name === "label") && (filled || allBorders(cs)) && px(cs.paddingLeft) >= 6 && cs.display !== "inline") {
+		if (!filled && !allBorders(cs)) return roles;
 		roles.push(zone === "primary" ? "btn-inv" : filled ? "btn" : "btn2");
 		return roles;
 	}
@@ -3116,6 +3117,7 @@ function createRecolourer({ colourful = false } = {}) {
 	const plain = !roles.primary;
 	const siteBgL = hslOf$2(site.background)[2];
 	const siteInkL = hslOf$2(site.ink)[2];
+	const lightTextOn = /* @__PURE__ */ new Set();
 	/** Each distinct painted value, keyed "prop|value", plus the background under text and icons. */
 	const entries = /* @__PURE__ */ new Map();
 	let theme = null;
@@ -3156,6 +3158,12 @@ function createRecolourer({ colourful = false } = {}) {
 		const role = el instanceof SVGElement || !hasOwnText(el) ? "icon" : "text";
 		const ownFill = (parse(cs.backgroundColor)?.alpha ?? 0) >= .5;
 		const accent = plain && !ownFill && (role === "icon" || el.localName === "a");
+		if (role === "text") {
+			const fg = parse(cs.color);
+			const under = backdropOf(el);
+			const bg = parse(under);
+			if (fg && bg && luminance(fg.hex) > luminance(bg.hex) && contrastRatio(fg.hex, bg.hex) >= 3) lightTextOn.add(under);
+		}
 		const colour = (prop, css, kind) => {
 			if (!parse(css)) return;
 			ids.push(FOREGROUND.has(prop) ? idFor(prop, css, kind, backdropOf(el), prop === "color" ? role : "icon", accent) : idFor(prop, css, kind));
@@ -3256,8 +3264,26 @@ function createRecolourer({ colourful = false } = {}) {
 		const [r, g, b] = hexToRgb(hex);
 		return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 	};
+	const mapBg = (css) => {
+		const mapped = mapHex(css, "bg");
+		if (!mapped || !lightTextOn.has(css) || contrastRatio("#ffffff", mapped.hex) >= MIN_TEXT_CONTRAST) return mapped;
+		let [h, s, l] = hslOf$2(mapped.hex);
+		let hex = mapped.hex;
+		while (l > .05 && contrastRatio("#ffffff", hex) < MIN_TEXT_CONTRAST) {
+			l -= .02;
+			hex = rgbToHex(hslToRgb([
+				h,
+				s,
+				l
+			]));
+		}
+		return {
+			...mapped,
+			hex
+		};
+	};
 	const mapColour = (css, kind) => {
-		const mapped = mapHex(css, kind);
+		const mapped = kind === "bg" ? mapBg(css) : mapHex(css, kind);
 		return mapped ? format(mapped) : css;
 	};
 	const readable = (fg, bg, target, lighter) => {
@@ -3292,7 +3318,7 @@ function createRecolourer({ colourful = false } = {}) {
 				hex: theme.primary,
 				alpha: own.alpha
 			} : mapHex(entry.value, entry.kind);
-			const bg = mapHex(entry.backdrop, "bg");
+			const bg = mapBg(entry.backdrop);
 			const original = {
 				fg: parse(entry.value)?.hex,
 				bg: parse(entry.backdrop)?.hex

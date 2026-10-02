@@ -2,6 +2,12 @@
 
 What changed in each colorsbymax release. Update with `npm install colorsbymax@latest`.
 
+## Unreleased
+
+- **Ghost buttons keep their shape.** On sites colorsbymax re-colours, Colourful and Subtle no longer paint a filled circle or box behind buttons that have no fill or outline of their own, like toolbar icons and tabs.
+- **White text on brand buttons stays white.** Where a site puts light text on a brand-coloured fill (a "Clock in" button, a banner) and the theme's colour is too light for it, the fill is deepened until the white reads, instead of the text turning dark.
+- **Colourful's cards** take the same tint as the page, rather than the theme's second brand colour, which could clash on large surfaces.
+
 ## 0.5.0 (2026-10-01)
 
 - **Studio.** A new **Studio** button in the panel header opens a deeper way to colour a site, with **Back to the switcher** to return to the quick one. It starts with where the colours go: the whole site, or only some pages. Studio offers the site's own pages (the ones the page links to, and the ones you've opened), and `/*` covers a whole section. The choice is saved on your device, and Studio gives you the config line and an AI-editor prompt that make it everyone's. Pages left out keep their own colours, dark mode included; the quick switcher says so when you open it there. Switch Studio off with `features: { studio: false }`.

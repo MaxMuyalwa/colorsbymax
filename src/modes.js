@@ -186,7 +186,8 @@ export function vividTokens(t, { strength = 0.5, tint = null } = {}) {
     ...t,
     // Its lightest is still a clear step above Balanced's soft wash.
     background: tintTowards(wash, t.background, dark ? lerp(0.11, 0.24) : lerp(0.09, 0.19)),
-    surface: tintTowards(tint ?? t['primary-alt'], t.surface, dark ? lerp(0.07, 0.18) : lerp(0.045, 0.11)),
+    // Cards take the same tint as the page (a second brand colour can clash on a large surface).
+    surface: tintTowards(wash, t.surface, dark ? lerp(0.07, 0.18) : lerp(0.045, 0.11)),
     border: tintTowards(wash, t.border, lerp(0.15, 0.45)),
     secondary: tintTowards(wash, t.secondary, lerp(0.12, 0.4)),
     'app-background': tintTowards(wash, t['app-background'] ?? t.background, dark ? lerp(0.11, 0.24) : lerp(0.09, 0.19)),
